@@ -278,8 +278,8 @@ dependencies {
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.material)
     implementation(libs.androidx.appcompat)
-    implementation("androidx.webkit:webkit:1.16.0")
-    implementation("com.google.android.gms:play-services-ads:23.0.0")
+    implementation("androidx.webkit:webkit:1.17.0")
+    implementation("com.google.android.gms:play-services-ads:25.4.0")
 
     // DI & Navigation
     implementation(libs.hilt.android)
@@ -343,7 +343,7 @@ dependencies {
     implementation(libs.tdlib)
 
     // UI Utilities & Performance
-    implementation("androidx.metrics:metrics-performance:1.0.0-beta01")
+    implementation("androidx.metrics:metrics-performance:1.0.0")
 
     implementation(libs.timber)
     // Gemini uses our lightweight REST client. Avoid the deprecated official SDK because
