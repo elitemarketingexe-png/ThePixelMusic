@@ -1203,17 +1203,97 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             AppReadinessSignal.awaitReady()
             // On cold start, the MediaController connects asynchronously, leaving stablePlayerState.currentSong
-            // null until that happens. Pre-load the palette from the persisted snapshot so the mini player
-            // has the correct colors immediately on first render, before the controller is ready.
+            // and currentPlaybackQueue empty until that happens. Pre-load the snapshot from DataStore so the UI
+            // and miniplayer immediately populate with the restored queue on first render.
             val snapshot = runCatching {
                 userPreferencesRepository.getPlaybackQueueSnapshotOnce()
             }.getOrNull() ?: return@launch
+
+            if (snapshot.items.isNotEmpty()) {
+                val allSongsById = libraryStateHolder.allSongsById.value
+                val preloadedQueue = snapshot.items.mapNotNull { itemSnapshot ->
+                    allSongsById[itemSnapshot.mediaId] ?: Song(
+                        id = itemSnapshot.mediaId,
+                        title = itemSnapshot.title?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_song_title),
+                        artist = itemSnapshot.artist?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_artist),
+                        artistId = -1L,
+                        album = itemSnapshot.albumTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_album),
+                        albumId = -1L,
+                        path = "",
+                        contentUriString = itemSnapshot.uri,
+                        albumArtUriString = itemSnapshot.artworkUri,
+                        duration = itemSnapshot.durationMs ?: 0L,
+                        dateAdded = System.currentTimeMillis(),
+                        mimeType = null,
+                        bitrate = null,
+                        sampleRate = null,
+                        youtubeId = if (itemSnapshot.mediaId.startsWith("youtube_")) {
+                            itemSnapshot.mediaId.removePrefix("youtube_")
+                        } else if (itemSnapshot.uri.startsWith("youtube://")) {
+                            itemSnapshot.uri.removePrefix("youtube://")
+                        } else if (itemSnapshot.mediaId.length == 11 && !itemSnapshot.mediaId.startsWith("external:")) {
+                            itemSnapshot.mediaId
+                        } else {
+                            null
+                        }
+                    )
+                }
+                if (preloadedQueue.isNotEmpty()) {
+                    _playerUiState.update { currentState ->
+                        if (currentState.currentPlaybackQueue.isEmpty()) {
+                            currentState.copy(currentPlaybackQueue = preloadedQueue.toPlaybackQueue())
+                        } else {
+                            currentState
+                        }
+                    }
+                    _isSheetVisible.value = true
+                }
+            }
 
             val currentItem = if (snapshot.currentMediaId != null) {
                 snapshot.items.find { it.mediaId == snapshot.currentMediaId }
             } else {
                 snapshot.items.getOrNull(snapshot.currentIndex)
             } ?: return@launch
+
+            if (playbackStateHolder.stablePlayerState.value.currentSong == null) {
+                val currentSongResolved = _playerUiState.value.currentPlaybackQueue.find { it.id == currentItem.mediaId }
+                    ?: Song(
+                        id = currentItem.mediaId,
+                        title = currentItem.title?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_song_title),
+                        artist = currentItem.artist?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_artist),
+                        artistId = -1L,
+                        album = currentItem.albumTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_album),
+                        albumId = -1L,
+                        path = "",
+                        contentUriString = currentItem.uri,
+                        albumArtUriString = currentItem.artworkUri,
+                        duration = currentItem.durationMs ?: 0L,
+                        dateAdded = System.currentTimeMillis(),
+                        mimeType = null,
+                        bitrate = null,
+                        sampleRate = null,
+                        youtubeId = if (currentItem.mediaId.startsWith("youtube_")) {
+                            currentItem.mediaId.removePrefix("youtube_")
+                        } else if (currentItem.uri.startsWith("youtube://")) {
+                            currentItem.uri.removePrefix("youtube://")
+                        } else if (currentItem.mediaId.length == 11 && !currentItem.mediaId.startsWith("external:")) {
+                            currentItem.mediaId
+                        } else {
+                            null
+                        }
+                    )
+                playbackStateHolder.updateStablePlayerState { state ->
+                    if (state.currentSong == null) {
+                        state.copy(
+                            currentSong = currentSongResolved,
+                            totalDuration = currentItem.durationMs ?: 0L
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
 
             val uriStr = currentItem.uri
             if (uriStr.isNotBlank() && (
@@ -1237,6 +1317,22 @@ class PlayerViewModel @Inject constructor(
                 currentSongUriString = artworkUri,
                 isPreload = false
             )
+        }
+
+        viewModelScope.launch {
+            libraryStateHolder.allSongsById
+                .collect { songsMap: Map<String, Song> ->
+                    if (songsMap.isNotEmpty() && _playerUiState.value.currentPlaybackQueue.isNotEmpty()) {
+                        val currentQueue = _playerUiState.value.currentPlaybackQueue
+                        val hasUnresolved = currentQueue.any { it.artistId == -1L && songsMap.containsKey(it.id) }
+                        if (hasUnresolved) {
+                            val updatedQueue: List<Song> = currentQueue.map { song ->
+                                songsMap[song.id] ?: song
+                            }
+                            _playerUiState.update { it.copy(currentPlaybackQueue = updatedQueue.toPlaybackQueue()) }
+                        }
+                    }
+                }
         }
 
         stablePlayerState
@@ -4429,8 +4525,17 @@ class PlayerViewModel @Inject constructor(
                     lastMediaId = null
                 )
                 if (lastQueueSignature != emptySignature) {
-                    lastQueueSignature = emptySignature
-                    _playerUiState.update { it.copy(currentPlaybackQueue = persistentListOf()) }
+                    if (_playerUiState.value.currentPlaybackQueue.isEmpty()) {
+                        lastQueueSignature = emptySignature
+                    } else {
+                        // Delay clearing: don't wipe pre-hydrated snapshot queue during initial connection
+                        delay(1200)
+                        if (requestId != lastQueueUpdateRequestId) return@launch
+                        if (currentMediaController.currentTimeline.windowCount == 0) {
+                            lastQueueSignature = emptySignature
+                            _playerUiState.update { it.copy(currentPlaybackQueue = persistentListOf()) }
+                        }
+                    }
                 }
                 return@launch
             }
@@ -5192,10 +5297,11 @@ class PlayerViewModel @Inject constructor(
 
                 transitionSchedulerJob?.cancel()
                 
-                // Only refresh full queue on structural changes or source updates (metadata)
+                // Refresh full queue on structural changes, source updates, or if UI queue is currently empty
                 if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED ||
-                    reason == Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
-                    updateCurrentPlaybackQueueFromPlayer(mediaController)
+                    reason == Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE ||
+                    (_playerUiState.value.currentPlaybackQueue.isEmpty() && timeline.windowCount > 0)) {
+                    updateCurrentPlaybackQueueFromPlayer(playerCtrl)
                 }
             }
         }

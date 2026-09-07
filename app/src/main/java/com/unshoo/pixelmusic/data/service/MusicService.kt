@@ -1680,12 +1680,16 @@ class MusicService : MediaLibraryService() {
                 scrobbleManager?.onPlayerStateChanged(player.isPlaying, player.currentMediaItem, durationMs)
             }
             mediaSession?.let { refreshMediaSessionUi(it) }
-            schedulePlaybackSnapshotPersist(immediate = playbackState == Player.STATE_IDLE)
+            if (!isRestoringPlaybackSnapshot) {
+                schedulePlaybackSnapshotPersist(immediate = playbackState == Player.STATE_IDLE)
+            }
         }
 
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
             requestWidgetFullUpdate(force = true)
-            schedulePlaybackSnapshotPersist(immediate = timeline.isEmpty)
+            if (!isRestoringPlaybackSnapshot) {
+                schedulePlaybackSnapshotPersist(immediate = timeline.isEmpty)
+            }
             // Pre-fetch RG for the next track so the cache is warm before playback starts
             val player = engine.masterPlayer
             val nextIndex = player.nextMediaItemIndex
@@ -2714,6 +2718,11 @@ class MusicService : MediaLibraryService() {
     private suspend fun persistPlaybackSnapshot(playWhenReadyOverride: Boolean? = null) {
         if (isRestoringPlaybackSnapshot) return
         val snapshot = capturePlaybackSnapshot(playWhenReadyOverride)
+        // BUGFIX: Never overwrite or remove the persisted DataStore snapshot on transient idle/empty states.
+        // Doing so wipes the user's queue from DataStore on process teardown or restart.
+        if (snapshot == null || snapshot.items.isEmpty()) {
+            return
+        }
         runCatching {
             userPreferencesRepository.setPlaybackQueueSnapshot(snapshot)
         }.onFailure { e ->
@@ -2742,13 +2751,26 @@ class MusicService : MediaLibraryService() {
             val rawContentUri = metadata.extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI)
             val localUri = mediaItem.localConfiguration?.uri?.toString()
             val uri = when {
+                !rawContentUri.isNullOrBlank() && !rawContentUri.startsWith("http") -> rawContentUri
+                mediaItem.mediaId.startsWith("youtube_") -> "youtube://${mediaItem.mediaId.removePrefix("youtube_")}"
+                mediaItem.mediaId.length == 11 && !mediaItem.mediaId.startsWith("external:") -> "youtube://${mediaItem.mediaId}"
+                rawContentUri?.startsWith("youtube://") == true -> rawContentUri
+                localUri?.startsWith("youtube://") == true -> localUri
                 !rawContentUri.isNullOrBlank() -> rawContentUri
-                localUri?.startsWith("http") == true && mediaItem.mediaId.startsWith("youtube_") -> "youtube://${mediaItem.mediaId.removePrefix("youtube_")}"
-                localUri?.startsWith("http") == true && mediaItem.mediaId.length == 11 && !mediaItem.mediaId.contains("_") -> "youtube://${mediaItem.mediaId}"
-                else -> localUri ?: rawContentUri
+                else -> localUri
             }
 
-            if (mediaItem.mediaId.isBlank() || uri.isNullOrBlank()) {
+            val finalUri = if (!uri.isNullOrBlank()) {
+                uri
+            } else if (mediaItem.mediaId.startsWith("youtube_")) {
+                "youtube://${mediaItem.mediaId.removePrefix("youtube_")}"
+            } else if (mediaItem.mediaId.length == 11 && !mediaItem.mediaId.startsWith("external:")) {
+                "youtube://${mediaItem.mediaId}"
+            } else {
+                null
+            }
+
+            if (mediaItem.mediaId.isBlank() || finalUri.isNullOrBlank()) {
                 continue
             }
 
@@ -2759,7 +2781,7 @@ class MusicService : MediaLibraryService() {
             snapshotItems.add(
                 PlaybackQueueItemSnapshot(
                     mediaId = mediaItem.mediaId,
-                    uri = uri,
+                    uri = finalUri,
                     title = metadata.title?.toString(),
                     artist = metadata.artist?.toString(),
                     albumTitle = metadata.albumTitle?.toString(),
@@ -2823,7 +2845,6 @@ class MusicService : MediaLibraryService() {
 
         val restoredItems = snapshot.items.mapNotNull(::buildMediaItemFromSnapshot)
         if (restoredItems.isEmpty()) {
-            userPreferencesRepository.setPlaybackQueueSnapshot(null)
             return
         }
 
@@ -2906,11 +2927,25 @@ class MusicService : MediaLibraryService() {
             shouldRestorePlaying
         )
         schedulePlaybackSnapshotPersist(immediate = true)
+
+        // Trigger AutoQueueManager to inspect restored queue and top it up if needed
+        serviceScope.launch(Dispatchers.IO) {
+            val autoQueueSettings = youtubeDatastoreRepository.settings.first()
+            if (autoQueueSettings.autoQueueEnabled) {
+                AutoQueueManager.scheduleAdaptiveRefill(delayMs = 200L, forceRefresh = true)
+            }
+        }
     }
 
     private fun buildMediaItemFromSnapshot(snapshotItem: PlaybackQueueItemSnapshot): MediaItem? {
-        if (snapshotItem.mediaId.isBlank() || snapshotItem.uri.isBlank()) {
+        if (snapshotItem.mediaId.isBlank()) {
             return null
+        }
+        val uriStr = when {
+            snapshotItem.uri.isNotBlank() -> snapshotItem.uri
+            snapshotItem.mediaId.startsWith("youtube_") -> "youtube://${snapshotItem.mediaId.removePrefix("youtube_")}"
+            snapshotItem.mediaId.length == 11 && !snapshotItem.mediaId.startsWith("external:") -> "youtube://${snapshotItem.mediaId}"
+            else -> return null
         }
 
         val metadataBuilder = MediaMetadata.Builder()
@@ -2926,7 +2961,7 @@ class MusicService : MediaLibraryService() {
                 MediaItemBuilder.EXTERNAL_EXTRA_FLAG,
                 snapshotItem.mediaId.startsWith("external:")
             )
-            putString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI, snapshotItem.uri)
+            putString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI, uriStr)
             snapshotItem.albumTitle?.takeIf { it.isNotBlank() }?.let {
                 putString(MediaItemBuilder.EXTERNAL_EXTRA_ALBUM, it)
             }
@@ -2941,7 +2976,7 @@ class MusicService : MediaLibraryService() {
 
         return MediaItem.Builder()
             .setMediaId(snapshotItem.mediaId)
-            .setUri(MediaItemBuilder.playbackUri(snapshotItem.uri))
+            .setUri(MediaItemBuilder.playbackUri(uriStr))
             .setMediaMetadata(metadataBuilder.build())
             .build()
     }
@@ -3900,7 +3935,9 @@ class MusicService : MediaLibraryService() {
 
     private fun persistPlaybackSnapshotBlocking() {
         val snapshot = capturePlaybackSnapshotFromPlayer(playWhenReadyOverride = false)
-        writePlaybackSnapshotBlocking(snapshot)
+        if (snapshot != null && snapshot.items.isNotEmpty()) {
+            writePlaybackSnapshotBlocking(snapshot)
+        }
     }
 
     private fun clearPlaybackSnapshotBlocking() {

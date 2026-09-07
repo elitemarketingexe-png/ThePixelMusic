@@ -197,6 +197,19 @@ object AutoQueueManager {
         onQueueItemsAddedCallback = onQueueItemsAdded
         player.addListener(playerListener)
         printd("AutoQueueManager attached")
+
+        // If the player already has a track loaded on attach (e.g. cold start restore),
+        // check if the upcoming queue needs topping up.
+        coroutineScope.launch(Dispatchers.Main) {
+            val currentItem = player.currentMediaItem
+            if (currentItem != null) {
+                val remaining = computeRemainingUpcoming(player)
+                if (remaining < targetQueueSize) {
+                    val delayMs = computeAdaptiveDebounceMs(player)
+                    scheduleAdaptiveRefill(delayMs, forceRefresh = false)
+                }
+            }
+        }
     }
 
     fun updatePlayer(newPlayer: Player) {
@@ -1309,6 +1322,9 @@ object AutoQueueManager {
             // rather than restarting from page 1 on every track transition.
             if (lastFetchedVideoId == null) {
                 lastFetchedVideoId = activeId
+                if (currentWatchEndpoint == null && !isLocal && resolvedVideoId.isNotBlank()) {
+                    currentWatchEndpoint = WatchEndpoint(videoId = resolvedVideoId, playlistId = "RDAMVM$resolvedVideoId")
+                }
                 synchronized(addedVideoIds) {
                     addedVideoIds.add(activeId)
                 }
