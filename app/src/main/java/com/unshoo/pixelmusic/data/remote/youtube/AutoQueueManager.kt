@@ -221,6 +221,7 @@ object AutoQueueManager {
     }
 
     fun reset() {
+        aggressiveFillDone = false
         lastFetchedVideoId = null
         continuationToken = null
         currentWatchEndpoint = null
@@ -543,24 +544,22 @@ object AutoQueueManager {
         }
     }
 
+    @Volatile private var aggressiveFillDone = false
+
     fun scheduleAdaptiveRefill(delayMs: Long? = null, forceRefresh: Boolean = false) {
-        // Cheap fast-path: refillQueueLoop's own player.addMediaItems() calls fire
-        // onTimelineChanged, which calls back into this function — so a single refill
-        // pass that pages through several batches can otherwise queue up many redundant
-        // delayed coroutines here, all racing to check fetchJob once their delay elapses.
-        // Folding them into the existing pendingRefillAfterCurrent flag immediately
-        // (instead of spawning a coroutine, waiting out an adaptive delay, and only
-        // then discovering a refill was already running) is what actually stops the
-        // pile-up; the authoritative, race-free check still happens under refillGate
-        // inside forceRefill(), so this is purely a lag/storm reduction, not a
-        // correctness requirement.
         val isStuck = fetchJob?.isActive == true && (System.currentTimeMillis() - fetchStartTimeMs > 25_000L)
         if (!forceRefresh && fetchJob?.isActive == true && !isStuck) {
             pendingRefillAfterCurrent = true
             return
         }
-        val currentScope = scope ?: return
+        val currentScope = scope ?: kotlinx.coroutines.GlobalScope
         currentScope.launch(Dispatchers.IO) {
+            var retries = 0
+            while ((scope == null || playerRef == null || datastoreRepository == null) && retries < 10) {
+                kotlinx.coroutines.delay(250L)
+                retries++
+            }
+            val activeScope = scope ?: return@launch
             val actualDelay = delayMs ?: computeAdaptiveDebounceMsAsync(playerRef)
             if (actualDelay > 0L) {
                 kotlinx.coroutines.delay(actualDelay)
@@ -602,6 +601,7 @@ object AutoQueueManager {
 
             val remaining = playerState[0] as Int
             val currentId = playerState[1] as? String
+            val totalCount = playerState[2] as Int
             val isLocalOrFile = playerState[3] as Boolean
             if (currentId == null) return@launch
 
@@ -625,24 +625,18 @@ object AutoQueueManager {
                 // When offline with local file, we can still generate queue from local DB matches
             }
 
-            // Atomically decide "is a refill already running?" and, if not, mark one as
-            // started — all inside the same lock. Doing the fetchJob?.isActive check and
-            // the fetchJob = launch(...) assignment as two separate steps (the old code)
-            // is a classic check-then-act race: several listener callbacks that fire
-            // around the same track transition can all observe "nothing running" in the
-            // same window and each launch their own fetch loop. Concurrent loops don't
-            // just duplicate network calls — they also stomp on the shared
-            // continuationToken/currentWatchEndpoint (a loop can end up pairing a
-            // continuation token from one loop with the watch endpoint another loop just
-            // swapped in), which is what actually breaks seeding rather than just
-            // wasting bandwidth. Holding the mutex only around this decision — never
-            // around the loop's execution — keeps this cheap.
+            val isShortQueueEligibleForEagerFill = !aggressiveFillDone && totalCount <= 75 && remaining < 40
+            val effectiveForceRefresh = forceRefresh || isShortQueueEligibleForEagerFill
+            if (isShortQueueEligibleForEagerFill) {
+                aggressiveFillDone = true
+            }
+
             refillGate.withLock {
                 val isStuck = fetchJob?.isActive == true && (System.currentTimeMillis() - fetchStartTimeMs > 25_000L)
-                if (forceRefresh || isStuck) {
+                if (effectiveForceRefresh || isStuck) {
                     fetchJob?.cancel()
                     fetchJob = null
-                    if (forceRefresh) {
+                    if (effectiveForceRefresh) {
                         val currentClean = normalizeSongId(currentId)
                         synchronized(addedVideoIds) {
                             addedVideoIds.retainAll { isSameSong(it, currentClean) }
@@ -658,10 +652,6 @@ object AutoQueueManager {
                     }
                 } else {
                     if (fetchJob?.isActive == true) {
-                        // A refill is already in flight. Remember the request instead of
-                        // dropping it — the running loop tops up based on the CURRENT player
-                        // state each iteration, but if the queue dipped again after it
-                        // finishes (or its radio got exhausted), this follow-up catches it.
                         pendingRefillAfterCurrent = true
                         return@withLock
                     }
@@ -671,7 +661,7 @@ object AutoQueueManager {
                 fetchJob = launch(Dispatchers.IO) {
                     try {
                         withTimeoutOrNull(20_000L) {
-                            refillQueueLoopWithFollowUp(currentId, forceRefresh)
+                            refillQueueLoopWithFollowUp(currentId, effectiveForceRefresh)
                         }
                     } finally {
                         fetchStartTimeMs = 0L
