@@ -250,7 +250,7 @@ class MusicService : MediaLibraryService() {
         // Queue/index/flags snapshot is only used for restore on process death. A full-queue
         // JSON+DataStore rewrite on every Media3 event (track transition fires 3-4 listeners
         // within ~200ms) is unnecessary work. 1500ms coalesces those without harming restore.
-        private const val PLAYBACK_SNAPSHOT_DEBOUNCE_MS = 1500L
+        private const val PLAYBACK_SNAPSHOT_DEBOUNCE_MS = 300L
         private const val FORCED_WIDGET_STATE_DEBOUNCE_MS = 250L
         private const val MEDIA_SESSION_BUTTON_DEBOUNCE_MS = 250L
 
@@ -542,11 +542,11 @@ class MusicService : MediaLibraryService() {
         //     registerHeadsetReconnectMonitor() (must be Main, but
         //     each is fast — they just register callbacks).
 
-        serviceScope.launch {
-            // Attach YouTube radio-mode auto-queue and stream-URL preloader
-            AutoQueueManager.attach(engine.masterPlayer, this@MusicService, youtubeDatastoreRepository, serviceScope, musicDao, engagementDao, engine::forceRefreshQueueSnapshot)
-            QueuePreloadManager.attach(engine.masterPlayer, this@MusicService, youtubeDatastoreRepository, serviceScope, exoCache, engine)
+        // Attach YouTube radio-mode auto-queue and stream-URL preloader immediately
+        AutoQueueManager.attach(engine.masterPlayer, this@MusicService, youtubeDatastoreRepository, serviceScope, musicDao, engagementDao, engine::forceRefreshQueueSnapshot)
+        QueuePreloadManager.attach(engine.masterPlayer, this@MusicService, youtubeDatastoreRepository, serviceScope, exoCache, engine)
 
+        serviceScope.launch {
             controller.initialize()
         }
 
@@ -1883,16 +1883,23 @@ class MusicService : MediaLibraryService() {
                         val resolved = engine.preResolveForPlayback(item)
                         withContext(Dispatchers.Main.immediate) {
                             val master = engine.masterPlayer
+                            val wasPlaying = master.playWhenReady
                             val index = master.currentMediaItemIndex
                             if (index != androidx.media3.common.C.INDEX_UNSET) {
                                 master.replaceMediaItem(index, resolved)
                                 master.seekTo(index, position)
+                            } else if (master.mediaItemCount > 0) {
+                                val matchIndex = (0 until master.mediaItemCount).firstOrNull { master.getMediaItemAt(it).mediaId == resolved.mediaId } ?: 0
+                                master.replaceMediaItem(matchIndex, resolved)
+                                master.seekTo(matchIndex, position)
                             } else {
                                 master.setMediaItem(resolved, position)
                             }
                             master.prepare()
-                            master.playWhenReady = true
-                            master.play()
+                            master.playWhenReady = wasPlaying
+                            if (wasPlaying) {
+                                master.play()
+                            }
                         }
                         Timber.tag(TAG).i("Recovered from player error by re-resolving stream")
                     } catch (recover: Exception) {
@@ -2904,15 +2911,18 @@ class MusicService : MediaLibraryService() {
                     resolvedIndex,
                     snapshot.currentPositionMs.coerceAtLeast(0L)
                 )
-                // Even paused restores must prepare the timeline so duration/seek state is
-                // available immediately when the UI opens after a cold start.
-                player.prepare()
                 player.repeatMode = safeRepeatMode
                 player.shuffleModeEnabled = false
                 isManualShuffleEnabled = snapshot.shuffleEnabled
                 if (shouldRestorePlaying) {
+                    player.prepare()
                     player.playWhenReady = true
+                    player.play()
                 } else {
+                    // Paused restore: do NOT call player.prepare()!
+                    // setMediaItems() alone creates the timeline and populates currentMediaItem.
+                    // Delaying prepare() until playback is actually requested avoids loading
+                    // unresolved cloud streams in the background on cold start.
                     player.playWhenReady = false
                 }
             } finally {
@@ -2945,7 +2955,8 @@ class MusicService : MediaLibraryService() {
             snapshotItem.uri.isNotBlank() -> snapshotItem.uri
             snapshotItem.mediaId.startsWith("youtube_") -> "youtube://${snapshotItem.mediaId.removePrefix("youtube_")}"
             snapshotItem.mediaId.length == 11 && !snapshotItem.mediaId.startsWith("external:") -> "youtube://${snapshotItem.mediaId}"
-            else -> return null
+            snapshotItem.mediaId.startsWith("-15") -> "youtube://${snapshotItem.mediaId}"
+            else -> snapshotItem.mediaId
         }
 
         val metadataBuilder = MediaMetadata.Builder()

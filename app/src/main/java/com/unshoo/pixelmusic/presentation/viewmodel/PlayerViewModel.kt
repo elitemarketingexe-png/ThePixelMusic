@@ -23,6 +23,9 @@ import com.unshoo.pixelmusic.data.database.serializeArtistRefs
 import com.unshoo.pixelmusic.data.database.MusicDao
 import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filter
+import com.unshoo.pixelmusic.data.model.PlaybackQueueSnapshot
+import com.unshoo.pixelmusic.data.model.PlaybackQueueItemSnapshot
 import android.media.MediaMetadataRetriever
 import kotlin.math.absoluteValue
 import android.util.Log
@@ -900,6 +903,7 @@ class PlayerViewModel @Inject constructor(
     // (e.g. on the next tap) did NOT cancel it, so a slow tap A could resolve after a faster tap B
     // and overwrite B's queue/player state with A's.
     private var directPlaybackApplyJob: Job? = null
+    private var directPlaybackRecommendationsJob: Job? = null
 
     fun requestLocateCurrentSong() {
         val currentSong = stablePlayerState.value.currentSong ?: return
@@ -1051,11 +1055,10 @@ class PlayerViewModel @Inject constructor(
         directPlaybackToken += 1L
         directPlaybackJob?.cancel()
         directPlaybackJob = null
-        // BUGFIX: also kill any in-flight "resolve -> setMediaItems" apply from a previous tap.
-        // Cancelling directPlaybackJob alone never reached this coroutine because it is launched
-        // independently (see internalPlaySongs()).
         directPlaybackApplyJob?.cancel()
         directPlaybackApplyJob = null
+        directPlaybackRecommendationsJob?.cancel()
+        directPlaybackRecommendationsJob = null
         pendingQueueSegmentsJob?.cancel()
         pendingQueueSegmentsJob = null
         return directPlaybackToken
@@ -1073,6 +1076,8 @@ class PlayerViewModel @Inject constructor(
         directPlaybackJob = null
         directPlaybackApplyJob?.cancel()
         directPlaybackApplyJob = null
+        directPlaybackRecommendationsJob?.cancel()
+        directPlaybackRecommendationsJob = null
     }
 
     private fun throwIfDirectPlaybackRequestIsStale(requestToken: Long) {
@@ -1200,11 +1205,10 @@ class PlayerViewModel @Inject constructor(
         // suspend on AppReadinessSignal so the work runs after the first
         // frame is committed (the signal is raised by MainActivity at
         // line ~296 right after the contentVisible transition starts).
-        viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+        viewModelScope.launch(Dispatchers.IO) {
             // On cold start, the MediaController connects asynchronously, leaving stablePlayerState.currentSong
-            // and currentPlaybackQueue empty until that happens. Pre-load the snapshot from DataStore so the UI
-            // and miniplayer immediately populate with the restored queue on first render.
+            // and currentPlaybackQueue empty until that happens. Pre-load the snapshot from DataStore immediately
+            // so the UI and miniplayer populate with the restored queue on the very first frame.
             val snapshot = runCatching {
                 userPreferencesRepository.getPlaybackQueueSnapshotOnce()
             }.getOrNull() ?: return@launch
@@ -1293,30 +1297,29 @@ class PlayerViewModel @Inject constructor(
                         state
                     }
                 }
+                playbackStateHolder.setCurrentPosition(snapshot.currentPositionMs.coerceAtLeast(0L))
             }
 
-            val uriStr = currentItem.uri
-            if (uriStr.isNotBlank() && (
-                uriStr.startsWith("youtube://") ||
-                uriStr.startsWith("telegram:") ||
-                uriStr.startsWith("gdrive:")
-            )) {
-                launch(Dispatchers.IO) {
-                    try {
-                        dualPlayerEngine.resolveCloudUri(uriStr.toUri())
-                    } catch (e: Exception) {
-                        Timber.w(e, "Pre-fetching startup cloud URI failed for: $uriStr")
-                    }
+            launch {
+                AppReadinessSignal.awaitReady()
+                val uriStr = currentItem.uri
+                if (uriStr.isNotBlank() && (
+                    uriStr.startsWith("youtube://") ||
+                    uriStr.startsWith("telegram:") ||
+                    uriStr.startsWith("gdrive:")
+                )) {
+                    runCatching { dualPlayerEngine.resolveCloudUri(uriStr.toUri()) }
+                }
+
+                val artworkUri = currentItem.artworkUri?.takeIf { it.isNotBlank() }
+                if (artworkUri != null) {
+                    themeStateHolder.extractAndGenerateColorScheme(
+                        albumArtUriAsUri = artworkUri.toUri(),
+                        currentSongUriString = artworkUri,
+                        isPreload = false
+                    )
                 }
             }
-
-            val artworkUri = currentItem.artworkUri?.takeIf { it.isNotBlank() } ?: return@launch
-
-            themeStateHolder.extractAndGenerateColorScheme(
-                albumArtUriAsUri = artworkUri.toUri(),
-                currentSongUriString = artworkUri,
-                isPreload = false
-            )
         }
 
         viewModelScope.launch {
@@ -2739,7 +2742,9 @@ class PlayerViewModel @Inject constructor(
                 stopProgressUpdates()
             }
         } else {
-            if (_playerUiState.value.preparingSongId == null) {
+            val hasPreloadedState = playbackStateHolder.stablePlayerState.value.currentSong != null ||
+                _playerUiState.value.currentPlaybackQueue.isNotEmpty()
+            if (_playerUiState.value.preparingSongId == null && !hasPreloadedState) {
                 playbackStateHolder.updateStablePlayerState {
                     it.copy(
                         currentSong = null,
@@ -3723,22 +3728,48 @@ class PlayerViewModel @Inject constructor(
             }
         }
     }
-        private suspend fun resolveQuickPicksVideoId(first: com.unshoo.pixelmusic.data.model.Song): String? {
-            var videoId = first.youtubeId ?: if (first.id.startsWith("youtube_")) first.id.substringAfter("youtube_") else null
-            if (videoId == null) {
-                videoId = withContext(Dispatchers.IO) {
-                    try {
-                        val query = "${first.title} ${first.artist}"
-                        val searchResult = unshoo.ianshulyadav.pixelmusic.innertube.YouTube.search(query, unshoo.ianshulyadav.pixelmusic.innertube.YouTube.SearchFilter.FILTER_SONG).getOrNull()
-                        val songItem = searchResult?.items?.firstOrNull { it is unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem } as? unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
-                        songItem?.id
-                    } catch (e: Exception) {
-                        null
-                    }
+    private fun isSameSongId(id1: String?, id2: String?): Boolean {
+        if (id1 == null || id2 == null) return false
+        if (id1 == id2) return true
+        val clean1 = id1.removePrefix("youtube_").removePrefix("youtube://")
+        val clean2 = id2.removePrefix("youtube_").removePrefix("youtube://")
+        return clean1 == clean2
+    }
+
+    private suspend fun resolveQuickPicksVideoId(first: com.unshoo.pixelmusic.data.model.Song): String? {
+        var videoId: String? = when {
+            !first.youtubeId.isNullOrBlank() && !first.youtubeId.startsWith("-15") -> first.youtubeId
+            first.id.startsWith("youtube_") -> first.id.substringAfter("youtube_")
+            first.contentUriString.startsWith("youtube://") -> first.contentUriString.removePrefix("youtube://")
+            first.id.length == 11 && !first.id.contains(" ") && !first.id.startsWith("external:") &&
+                first.id.all { it.isLetterOrDigit() || it == '-' || it == '_' } -> first.id
+            else -> null
+        }
+        if (videoId.isNullOrBlank() || videoId.startsWith("-15")) {
+            val longId = first.id.toLongOrNull()
+            if (longId != null) {
+                val dbSong = withContext(Dispatchers.IO) {
+                    runCatching { musicDao.getSongByIdOnce(longId) }.getOrNull()
+                }
+                if (dbSong?.contentUriString?.startsWith("youtube://") == true) {
+                    videoId = dbSong.contentUriString.removePrefix("youtube://")
                 }
             }
-            return videoId
         }
+        if (videoId.isNullOrBlank() || videoId.startsWith("-15")) {
+            videoId = withContext(Dispatchers.IO) {
+                try {
+                    val query = "${first.title} ${first.artist}"
+                    val searchResult = unshoo.ianshulyadav.pixelmusic.innertube.YouTube.search(query, unshoo.ianshulyadav.pixelmusic.innertube.YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                    val songItem = searchResult?.items?.firstOrNull { it is unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem } as? unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
+                    songItem?.id
+                } catch (e: Exception) {
+                    null
+                }
+            }
+        }
+        return videoId?.takeIf { it.isNotBlank() && !it.startsWith("-15") }
+    }
     /**
      * Quick Picks lists are intentionally short (<= 20 songs). When the user taps one,
      * playback must start instantly on the small list, and the queue is then topped
@@ -3757,11 +3788,11 @@ class PlayerViewModel @Inject constructor(
     fun scheduleQuickPicksQueueFill(seedSong: Song) {
         viewModelScope.launch {
             var retries = 0
-            while (stablePlayerState.value.currentSong?.id != seedSong.id && retries < 50) {
+            while (!isSameSongId(stablePlayerState.value.currentSong?.id, seedSong.id) && retries < 50) {
                 delay(100)
                 retries++
             }
-            if (stablePlayerState.value.currentSong?.id != seedSong.id) {
+            if (!isSameSongId(stablePlayerState.value.currentSong?.id, seedSong.id)) {
                 // User moved on before the tapped song started — don't fight the new context.
                 return@launch
             }
@@ -3906,30 +3937,20 @@ class PlayerViewModel @Inject constructor(
         val requestToken = beginDirectPlaybackRequest()
 
         val currentMediaId = dualPlayerEngine.masterPlayer.currentMediaItem?.mediaId
-        val isAlreadyPlaying = (currentMediaId != null && (
+        val isSameTrack = (currentMediaId != null && (
             currentMediaId == song.id ||
             (song.youtubeId != null && currentMediaId == song.youtubeId) ||
             currentMediaId.removePrefix("youtube_") == song.id.removePrefix("youtube_")
         ))
+        val isAlreadyPlaying = isSameTrack &&
+            (dualPlayerEngine.masterPlayer.isPlaying || dualPlayerEngine.masterPlayer.playWhenReady) &&
+            dualPlayerEngine.masterPlayer.mediaItemCount > 1
 
-        // FIX (search miniplayer vanish): Set preparingSongId IMMEDIATELY so the guard in
-        // onMediaItemTransition(null) / STATE_IDLE sees a non-null preparingSongId and does NOT
-        // clear currentSong while saveYoutubeSongsToDb() is running on IO. Without this, the
-        // dismiss-then-tap-search flow caused the miniplayer to flash and disappear because:
-        //   1. dismiss called stop() + clearMediaItems() → onMediaItemTransition(null) fires
-        //   2. preparingSongId was still null (set only later inside internalPlaySongs)
-        //   3. the null-transition handler cleared currentSong → miniplayer gone
-        // This mirrors the same guard already applied in playSongs() at the top of that function.
         if (!isAlreadyPlaying) {
             setPreparingSong(song.id)
         }
 
-        // 1. Play the seed song immediately if not already playing so there is zero delay!
-        // BUGFIX: Assign this launch to directPlaybackJob so that if the user taps a different
-        // song while this is still running (saving to DB + resolving start song), the
-        // beginDirectPlaybackRequest() call in the new tap will cancel it immediately.
-        // Previously this was a fire-and-forget launch — uncancellable, causing the old song
-        // to start playing AFTER the new song had already started.
+        // 1. Play the seed song immediately so there is zero delay!
         if (!isAlreadyPlaying) {
             directPlaybackJob = viewModelScope.launch {
                 if (isDirectPlaybackRequestStale(requestToken)) return@launch
@@ -3937,10 +3958,14 @@ class PlayerViewModel @Inject constructor(
                     saveYoutubeSongsToDb(listOf(song))
                 }
                 if (isDirectPlaybackRequestStale(requestToken)) return@launch
-                // Pass the already-minted requestToken directly into internalPlaySongs
-                // so it does NOT call beginDirectPlaybackRequest() again (which would bump
-                // the token and break the staleness check in the recommendations coroutine below).
-                internalPlaySongs(listOf(song), song, queueName, playlistId, requestToken)
+                internalPlaySongs(
+                    songsToPlay = listOf(song),
+                    startSong = song,
+                    queueName = queueName,
+                    playlistId = playlistId,
+                    requestToken = requestToken,
+                    skipAutoQueueSchedule = true
+                )
                 if (requestToken == directPlaybackToken) {
                     directPlaybackJob = null
                 }
@@ -3948,10 +3973,7 @@ class PlayerViewModel @Inject constructor(
         }
 
         // 2. Fetch related recommendations in the background and update the player's queue.
-        // BUGFIX: Store in directPlaybackApplyJob so beginDirectPlaybackRequest() on the next
-        // tap cancels it — previously this was also fire-and-forget and could overwrite the
-        // new song's queue with old recommendations after the user had already moved on.
-        directPlaybackApplyJob = viewModelScope.launch {
+        directPlaybackRecommendationsJob = viewModelScope.launch {
             val videoId = resolveQuickPicksVideoId(song)
             if (videoId.isNullOrBlank()) {
                 Timber.w("ArchiveTune Queue Builder: Could not resolve videoId for seed song '${song.title}'")
@@ -3998,39 +4020,42 @@ class PlayerViewModel @Inject constructor(
                                 mediaItems[0] = dualPlayerEngine.preResolveForPlayback(mediaItems[0])
                             }
                         }
+
+                        // Await seed song playback applying into player before appending recommendations
+                        directPlaybackJob?.join()
+                        directPlaybackApplyJob?.join()
+
+                        if (isDirectPlaybackRequestStale(requestToken)) return@launch
+
                         withContext(Dispatchers.Main.immediate) {
                             if (isDirectPlaybackRequestStale(requestToken)) return@withContext
                             val player = dualPlayerEngine.masterPlayer
-                            val cItem = player.currentMediaItem
-                            val cMediaId = cItem?.mediaId
-                            val nowActiveSong = playbackStateHolder.stablePlayerState.value.currentSong
-                            val matchesCurrent = cMediaId != null && (
-                                cMediaId == song.id ||
-                                (song.youtubeId != null && cMediaId == song.youtubeId) ||
-                                cMediaId.removePrefix("youtube_") == song.id.removePrefix("youtube_") ||
-                                (nowActiveSong != null && nowActiveSong.title.equals(song.title, ignoreCase = true) && nowActiveSong.artist.equals(song.artist, ignoreCase = true))
-                            )
-                            if (matchesCurrent || player.mediaItemCount <= 1) {
-                                val activeIndex = player.currentMediaItemIndex
-                                val totalCount = player.mediaItemCount
-                                if (activeIndex >= 0 && activeIndex < totalCount) {
-                                    if (totalCount > activeIndex + 1) {
-                                        player.removeMediaItems(activeIndex + 1, totalCount)
-                                    }
-                                    if (activeIndex > 0) {
-                                        player.removeMediaItems(0, activeIndex)
-                                    }
-                                } else if (totalCount > 1) {
-                                    player.removeMediaItems(1, totalCount)
+                            val totalCount = player.mediaItemCount
+                            val activeIndex = player.currentMediaItemIndex
+                            if (activeIndex in 0 until totalCount) {
+                                if (totalCount > activeIndex + 1) {
+                                    player.removeMediaItems(activeIndex + 1, totalCount)
                                 }
-                                player.addMediaItems(mediaItems)
-                                _playerUiState.update {
-                                    it.copy(
-                                        currentPlaybackQueue = fullQueue.toPlaybackQueue(),
-                                        currentQueueSourceName = queueName
-                                    )
+                                if (activeIndex > 0) {
+                                    player.removeMediaItems(0, activeIndex)
                                 }
+                            } else if (totalCount > 1) {
+                                player.removeMediaItems(1, totalCount)
                             }
+                            player.addMediaItems(mediaItems)
+                            _playerUiState.update {
+                                it.copy(
+                                    currentPlaybackQueue = fullQueue.toPlaybackQueue(),
+                                    currentQueueSourceName = queueName
+                                )
+                            }
+                            persistPlaybackSnapshotFromViewModel(
+                                queue = fullQueue,
+                                currentSong = song,
+                                playWhenReady = true,
+                                currentIndex = 0,
+                                currentPositionMs = player.currentPosition
+                            )
                         }
                         if (mediaItems.size > 1) {
                             launch(Dispatchers.IO) {
@@ -4053,11 +4078,34 @@ class PlayerViewModel @Inject constructor(
                             videoId = lastVideoId
                         )
                     }
+                } else {
+                    // Empty related tracks: hand over to AutoQueueManager to refill
+                    Timber.w("ArchiveTune Queue Builder: Empty related songs from radio, falling back to AutoQueueManager")
+                    val fallbackEndpoint = unshoo.ianshulyadav.pixelmusic.innertube.models.WatchEndpoint(
+                        videoId = videoId,
+                        playlistId = "RDAMVM$videoId"
+                    )
+                    com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.seed(
+                        endpoint = fallbackEndpoint,
+                        continuation = null,
+                        videoId = videoId
+                    )
+                    com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.scheduleAdaptiveRefill(delayMs = 200L, forceRefresh = true)
                 }
                 _playerUiState.update { it.copy(isLoadingInitialSongs = false) }
             }.onFailure { e ->
-                Timber.e(e, "ArchiveTune Queue Builder: Failed to fetch related queue")
+                Timber.e(e, "ArchiveTune Queue Builder: Failed to fetch related queue, falling back to AutoQueueManager")
                 _playerUiState.update { it.copy(isLoadingInitialSongs = false) }
+                val fallbackEndpoint = unshoo.ianshulyadav.pixelmusic.innertube.models.WatchEndpoint(
+                    videoId = videoId,
+                    playlistId = "RDAMVM$videoId"
+                )
+                com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.seed(
+                    endpoint = fallbackEndpoint,
+                    continuation = null,
+                    videoId = videoId
+                )
+                com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.scheduleAdaptiveRefill(delayMs = 200L, forceRefresh = true)
             }
         }
     }
@@ -4524,19 +4572,7 @@ class PlayerViewModel @Inject constructor(
                     firstMediaId = null,
                     lastMediaId = null
                 )
-                if (lastQueueSignature != emptySignature) {
-                    if (_playerUiState.value.currentPlaybackQueue.isEmpty()) {
-                        lastQueueSignature = emptySignature
-                    } else {
-                        // Delay clearing: don't wipe pre-hydrated snapshot queue during initial connection
-                        delay(1200)
-                        if (requestId != lastQueueUpdateRequestId) return@launch
-                        if (currentMediaController.currentTimeline.windowCount == 0) {
-                            lastQueueSignature = emptySignature
-                            _playerUiState.update { it.copy(currentPlaybackQueue = persistentListOf()) }
-                        }
-                    }
-                }
+                lastQueueSignature = emptySignature
                 return@launch
             }
 
@@ -4597,9 +4633,67 @@ class PlayerViewModel @Inject constructor(
             if (requestId != lastQueueUpdateRequestId) return@launch
 
             lastQueueSignature = signature
-            _playerUiState.update { it.copy(currentPlaybackQueue = queue.toPlaybackQueue()) }
+            if (queue.isNotEmpty() || count == 0) {
+                _playerUiState.update { it.copy(currentPlaybackQueue = queue.toPlaybackQueue()) }
+            }
             if (queue.isNotEmpty()) {
                 _isSheetVisible.value = true
+                persistPlaybackSnapshotFromViewModel(
+                    queue = queue,
+                    currentSong = playbackStateHolder.stablePlayerState.value.currentSong,
+                    playWhenReady = playbackStateHolder.stablePlayerState.value.isPlaying
+                )
+            }
+        }
+    }
+
+    fun persistPlaybackSnapshotFromViewModel(
+        queue: List<Song>,
+        currentSong: Song?,
+        playWhenReady: Boolean = false,
+        currentIndex: Int? = null,
+        currentPositionMs: Long? = null
+    ) {
+        if (queue.isEmpty()) return
+        val effectiveCurrentSong = currentSong ?: queue.firstOrNull() ?: return
+        val resolvedCurrentIndex = currentIndex ?: queue.indexOfFirst { it.id == effectiveCurrentSong.id }.coerceAtLeast(0)
+        val position = currentPositionMs ?: playbackStateHolder.currentPosition.value
+        val isShuffle = playbackStateHolder.stablePlayerState.value.isShuffleEnabled
+        val repeat = playbackStateHolder.stablePlayerState.value.repeatMode
+
+        val snapshotItems = queue.map { song ->
+            val uri = when {
+                song.contentUriString.isNotBlank() -> song.contentUriString
+                song.id.startsWith("youtube_") -> "youtube://${song.id.removePrefix("youtube_")}"
+                song.youtubeId != null -> "youtube://${song.youtubeId}"
+                else -> song.path
+            }
+            PlaybackQueueItemSnapshot(
+                mediaId = song.id,
+                uri = uri,
+                title = song.title,
+                artist = song.artist,
+                albumTitle = song.album,
+                artworkUri = song.albumArtUriString,
+                durationMs = song.duration.takeIf { it > 0L }
+            )
+        }
+
+        val snapshot = PlaybackQueueSnapshot(
+            items = snapshotItems,
+            currentMediaId = effectiveCurrentSong.id,
+            currentIndex = resolvedCurrentIndex,
+            currentPositionMs = position,
+            playWhenReady = playWhenReady,
+            repeatMode = repeat,
+            shuffleEnabled = isShuffle
+        )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                userPreferencesRepository.setPlaybackQueueSnapshot(snapshot)
+            }.onFailure {
+                Timber.w(it, "Failed to persist playback snapshot from PlayerViewModel")
             }
         }
     }
@@ -5246,15 +5340,8 @@ class PlayerViewModel @Inject constructor(
                     startProgressUpdates()
                 }
                 if (playbackState == Player.STATE_IDLE && playerCtrl.mediaItemCount == 0) {
-                    // DO NOT call clearPreparingSongIfMatching() here.
-                    // STATE_IDLE with 0 items is a normal transient state that occurs
-                    // between setMediaItems() clearing the old queue and the new queue
-                    // being set. Clearing preparingSongId here prematurely removes the
-                    // guard that prevents onMediaItemTransition(null) from wiping
-                    // currentSong, which causes the miniplayer to vanish.
-                    // preparingSongId is correctly cleared in STATE_READY (line above)
-                    // and in onIsPlayingChanged(true).
-                    if (!isCastConnecting.value && !isRemotePlaybackActive.value && _playerUiState.value.preparingSongId == null) {
+                    val hasPreloadedQueue = _playerUiState.value.currentPlaybackQueue.isNotEmpty()
+                    if (!isCastConnecting.value && !isRemotePlaybackActive.value && _playerUiState.value.preparingSongId == null && !hasPreloadedQueue) {
                         lyricsStateHolder.cancelLoading()
                         playbackStateHolder.updateStablePlayerState {
                             it.copy(
@@ -5672,7 +5759,8 @@ class PlayerViewModel @Inject constructor(
         // work below can detect if it has been superseded by a newer request before it mutates
         // the player. Callers that don't already have a token mint one via beginDirectPlaybackRequest()
         // so every entry point into this function is covered, not just playSongs()/playSongsShuffled().
-        requestToken: Long = beginDirectPlaybackRequest()
+        requestToken: Long = beginDirectPlaybackRequest(),
+        skipAutoQueueSchedule: Boolean = false
     ) {
         if (songsToPlay.isEmpty()) {
             clearPreparingSongIfMatching()
@@ -5781,7 +5869,7 @@ class PlayerViewModel @Inject constructor(
                 playlistId = playlistId
             )
 
-            val playSongsAction: () -> Unit = {
+            val playSongsAction: suspend () -> Unit = {
                 // Use Direct Engine Access to avoid TransactionTooLargeException on Binder
                 dualPlayerEngine.cancelNext()
                 val enginePlayer = dualPlayerEngine.masterPlayer
@@ -5790,7 +5878,7 @@ class PlayerViewModel @Inject constructor(
                     // FREEZE FIX: pre-resolve youtube/telegram/gdrive URIs off the ExoPlayer
                     // load thread BEFORE prepare/play. Without this, ResolvingDataSource used
                     // to runBlocking network work and froze the miniplayer/UI on song taps.
-                    directPlaybackApplyJob = viewModelScope.launch {
+                    val applyJob = viewModelScope.launch {
                         // INSTANT PLAY on low connectivity (SpatialFlow pattern):
                         // Resolve ONLY the tapped track to a real http(s)/file URL first
                         // (always LOW bitrate for fastest first-byte), then inject into ExoPlayer.
@@ -5877,8 +5965,10 @@ class PlayerViewModel @Inject constructor(
                             // Instant YT Music history sync for the song just launched.
                             player.currentMediaItem?.let { registerYoutubePlaybackHistoryIfNeeded(it) }
                             _playerUiState.update { it.copy(isLoadingInitialSongs = false) }
-                            // Auto Queue automatically refills related songs with an adaptive debounce delay so tap-to-play gets 100% priority
-                            com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.scheduleAdaptiveRefill(forceRefresh = true)
+                            if (!skipAutoQueueSchedule) {
+                                // Auto Queue automatically refills related songs with an adaptive debounce delay so tap-to-play gets 100% priority
+                                com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.scheduleAdaptiveRefill(forceRefresh = true)
+                            }
                         }
 
                         // Warm next/prev + first-chunk cache OFF the critical path.
@@ -5891,32 +5981,25 @@ class PlayerViewModel @Inject constructor(
                             }
                         }
                     }
+                    directPlaybackApplyJob = applyJob
+                    applyJob.join()
                 } else {
                     clearPreparingSongIfMatching(effectiveStartSong.id)
                     _playerUiState.update { it.copy(isLoadingInitialSongs = false) }
                 }
             }
 
-            // We still check for mediaController to ensure the Service is bound and active
-            // even though we aren't using it for the heavy lifting anymore.
-            if (mediaController == null) {
-                Timber.w("MediaController not available. Queuing playback action.")
-                // FIX (queue state mismatch): Capture requestToken in the pending action so
-                // that when the controller connects and fires this lambda, it first checks
-                // whether a newer tap has already superseded this request. Without this guard,
-                // an action queued for song A can fire after song B was already tapped and
-                // started playing, overwriting B's state with A's.
-                val capturedToken = requestToken
-                pendingPlaybackAction = {
-                    if (!isDirectPlaybackRequestStale(capturedToken)) {
-                        playSongsAction()
-                    } else {
-                        Timber.d("Skipping stale pendingPlaybackAction (token=%d, current=%d)", capturedToken, directPlaybackToken)
-                    }
+            // Persist snapshot immediately from PlayerViewModel to prevent process death losing queue state
+            persistPlaybackSnapshotFromViewModel(songsToPlay, effectiveStartSong, playWhenReady = true)
+
+            // Ensure MediaController connection is ready before executing playback action
+            if (mediaController == null || !_isMediaControllerReady.value) {
+                Timber.w("MediaController not ready. Awaiting connection.")
+                withTimeoutOrNull(2000L) {
+                    _isMediaControllerReady.filter { it }.first()
                 }
-            } else {
-                playSongsAction()
             }
+            playSongsAction()
         }
     }
 
@@ -7480,6 +7563,9 @@ class PlayerViewModel @Inject constructor(
     fun dismissPlaylistAndShowUndo() {
         collapsePlayerSheet()
         setMiniPlayerDismissing(false)
+        cancelPendingDirectPlaybackBuild()
+        dualPlayerEngine.cancelNext()
+        lastQueueSignature = null
         playlistDismissUndoStateHolder.dismissPlaylistAndShowUndo(
             scope = viewModelScope,
             currentSong = playbackStateHolder.stablePlayerState.value.currentSong,
@@ -7504,6 +7590,8 @@ class PlayerViewModel @Inject constructor(
                 runOnMainImmediate {
                     mediaController?.stop()
                     mediaController?.clearMediaItems()
+                    lastQueueSignature = null
+                    com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.reset()
                 }
             },
             clearStablePlaybackState = {

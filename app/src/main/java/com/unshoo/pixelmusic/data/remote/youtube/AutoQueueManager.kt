@@ -33,38 +33,17 @@ import com.unshoo.pixelmusic.utils.MediaItemBuilder
 import com.unshoo.pixelmusic.presentation.viewmodel.ConnectivityStateHolder
 
 object AutoQueueManager {
-    @Volatile private var targetQueueSize: Int = 45
-    private const val MAX_HISTORY = 60
+    @Volatile private var targetQueueSize: Int = 49
+    private const val MAX_HISTORY = 120
     private const val DECAY_LAMBDA = 1.15e-9
 
     private var fetchJob: Job? = null
     @Volatile private var fetchStartTimeMs: Long = 0L
 
     fun setTargetQueueSize(size: Int) {
-        targetQueueSize = size.coerceIn(5, 100)
+        targetQueueSize = size.coerceIn(25, 100)
     }
-
-    // Guards the "is a refill already running, and if not, start one" decision in
-    // forceRefill() so it's a single atomic operation instead of a racy
-    // check-then-act on fetchJob. Without this, several Player.Listener callbacks
-    // that all legitimately fire around the same track transition
-    // (onMediaItemTransition, onTimelineChanged, onPlaybackStateChanged) can each
-    // observe "no refill running" during the same window and all launch their own
-    // fetch loop — a network-request storm that also stomps on the shared
-    // continuationToken/currentWatchEndpoint below, since more than one loop ends
-    // up mutating them concurrently. This is much more likely to bite under slower
-    // or heavier network conditions (post-login personalized requests, concurrent
-    // library sync, etc.) because slower requests widen the race window — which is
-    // exactly the "works after fresh install, breaks after login/heavy network
-    // activity" pattern this class needs to be immune to. The lock is only held
-    // for the brief decide-and-launch step, never for the lifetime of the refill
-    // loop itself, so normal seeding throughput is unaffected.
     private val refillGate = Mutex()
-
-    // Set when a refill was requested while another refill was still running.
-    // The finishing refill picks it up and schedules one follow-up pass, so a
-    // track change arriving during a slow network fetch no longer silently
-    // drops the refill request (previously forceRefill() just returned).
     @Volatile private var pendingRefillAfterCurrent = false
     @Volatile private var lastFetchedVideoId: String? = null
     @Volatile private var continuationToken: String? = null
@@ -664,13 +643,18 @@ object AutoQueueManager {
                     fetchJob?.cancel()
                     fetchJob = null
                     if (forceRefresh) {
+                        val currentClean = normalizeSongId(currentId)
                         synchronized(addedVideoIds) {
-                            val currentClean = normalizeSongId(currentId)
                             addedVideoIds.retainAll { isSameSong(it, currentClean) }
                             addedVideoIds.add(currentClean)
                         }
-                        continuationToken = null
-                        currentWatchEndpoint = null
+                        // PRESERVE seed endpoint and continuation if they were already seeded for this track!
+                        val isSameTrackSeed = currentWatchEndpoint?.videoId == currentClean ||
+                            lastFetchedVideoId == currentClean
+                        if (!isSameTrackSeed) {
+                            continuationToken = null
+                            currentWatchEndpoint = null
+                        }
                     }
                 } else {
                     if (fetchJob?.isActive == true) {
@@ -703,6 +687,10 @@ object AutoQueueManager {
         }
         if (songId.startsWith("youtube://")) {
             return songId.substringAfter("youtube://")
+        }
+        if (songId.length == 11 && !songId.contains(" ") && !songId.startsWith("external:") &&
+            songId.all { it.isLetterOrDigit() || it == '-' || it == '_' }) {
+            return songId
         }
         val cached = synchronized(localToYoutubeIdMap) {
             localToYoutubeIdMap[songId]
@@ -1276,12 +1264,16 @@ object AutoQueueManager {
         val metadataUriStr = currentMediaItem?.mediaMetadata?.extras?.getString("com.unshoo.pixelmusic.external.CONTENT_URI")
         val contentUriStr = metadataUriStr ?: playbackUriStr
 
-        var rawVideoId: String? = if (currentId.startsWith("youtube_")) {
-            currentId.substringAfter("youtube_")
-        } else if (contentUriStr?.startsWith("youtube://") == true) {
-            contentUriStr.removePrefix("youtube://")
-        } else {
-            null
+        var rawVideoId: String? = getYoutubeVideoId(currentId)
+
+        if (rawVideoId == null) {
+            rawVideoId = if (currentId.startsWith("youtube_")) {
+                currentId.substringAfter("youtube_")
+            } else if (contentUriStr?.startsWith("youtube://") == true) {
+                contentUriStr.removePrefix("youtube://")
+            } else {
+                null
+            }
         }
 
         if (rawVideoId == null) {
@@ -1296,38 +1288,20 @@ object AutoQueueManager {
         val isLocal = rawVideoId == null
         val resolvedVideoId = rawVideoId ?: ""
 
-        // Restore the reference commit's (0dc9b5bc) endpoint-preservation logic.
-        // The previous code here unconditionally reset continuationToken and overwrote
-        // currentWatchEndpoint whenever lastFetchedVideoId differed from activeId.
-        // This destroyed pagination state on every follow-up refill (e.g. from
-        // pendingRefillAfterCurrent or a natural track transition), causing the fetch
-        // to restart from page 1, get all-duplicate items, hit the 3-empty-pages
-        // limit, and permanently disable seeding.
         val activeId = if (isLocal) currentId else resolvedVideoId
-        if (forceRefresh) {
+        if (forceRefresh || lastFetchedVideoId != activeId || currentWatchEndpoint == null) {
             lastFetchedVideoId = activeId
-            // forceRefill() already cleared continuationToken and currentWatchEndpoint.
-            // Create a fresh endpoint from the new song's video ID if needed.
-            if (currentWatchEndpoint == null && !isLocal && resolvedVideoId.isNotBlank()) {
+            if (!isLocal && resolvedVideoId.isNotBlank()) {
                 currentWatchEndpoint = WatchEndpoint(videoId = resolvedVideoId, playlistId = "RDAMVM$resolvedVideoId")
+                if (forceRefresh || lastFetchedVideoId != activeId) {
+                    continuationToken = null
+                }
             }
             synchronized(addedVideoIds) {
+                if (forceRefresh || lastFetchedVideoId != activeId) {
+                    addedVideoIds.retainAll { isSameSong(it, activeId) }
+                }
                 addedVideoIds.add(activeId)
-            }
-        } else {
-            // Non-forceRefresh: preserve existing pagination state.
-            // Only initialize lastFetchedVideoId if it hasn't been set yet.
-            // The endpoint and continuation from a previous successful fetch
-            // are deliberately kept alive so the radio continues paging
-            // rather than restarting from page 1 on every track transition.
-            if (lastFetchedVideoId == null) {
-                lastFetchedVideoId = activeId
-                if (currentWatchEndpoint == null && !isLocal && resolvedVideoId.isNotBlank()) {
-                    currentWatchEndpoint = WatchEndpoint(videoId = resolvedVideoId, playlistId = "RDAMVM$resolvedVideoId")
-                }
-                synchronized(addedVideoIds) {
-                    addedVideoIds.add(activeId)
-                }
             }
         }
 
