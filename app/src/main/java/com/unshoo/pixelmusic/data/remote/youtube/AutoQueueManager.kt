@@ -671,7 +671,11 @@ object AutoQueueManager {
         }
     }
 
-    private suspend fun getYoutubeVideoId(songId: String): String? {
+    private suspend fun getYoutubeVideoId(
+        songId: String,
+        candidateTitle: String? = null,
+        candidateArtist: String? = null
+    ): String? {
         if (songId.startsWith("youtube_")) {
             return songId.substringAfter("youtube_")
         }
@@ -688,16 +692,51 @@ object AutoQueueManager {
         if (cached != null) return cached
 
         val longId = songId.toLongOrNull()
-        if (longId != null && longId < 0) {
-            val songEntity = musicDaoRef?.getSongByIdOnce(longId)
-            if (songEntity?.contentUriString?.startsWith("youtube://") == true) {
-                val vidId = songEntity.contentUriString.removePrefix("youtube://")
-                synchronized(localToYoutubeIdMap) {
-                    localToYoutubeIdMap[songId] = vidId
+        val songEntity = if (longId != null) {
+            musicDaoRef?.getSongByIdOnce(longId)
+        } else null
+
+        if (songEntity?.contentUriString?.startsWith("youtube://") == true) {
+            val vidId = songEntity.contentUriString.removePrefix("youtube://")
+            synchronized(localToYoutubeIdMap) {
+                localToYoutubeIdMap[songId] = vidId
+            }
+            return vidId
+        }
+
+        // Online Search fallback: resolve YouTube ID non-blockingly for local/offline songs when online
+        val title = candidateTitle?.takeIf { it.isNotBlank() } ?: songEntity?.title
+        val artist = candidateArtist?.takeIf { it.isNotBlank() } ?: songEntity?.artistName
+        if (!title.isNullOrBlank()) {
+            val isOnline = try {
+                val ctx = contextRef
+                val cm = ctx?.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                val activeNet = cm?.activeNetwork
+                val caps = cm?.getNetworkCapabilities(activeNet)
+                caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            } catch (e: Exception) {
+                false
+            }
+            if (isOnline) {
+                val resolvedVid = withTimeoutOrNull(3500L) {
+                    try {
+                        val query = if (!artist.isNullOrBlank()) "$title $artist" else title
+                        val searchResult = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                        val songItem = searchResult?.items?.firstOrNull { it is unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem } as? unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
+                        songItem?.id
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
-                return vidId
+                if (!resolvedVid.isNullOrBlank()) {
+                    synchronized(localToYoutubeIdMap) {
+                        localToYoutubeIdMap[songId] = resolvedVid
+                    }
+                    return resolvedVid
+                }
             }
         }
+
         return null
     }
 
@@ -1253,8 +1292,10 @@ object AutoQueueManager {
         val playbackUriStr = currentMediaItem?.localConfiguration?.uri?.toString()
         val metadataUriStr = currentMediaItem?.mediaMetadata?.extras?.getString("com.unshoo.pixelmusic.external.CONTENT_URI")
         val contentUriStr = metadataUriStr ?: playbackUriStr
+        val currentTitle = currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
+        val currentArtist = currentMediaItem?.mediaMetadata?.artist?.toString().orEmpty()
 
-        var rawVideoId: String? = getYoutubeVideoId(currentId)
+        var rawVideoId: String? = getYoutubeVideoId(currentId, currentTitle, currentArtist)
 
         if (rawVideoId == null) {
             rawVideoId = if (currentId.startsWith("youtube_")) {
@@ -1446,20 +1487,17 @@ object AutoQueueManager {
                         continue
                     }
                     // Page was all duplicates/avoided — count as an empty fetch and let the
-                    // next loop iteration page further via the continuation token instead of
-                    // falling through to the (much thinner) local fallback pool.
+                    // next loop iteration page further via the continuation token, or fall back
+                    // to local candidates if online continuation is exhausted.
                     emptyFetchCount++
                     if (emptyFetchCount >= 3) {
-                        // Reset pagination so the next refill trigger starts fresh.
-                        // Do NOT aggressively prune addedVideoIds here — pruning causes
-                        // the next fetch to get page 1 again, which overlaps with the
-                        // existing queue and creates a stuck duplicate loop. The loop
-                        // guard at the top will break after 3 empty fetches.
-                        printd("AutoQueueManager: 3 consecutive duplicate pages — resetting pagination for next refill")
+                        printd("AutoQueueManager: 3 consecutive duplicate pages — falling back to local candidates and resetting pagination")
                         continuationToken = null
                         currentWatchEndpoint = null
+                        discovered = fetchLocalRelated(currentId, currentQueueIds)
+                    } else {
+                        continue
                     }
-                    continue
                 } else {
                     discovered = fetchLocalRelated(currentId, currentQueueIds)
                 }
@@ -1704,7 +1742,13 @@ object AutoQueueManager {
     private suspend fun fetchOnlineRelated(videoId: String): List<Song> {
         try {
             val endpoint = currentWatchEndpoint ?: WatchEndpoint(videoId = videoId, playlistId = "RDAMVM$videoId")
-            val result = YouTube.next(endpoint = endpoint, continuation = continuationToken, followAutomixPreview = true)
+            val result = withTimeoutOrNull(10_000L) {
+                YouTube.next(endpoint = endpoint, continuation = continuationToken, followAutomixPreview = true)
+            } ?: run {
+                printe("AutoQueueManager: fetchOnlineRelated timed out after 10s")
+                continuationToken = null
+                return emptyList()
+            }
             
             var fetchedSongs = emptyList<Song>()
             result.onSuccess { nextResult ->

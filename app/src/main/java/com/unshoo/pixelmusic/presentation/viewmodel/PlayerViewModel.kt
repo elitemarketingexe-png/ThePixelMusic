@@ -3815,7 +3815,7 @@ class PlayerViewModel @Inject constructor(
             }
 
             com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.scheduleRefill(
-                delayMs = 1500L,
+                delayMs = 600L,
                 forceRefresh = true
             )
         }
