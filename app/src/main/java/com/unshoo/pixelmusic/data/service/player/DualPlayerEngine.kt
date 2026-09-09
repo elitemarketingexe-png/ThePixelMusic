@@ -138,6 +138,7 @@ class DualPlayerEngine @Inject constructor(
     private lateinit var playerB: ExoPlayer
 
     private val onPlayerSwappedListeners = mutableListOf<(Player) -> Unit>()
+    private val onNextPlayerPreparedListeners = mutableListOf<(Player) -> Unit>()
     private val onTransitionDisplayPlayerListeners = mutableListOf<(Player) -> Unit>()
     private val onTransitionFinishedListeners = mutableListOf<() -> Unit>()
 
@@ -362,6 +363,14 @@ class DualPlayerEngine @Inject constructor(
 
     fun removePlayerSwapListener(listener: (Player) -> Unit) {
         onPlayerSwappedListeners.remove(listener)
+    }
+
+    fun addNextPlayerPreparedListener(listener: (Player) -> Unit) {
+        onNextPlayerPreparedListeners.add(listener)
+    }
+
+    fun removeNextPlayerPreparedListener(listener: (Player) -> Unit) {
+        onNextPlayerPreparedListeners.remove(listener)
     }
 
     fun addTransitionDisplayPlayerListener(listener: (Player) -> Unit) {
@@ -1377,18 +1386,9 @@ class DualPlayerEngine @Inject constructor(
             playerB.volume = 0f
             playerB.pause()
 
-            // This is the fix for the missing early ReplayGain computation: notify
-            // listeners (MusicService.prepareReplayGainForTransitionPlayer) as soon as
-            // the incoming track is prepared, NOT after the swap completes. Previously
-            // this event was registered (addTransitionDisplayPlayerListener) but never
-            // actually fired anywhere in the engine, so ReplayGain for the upcoming
-            // track was never computed in time for the fade that needed it — the value
-            // the crossfade loop read was left over from whichever track had *just*
-            // finished fading in via onPlayerSwappedListeners, one track behind where
-            // it was being consumed. Firing here gives the async tag read the entire
-            // prepare-to-transition window to complete, and ties the computed value to
-            // the correct track.
-            onTransitionDisplayPlayerListeners.forEach { it(playerB) }
+            // Notify listeners (MusicService) to prefetch and prepare ReplayGain for
+            // playerB without prematurely publishing playerB to MediaSession.
+            onNextPlayerPreparedListeners.forEach { it(playerB) }
         } catch (e: Exception) {
             resetPreparedWindowState()
             Timber.tag("TransitionDebug").e(e, "Failed to prepare next player")

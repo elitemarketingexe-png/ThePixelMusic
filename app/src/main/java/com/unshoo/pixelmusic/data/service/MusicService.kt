@@ -335,11 +335,18 @@ class MusicService : MediaLibraryService() {
         prepareReplayGainForTransitionPlayer(newPlayer)
     }
 
+    private val nextPlayerPreparedListener: (Player) -> Unit = { preparedPlayer ->
+        val incomingItem = preparedPlayer.currentMediaItem
+        if (incomingItem != null) {
+            prefetchReplayGain(incomingItem)
+            val cachedVolume = getCachedReplayGainVolume(incomingItem)
+            if (cachedVolume != null) {
+                engine.incomingTrackReplayGainVolume = cachedVolume
+            }
+        }
+    }
+
     private val transitionDisplayPlayerListener: (Player) -> Unit = { displayPlayer ->
-        publishMediaSessionPlayer(
-            displayPlayer,
-            "Published incoming crossfade player to MediaSession."
-        )
         prepareReplayGainForTransitionPlayer(displayPlayer)
     }
 
@@ -510,6 +517,7 @@ class MusicService : MediaLibraryService() {
 
         // Handle player swaps (crossfade) to keep MediaSession in sync
         engine.addPlayerSwapListener(playerSwapListener)
+        engine.addNextPlayerPreparedListener(nextPlayerPreparedListener)
         engine.addTransitionDisplayPlayerListener(transitionDisplayPlayerListener)
         engine.addTransitionFinishedListener(transitionFinishedListener)
 
@@ -1594,7 +1602,9 @@ class MusicService : MediaLibraryService() {
                 return
             }
             expectedReplayGainVolume = null
-            userSelectedVolume = volume.coerceIn(0f, 1f)
+            if (volume > 0.001f) {
+                userSelectedVolume = volume.coerceIn(0f, 1f)
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -2135,12 +2145,12 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun setPlayerVolume(player: Player, volume: Float) {
-        val safeVolume = if (volume <= 0.001f && userSelectedVolume > 0.05f) {
-            userSelectedVolume
+        val safeVolume = if (volume <= 0.001f) {
+            if (userSelectedVolume > 0.05f) userSelectedVolume else 1f
         } else {
-            volume.coerceIn(0f, 1f)
+            volume.coerceIn(0.01f, 1f)
         }
-        val clampedVolume = safeVolume.coerceIn(0f, 1f)
+        val clampedVolume = safeVolume.coerceIn(0.01f, 1f)
         expectedReplayGainVolume = clampedVolume
         player.volume = clampedVolume
     }
@@ -2595,6 +2605,7 @@ class MusicService : MediaLibraryService() {
         QueuePreloadManager.detach(engine.masterPlayer)
 
         engine.removePlayerSwapListener(playerSwapListener)
+        engine.removeNextPlayerPreparedListener(nextPlayerPreparedListener)
         engine.removeTransitionDisplayPlayerListener(transitionDisplayPlayerListener)
         engine.removeTransitionFinishedListener(transitionFinishedListener)
         mediaSession?.player?.removeListener(playerListener)
