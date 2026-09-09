@@ -106,7 +106,7 @@ fun LibraryAlbumsTab(
     val albumFastScrollLabelProvider = remember(albums, currentAlbumSortOption) {
         { index: Int ->
             albumFastScrollLabel(
-                album = albums.peek(index),
+                album = if (index in 0 until albums.itemCount) albums.peek(index) else null,
                 sortOption = currentAlbumSortOption
             )
         }
@@ -166,7 +166,7 @@ fun LibraryAlbumsTab(
                             val endIndexToPrefetch = (startIndexToPrefetch + prefetchCount).coerceAtMost(totalItemsCount)
 
                             (startIndexToPrefetch until endIndexToPrefetch).forEach { indexToPrefetch ->
-                                val album = albums.peek(indexToPrefetch)
+                                val album = if (indexToPrefetch in 0 until albums.itemCount) albums.peek(indexToPrefetch) else null
                                 album?.albumArtUriString?.let { uri ->
                                     val request = ImageRequest.Builder(context)
                                         .data(uri)
@@ -199,7 +199,7 @@ fun LibraryAlbumsTab(
                             val endIndexToPrefetch = (startIndexToPrefetch + prefetchCount).coerceAtMost(totalItemsCount)
 
                             (startIndexToPrefetch until endIndexToPrefetch).forEach { indexToPrefetch ->
-                                val album = albums.peek(indexToPrefetch)
+                                val album = if (indexToPrefetch in 0 until albums.itemCount) albums.peek(indexToPrefetch) else null
                                 album?.albumArtUriString?.let { uri ->
                                     val request = ImageRequest.Builder(context)
                                         .data(uri)
@@ -359,7 +359,13 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index -> albums.peek(index)?.id ?: "album_placeholder_${System.identityHashCode(albums)}_$index" },
+                                    key = { index ->
+                                        if (index in 0 until albums.itemCount) {
+                                            albums.peek(index)?.id ?: "album_placeholder_${System.identityHashCode(albums)}_$index"
+                                        } else {
+                                            "album_placeholder_${System.identityHashCode(albums)}_$index"
+                                        }
+                                    },
                                     contentType = { "album_list_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -429,7 +435,13 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index -> albums.peek(index)?.id ?: "album_grid_placeholder_${System.identityHashCode(albums)}_$index" },
+                                    key = { index ->
+                                        if (index in 0 until albums.itemCount) {
+                                            albums.peek(index)?.id ?: "album_grid_placeholder_${System.identityHashCode(albums)}_$index"
+                                        } else {
+                                            "album_grid_placeholder_${System.identityHashCode(albums)}_$index"
+                                        }
+                                    },
                                     contentType = { "album_grid_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -505,7 +517,7 @@ fun LibraryArtistsTab(
     val artistFastScrollLabelProvider = remember(artists, currentArtistSortOption) {
         { index: Int ->
             artistFastScrollLabel(
-                artist = artists.peek(index),
+                artist = if (index in 0 until artists.itemCount) artists.peek(index) else null,
                 sortOption = currentArtistSortOption
             )
         }
@@ -646,7 +658,13 @@ fun LibraryArtistsTab(
                         ) {
                             items(
                                 count = artists.itemCount,
-                                key = { index -> artists.peek(index)?.id ?: "artist_placeholder_${System.identityHashCode(artists)}_$index" },
+                                key = { index ->
+                                    if (index in 0 until artists.itemCount) {
+                                        artists.peek(index)?.id ?: "artist_placeholder_${System.identityHashCode(artists)}_$index"
+                                    } else {
+                                        "artist_placeholder_${System.identityHashCode(artists)}_$index"
+                                    }
+                                },
                                 contentType = { "artist" }
                             ) { index ->
                                 val artist = artists[index]

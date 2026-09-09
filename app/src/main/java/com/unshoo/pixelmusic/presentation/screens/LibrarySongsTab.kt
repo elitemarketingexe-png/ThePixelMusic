@@ -91,7 +91,7 @@ fun LibrarySongsTab(
     val songFastScrollLabelProvider = remember(songs, sortOption) {
         { index: Int ->
             songFastScrollLabel(
-                song = songs.peek(index),
+                song = if (index in 0 until songs.itemCount) songs.peek(index) else null,
                 sortOption = sortOption
             )
         }
@@ -173,15 +173,18 @@ fun LibrarySongsTab(
         
         snapshotFlow {
             val visibleItems = listState.layoutInfo.visibleItemsInfo
-            if (visibleItems.isEmpty()) {
+            val totalCount = songs.itemCount
+            if (visibleItems.isEmpty() || totalCount == 0) {
                 false
             } else {
                 var foundVisible = false
                 for (item in visibleItems) {
-                    val song = songs.peek(item.index)
-                    if (song?.id == currentSongId) {
-                        foundVisible = true
-                        break
+                    if (item.index in 0 until totalCount) {
+                        val song = songs.peek(item.index)
+                        if (song?.id == currentSongId) {
+                            foundVisible = true
+                            break
+                        }
                     }
                 }
                 foundVisible
@@ -316,7 +319,13 @@ fun LibrarySongsTab(
 
                             items(
                                 count = songs.itemCount,
-                                key = { index -> songs.peek(index)?.id ?: "song_placeholder_$index" },
+                                key = { index ->
+                                    if (index in 0 until songs.itemCount) {
+                                        songs.peek(index)?.id ?: "song_placeholder_$index"
+                                    } else {
+                                        "song_placeholder_$index"
+                                    }
+                                },
                                 contentType = { "song" }
                             ) { index ->
                                 val song = songs[index]

@@ -238,6 +238,10 @@ object YoutubeHelper {
                     ?.jsonPrimitive?.contentOrNull
                     ?.removePrefix("VL") ?: return@forEach
 
+                if (YouTubeItemFilter.isPodcastOrEpisode(title, browseId)) {
+                    return@forEach
+                }
+
                 val thumbnailUrl =
                     getBestThumbnailUrl(playlistRenderer["thumbnailRenderer"] ?: return@forEach)
                 val songCount = extractPlaylistSongCount(playlistRenderer)

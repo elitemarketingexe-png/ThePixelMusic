@@ -18,6 +18,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import com.unshoo.pixelmusic.data.observer.MediaStoreObserver
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import kotlinx.coroutines.flow.debounce
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -74,8 +79,36 @@ class SyncManager @Inject constructor(
                 replay = 1
             )
 
-    init {
-        // Ensure worker is not cancelled blindly on startup
+    private val started = AtomicBoolean(false)
+
+    fun start() {
+        if (!started.compareAndSet(false, true)) return
+        observeStorageChanges()
+        observeAppForeground()
+        sync()
+    }
+
+    private fun observeStorageChanges() {
+        sharingScope.launch {
+            mediaStoreObserver.mediaStoreChanges
+                .debounce(1500L)
+                .collect {
+                    Log.i(TAG, "Storage change detected - scheduling incremental sync")
+                    enqueueSyncWork(
+                        request = SyncWorker.incrementalSyncWork(),
+                        policy = ExistingWorkPolicy.KEEP,
+                        notifyObserver = false
+                    )
+                }
+        }
+    }
+
+    private fun observeAppForeground() {
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                sync()
+            }
+        })
     }
 
     /**

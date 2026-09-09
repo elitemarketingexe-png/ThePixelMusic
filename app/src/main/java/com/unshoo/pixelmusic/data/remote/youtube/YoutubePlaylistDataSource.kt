@@ -101,10 +101,7 @@ class YoutubePlaylistDataSource {
         }
 
         val youtubeSongs = allSongs
-            .asSequence()
-            .distinctBy { it.id }
             .map { it.toYoutubeSong() }
-            .toList()
 
         val pagePlaylist = page.playlist
         return playlist.copy(
@@ -114,7 +111,7 @@ class YoutubePlaylistDataSource {
                 lastSyncSongCount = youtubeSongs.size.takeIf { it > 0 } ?: playlist.info.lastSyncSongCount,
                 lastSyncTimestamp = System.currentTimeMillis()
             ),
-            unsortedSongs = youtubeSongs,
+            unsortedSongs = youtubeSongs.distinctBy { it.youtubeId },
             crossRefs = youtubeSongs.mapIndexed { index, song ->
                 PlaylistSongCrossRef(playlist.info.id, song.youtubeId, index)
             }

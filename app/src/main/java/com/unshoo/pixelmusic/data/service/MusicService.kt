@@ -1608,6 +1608,7 @@ class MusicService : MediaLibraryService() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            PlaybackActivityTracker.setPlaybackActive(isPlaying)
             val player = mediaSession?.player ?: engine.masterPlayer
             Timber.tag(TAG).d("onIsPlayingChanged: $isPlaying. Duration: ${player.duration}, Seekable: ${player.isCurrentMediaItemSeekable}")
             syncLocalListeningStatsFromPlayer(player)
@@ -2572,18 +2573,25 @@ class MusicService : MediaLibraryService() {
             return
         }
 
-        if (player == null || !player.playWhenReady || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED) {
+        if (player == null || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) {
             stopPlaybackAndUnload(
-                reason = "task_removed_not_playing"
+                reason = "task_removed_idle_or_ended"
             )
             return
         }
-        super.onTaskRemoved(rootIntent)
+
+        //keep playback service and notification retained when paused with items in queue
+        Timber.tag(TAG).i(
+            "Task removed with active media items (count=%d, playWhenReady=%b). Preserving background service.",
+            player.mediaItemCount,
+            player.playWhenReady
+        )
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
 
     override fun onDestroy() {
+        PlaybackActivityTracker.setPlaybackActive(false)
         telemetryManager.destroy()
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
         reportNavidromePlayback("stopped")

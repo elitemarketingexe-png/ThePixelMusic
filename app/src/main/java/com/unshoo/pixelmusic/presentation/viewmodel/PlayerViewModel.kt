@@ -176,6 +176,7 @@ private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
 private const val MAX_ALBUM_BATCH_SELECTION = 6
 private const val SONG_ID_QUERY_CHUNK_SIZE = 900
 private const val HOME_MIX_PREVIEW_LIMIT = 48
+private const val OPTIMISTIC_RESOLVE_BUDGET_MS = 1_500L
 
 private fun List<Song>.toPlaybackQueue(): ImmutableList<Song> = when (this) {
     is PersistentList<Song> -> this
@@ -919,12 +920,45 @@ class PlayerViewModel @Inject constructor(
                 // competes with Compose layout or player callbacks.
                 val index = withContext(Dispatchers.Default) {
                     val sortedIds = musicRepository.getSongIdsSorted(sortOption, storageFilter)
-                    val unifiedId = currentSong.id.toLongOrNull()
-                        ?: currentSong.contentUriString
-                            .takeIf { it.isNotBlank() }
-                            ?.let { musicRepository.getSongIdByContentUri(it) }
+                    
+                    val youtubeVideoId = currentSong.youtubeId
+                        ?: currentSong.id.removePrefix("youtube_").takeIf { currentSong.id.startsWith("youtube_") }
+                        ?: currentSong.contentUriString.removePrefix("youtube://").takeIf { currentSong.contentUriString.startsWith("youtube://") }
 
-                    unifiedId?.let(sortedIds::indexOf) ?: -1
+                    val hashedYoutubeId = youtubeVideoId?.let { vid ->
+                        -(15_000_000_000_000L + vid.hashCode().toLong().let { if (it < 0L) -it else it })
+                    }
+
+                    val unifiedId = currentSong.id.toLongOrNull()
+                        ?: hashedYoutubeId
+                        ?: currentSong.contentUriString.takeIf { it.isNotBlank() }?.let { musicRepository.getSongIdByContentUri(it) }
+
+                    if (unifiedId != null) {
+                        val foundIndex = sortedIds.indexOf(unifiedId)
+                        if (foundIndex != -1) return@withContext foundIndex
+                    }
+
+                    // Metadata fallback if ID mapping differed (e.g. cloud streams)
+                    if (currentSong.title.isNotBlank()) {
+                        val cachedSongs = libraryStateHolder.allSongs.value
+                        val matched = cachedSongs.indexOfFirst {
+                            it.id == currentSong.id ||
+                            (it.title.equals(currentSong.title, ignoreCase = true) &&
+                             it.artist.equals(currentSong.artist, ignoreCase = true))
+                        }
+                        if (matched != -1) {
+                            val matchedSong = cachedSongs[matched]
+                            val matchedUnifiedId = matchedSong.id.toLongOrNull()
+                                ?: matchedSong.youtubeId?.let { -(15_000_000_000_000L + kotlin.math.abs(it.hashCode().toLong())) }
+                            if (matchedUnifiedId != null) {
+                                val idx = sortedIds.indexOf(matchedUnifiedId)
+                                if (idx != -1) return@withContext idx
+                            }
+                            return@withContext matched
+                        }
+                    }
+
+                    -1
                 }
 
                 if (index != -1) {
@@ -934,6 +968,74 @@ class PlayerViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to locate current song")
+                sendToast(context.getString(R.string.player_could_not_locate_song))
+            }
+        }
+    }
+
+    fun requestLocateCurrentFavoriteSong() {
+        val currentSong = stablePlayerState.value.currentSong ?: return
+
+        viewModelScope.launch {
+            try {
+                val sortOption = playerUiState.value.currentFavoriteSortOption
+                val baseFilter = playerUiState.value.currentStorageFilter
+                val hideLocal = playerUiState.value.hideLocalMedia
+                val storageFilter = if (hideLocal) {
+                    com.unshoo.pixelmusic.data.model.StorageFilter.ONLINE
+                } else {
+                    baseFilter
+                }
+
+                val index = withContext(Dispatchers.Default) {
+                    val sortedIds = musicRepository.getFavoriteSongIdsSorted(sortOption, storageFilter)
+                    
+                    val youtubeVideoId = currentSong.youtubeId
+                        ?: currentSong.id.removePrefix("youtube_").takeIf { currentSong.id.startsWith("youtube_") }
+                        ?: currentSong.contentUriString.removePrefix("youtube://").takeIf { currentSong.contentUriString.startsWith("youtube://") }
+
+                    val hashedYoutubeId = youtubeVideoId?.let { vid ->
+                        -(15_000_000_000_000L + kotlin.math.abs(vid.hashCode().toLong()))
+                    }
+
+                    val unifiedId = currentSong.id.toLongOrNull()
+                        ?: hashedYoutubeId
+                        ?: currentSong.contentUriString.takeIf { it.isNotBlank() }?.let { musicRepository.getSongIdByContentUri(it) }
+
+                    if (unifiedId != null) {
+                        val foundIndex = sortedIds.indexOf(unifiedId)
+                        if (foundIndex != -1) return@withContext foundIndex
+                    }
+
+                    // Metadata fallback
+                    if (currentSong.title.isNotBlank()) {
+                        val cachedSongs = libraryStateHolder.allSongs.value
+                        val matched = cachedSongs.indexOfFirst {
+                            it.id == currentSong.id ||
+                            (it.title.equals(currentSong.title, ignoreCase = true) &&
+                             it.artist.equals(currentSong.artist, ignoreCase = true))
+                        }
+                        if (matched != -1) {
+                            val matchedSong = cachedSongs[matched]
+                            val matchedUnifiedId = matchedSong.id.toLongOrNull()
+                                ?: matchedSong.youtubeId?.let { -(15_000_000_000_000L + kotlin.math.abs(it.hashCode().toLong())) }
+                            if (matchedUnifiedId != null) {
+                                val idx = sortedIds.indexOf(matchedUnifiedId)
+                                if (idx != -1) return@withContext idx
+                            }
+                        }
+                    }
+
+                    -1
+                }
+
+                if (index != -1) {
+                    _scrollToIndexEvent.emit(index)
+                } else {
+                    sendToast(context.getString(R.string.player_song_not_found_in_list))
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to locate current favorite song")
                 sendToast(context.getString(R.string.player_could_not_locate_song))
             }
         }
@@ -5876,15 +5978,15 @@ class PlayerViewModel @Inject constructor(
 
                         val resolvedStart = if (startItem != null) {
                             try {
-                                // Tonarc-style instant handoff: Check memory cache first (<1ms).
-                                // If uncached, kick off background resolution non-blockingly and hand
-                                // the youtube:// MediaItem to ExoPlayer immediately. ExoPlayer's
-                                // ResolvingDataSource cooperatively awaits the resolution on its
-                                // background Loader thread while ExoPlayer is already preparing its
-                                // decoders, audio sink, and media source pipeline.
                                 dualPlayerEngine.getCachedResolvedMediaItem(startItem) ?: run {
-                                    startItem.localConfiguration?.uri?.let { dualPlayerEngine.kickBackgroundResolve(it) }
-                                    startItem
+                                    withContext(Dispatchers.IO) {
+                                        kotlinx.coroutines.withTimeoutOrNull(OPTIMISTIC_RESOLVE_BUDGET_MS) {
+                                            dualPlayerEngine.preResolveForPlayback(startItem)
+                                        }
+                                    } ?: run {
+                                        startItem.localConfiguration?.uri?.let { dualPlayerEngine.kickBackgroundResolve(it) }
+                                        startItem
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Timber.w(e, "instant start resolve failed")
@@ -6049,11 +6151,18 @@ class PlayerViewModel @Inject constructor(
         }
 
         val resolvedUri = if (finalUri.scheme == "youtube") {
-            // Check memory cache synchronously. If miss, kick off background resolution
-            // and return originalUri immediately without blocking the caller coroutine.
             dualPlayerEngine.getCachedResolvedUri(finalUri) ?: run {
-                dualPlayerEngine.kickBackgroundResolve(finalUri)
-                originalUri
+                val optimistic = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    kotlinx.coroutines.withTimeoutOrNull(OPTIMISTIC_RESOLVE_BUDGET_MS) {
+                        dualPlayerEngine.resolveCloudUri(finalUri)
+                    }
+                }
+                if (optimistic != null && optimistic != finalUri) {
+                    optimistic
+                } else {
+                    dualPlayerEngine.kickBackgroundResolve(finalUri)
+                    originalUri
+                }
             }
         } else {
             dualPlayerEngine.resolveCloudUri(finalUri)

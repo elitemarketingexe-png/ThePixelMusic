@@ -26,6 +26,8 @@ import com.unshoo.pixelmusic.data.remote.youtube.YoutubeRequestHelper
 import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
 import com.unshoo.pixelmusic.data.model.youtube.Playlist
 import com.unshoo.pixelmusic.data.model.youtube.PlaylistInfo
+import com.unshoo.pixelmusic.data.remote.youtube.YouTubeItemFilter
+import com.unshoo.pixelmusic.data.repository.YouTubeLibraryPersistenceManager
 import com.unshoo.pixelmusic.data.database.AlbumEntity
 import com.unshoo.pixelmusic.data.database.ArtistEntity
 import com.unshoo.pixelmusic.data.database.MusicDao
@@ -91,7 +93,8 @@ constructor(
         private val playlistPreferencesRepository: PlaylistPreferencesRepository,
         private val youtubeDatastoreRepository: com.unshoo.pixelmusic.data.remote.youtube.DatastoreRepository,
         private val favoritesDao: FavoritesDao,
-        private val telegramRepository: com.unshoo.pixelmusic.data.telegram.TelegramRepository
+        private val telegramRepository: com.unshoo.pixelmusic.data.telegram.TelegramRepository,
+        private val persistenceManager: YouTubeLibraryPersistenceManager
 ) : CoroutineWorker(appContext, workerParams) {
 
     private val contentResolver: ContentResolver = appContext.contentResolver
@@ -1687,14 +1690,26 @@ constructor(
             val isMobile = isMobileNetwork(applicationContext)
             val localPlaylistsExist = appDatabase.playlistRepository().getAll().isNotEmpty()
 
-            // 1. Fetch remote user-created playlists (delta sync — only insert new songs)
+            // 1. Fetch remote user-created playlists (true delta sync)
             var remotePlaylistsSuccess = false
             var youtubePlaylistContentChanged = false
             try {
-                val remotePlaylists = YoutubePlaylistDataSource().retrieveAll(settings)
-                // ArchiveTune-style: surface playlist cards immediately from the lightweight
-                // library page before fetching every playlist's songs. Store them in the YouTube
-                // playlist DB (not local playlist prefs) so hydrated song lists win as soon as ready.
+                val rawPlaylists = YoutubePlaylistDataSource().retrieveAll(settings)
+                val remotePlaylists = rawPlaylists.filter { YouTubeItemFilter.isMusicPlaylist(it.title, it.id) }
+
+                val remoteIds = remotePlaylists.map { it.id }.toSet()
+                val existingPlaylists = appDatabase.playlistRepository().getAll()
+
+                // Clean up any deleted YouTube playlists locally
+                existingPlaylists.forEach { existing ->
+                    val cleanId = existing.info.id.removePrefix("VL")
+                    if (existing.info.id !in remoteIds && cleanId !in remoteIds && !existing.info.id.startsWith("LM") && !existing.info.isDownloadedPlaylist) {
+                        Log.i(TAG, "SyncWorker: Removing deleted remote playlist '${existing.info.title}' (${existing.info.id})")
+                        persistenceManager.deletePlaylist(existing.info.id)
+                        youtubePlaylistContentChanged = true
+                    }
+                }
+
                 remotePlaylists.forEach { playlistInfo ->
                     val existingPlaylist = appDatabase.playlistRepository().getPlaylistById(playlistInfo.id)
                     appDatabase.playlistRepository().insertPlaylist(
@@ -1711,15 +1726,24 @@ constructor(
                 remotePlaylists.forEach { playlistInfo ->
                     yield()
                     val existingPlaylist = appDatabase.playlistRepository().getPlaylistById(playlistInfo.id)
+                        ?: appDatabase.playlistRepository().getPlaylistById("VL${playlistInfo.id}")
                     val existingSongCount = existingPlaylist?.info?.lastSyncSongCount ?: 0
                     val existingHydratedCount = existingPlaylist?.songs?.size ?: 0
                     val remoteReportedCount = playlistInfo.lastSyncSongCount
 
-                    // If YouTube's lightweight library card provides a count and it matches our
-                    // hydrated cache, skip the expensive full playlist fetch. This is the key path
-                    // for 5k-20k song playlists on normal startup/resync.
-                    if (existingPlaylist != null && existingHydratedCount > 0 && remoteReportedCount > 0 && remoteReportedCount == existingSongCount) {
-                        Log.d(TAG, "Skipping playlist '${playlistInfo.title}' — count unchanged ($existingSongCount songs)")
+                    // Fetch page 1 to check signature before skipping continuation pages
+                    val page1Result = YouTube.playlist(playlistInfo.id).getOrNull()
+                    val page1Songs = page1Result?.songs ?: emptyList()
+                    val countMatches = existingPlaylist != null && existingHydratedCount > 0 &&
+                        remoteReportedCount > 0 && remoteReportedCount == existingSongCount
+
+                    val page1Matches = countMatches && page1Songs.isNotEmpty() &&
+                        page1Songs.indices.all { i ->
+                            i < existingPlaylist.songs.size && page1Songs[i].id == existingPlaylist.songs[i].youtubeId
+                        }
+
+                    if (page1Matches) {
+                        Log.d(TAG, "Skipping playlist '${playlistInfo.title}' — signature and count unchanged ($existingSongCount songs)")
                         kotlinx.coroutines.delay(20L)
                         return@forEach
                     }
@@ -1727,20 +1751,9 @@ constructor(
                     val emptyPlaylist = Playlist(playlistInfo, emptyList())
                     val fullPlaylist = YoutubePlaylistDataSource().retrieveOne(emptyPlaylist, settings)
 
-                    // Delta check: process if song count changed OR the lightweight card exists
-                    // but has no cross-refs yet. This prevents permanent empty cards.
-                    if (fullPlaylist.songs.size != existingSongCount || existingHydratedCount == 0 || existingPlaylist == null) {
-                        // Use preserving insert — keeps existing downloaded songs intact
-                        appDatabase.playlistRepository().insertPlaylistWithSongsPreserving(
-                            fullPlaylist,
-                            appDatabase.songRepository()
-                        )
-                        youtubePlaylistContentChanged = true
-                        Log.i(TAG, "Delta synced playlist '${playlistInfo.title}': ${fullPlaylist.songs.size} songs (was $existingSongCount)")
-                    } else {
-                        Log.d(TAG, "Skipping playlist '${playlistInfo.title}' — no changes (${existingSongCount} songs)")
-                    }
-                    // NOTE: Auto-download removed. Users download via playlist options menu (Component 24).
+                    persistenceManager.persistPlaylist(fullPlaylist.info, fullPlaylist.songs)
+                    youtubePlaylistContentChanged = true
+                    Log.i(TAG, "Delta synced playlist '${playlistInfo.title}': ${fullPlaylist.songs.size} songs (was $existingSongCount)")
                     kotlinx.coroutines.delay(50L)
                 }
                 remotePlaylistsSuccess = true

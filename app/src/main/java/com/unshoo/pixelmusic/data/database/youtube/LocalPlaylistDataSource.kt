@@ -33,6 +33,12 @@ interface LocalPlaylistDataSource {
     @Query("SELECT playlistId, COUNT(songId) AS songCount FROM PlaylistSongCrossRef GROUP BY playlistId")
     fun observePlaylistSongCounts(): Flow<List<PlaylistSongCountRow>>
 
+    @Query("SELECT * FROM PlaylistSongCrossRef ORDER BY playlistId, position ASC")
+    fun observeAllPlaylistSongCrossRefs(): Flow<List<PlaylistSongCrossRef>>
+
+    @Query("SELECT * FROM PlaylistSongCrossRef WHERE playlistId = :playlistId ORDER BY position ASC")
+    suspend fun getCrossRefsForPlaylist(playlistId: String): List<PlaylistSongCrossRef>
+
     @Transaction
     @Query("SELECT * FROM playlists WHERE id = :playlistId")
     suspend fun getPlaylistById(playlistId: String): Playlist?

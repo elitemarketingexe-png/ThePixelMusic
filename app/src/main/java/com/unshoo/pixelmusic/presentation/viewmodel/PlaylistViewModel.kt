@@ -18,6 +18,10 @@ import com.unshoo.pixelmusic.data.remote.youtube.DatastoreRepository
 import com.unshoo.pixelmusic.data.repository.MusicRepository
 import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
 import com.unshoo.pixelmusic.data.remote.youtube.toNativeSong
+import com.unshoo.pixelmusic.data.remote.youtube.toYoutubeSong
+import com.unshoo.pixelmusic.data.remote.youtube.YouTubeItemFilter
+import com.unshoo.pixelmusic.data.repository.YouTubeLibraryPersistenceManager
+import com.unshoo.pixelmusic.data.model.youtube.PlaylistInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,6 +111,7 @@ class PlaylistViewModel @Inject constructor(
     val m3uManager: M3uManager,
     private val musicDao: MusicDao,
     private val datastoreRepository: DatastoreRepository,
+    private val persistenceManager: YouTubeLibraryPersistenceManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -480,6 +485,15 @@ class PlaylistViewModel @Inject constructor(
                         // Background fetch & sync for synced YouTube playlists
                         if (playlist.source == "YOUTUBE") {
                             viewModelScope.launch(Dispatchers.IO) {
+                                if (YouTubeItemFilter.isPodcastOrEpisode(playlist.name, playlistId)) {
+                                    withContext(Dispatchers.Main) {
+                                        if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
+                                            _uiState.update { it.copy(isLoading = false) }
+                                        }
+                                    }
+                                    return@launch
+                                }
+
                                 // Retry up to 3 times for mobile data reliability
                                 var ytPlaylistResult = YouTube.playlist(playlistId)
                                 var fetchAttempt = 0
@@ -493,9 +507,31 @@ class PlaylistViewModel @Inject constructor(
                                     val ytPlaylistPage = ytPlaylistResult.getOrThrow()
                                     val ytPlaylist = ytPlaylistPage.playlist
 
-                                    // Accumulate ALL pages before touching the UI or preferences.
-                                    // This prevents the "songs disappear" race where page-1 (25 songs)
-                                    // immediately overwrites the cached full list from the DB.
+                                    val reportedCount = ytPlaylist.songCountText
+                                        ?.split(" ")?.firstOrNull()
+                                        ?.filter { it.isDigit() }?.toIntOrNull()
+                                        ?: ytPlaylistPage.songs.size
+
+                                    val countMatches = songsList.isNotEmpty() && reportedCount > 0 && reportedCount == songsList.size
+                                    val page1Songs = ytPlaylistPage.songs
+                                    val page1Matches = countMatches && page1Songs.isNotEmpty() &&
+                                        page1Songs.indices.all { i ->
+                                            i < songsList.size && (
+                                                page1Songs[i].id == songsList[i].youtubeId ||
+                                                "youtube_${page1Songs[i].id}" == songsList[i].id
+                                            )
+                                        }
+
+                                    if (page1Matches) {
+                                        Log.d("PlaylistViewModel", "YouTube playlist '$playlistId' unchanged (signature & count match). Skipping paging.")
+                                        withContext(Dispatchers.Main) {
+                                            if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
+                                                _uiState.update { it.copy(isLoading = false) }
+                                            }
+                                        }
+                                        return@launch
+                                    }
+
                                     val allYtSongs = ytPlaylistPage.songs.toMutableList()
 
                                     var continuation = ytPlaylistPage.songsContinuation ?: ytPlaylistPage.continuation
@@ -516,25 +552,23 @@ class PlaylistViewModel @Inject constructor(
                                         }
                                     }
 
-                                    // Now we have the full list — do one atomic update
+                                    // Atomic update via centralized persistence manager
+                                    val highQualityCover = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(
+                                        ytPlaylist.thumbnail
+                                    ) ?: ytPlaylist.thumbnail ?: ""
+
+                                    val info = PlaylistInfo(
+                                        id = playlistId,
+                                        title = ytPlaylist.title,
+                                        coverHref = highQualityCover,
+                                        lastSyncSongCount = allYtSongs.size,
+                                        lastSyncTimestamp = System.currentTimeMillis()
+                                    )
+
+                                    persistenceManager.persistPlaylist(info, allYtSongs.map { it.toYoutubeSong() })
+
                                     val allNativeSongs = allYtSongs.map { it.toNativeSong() }
                                     val allSongIds = allNativeSongs.map { it.id }
-
-                                    // Persist all songs to Room DB
-                                    musicRepository.insertYoutubeSongs(allNativeSongs)
-
-                                    // Persist the full songIds list to preferences
-                                    val currentExisting = playlistPreferencesRepository.userPlaylistsFlow.first().find { it.id == playlistId }
-                                    if (currentExisting != null) {
-                                        playlistPreferencesRepository.updatePlaylist(
-                                            currentExisting.copy(
-                                                name = ytPlaylist.title,
-                                                songIds = allSongIds,
-                                                coverImageUri = ytPlaylist.thumbnail
-                                            )
-                                        )
-                                    }
-
                                     currentPlaylistSetVideoIds = allYtSongs.mapNotNull { it.setVideoId }
 
                                     // Single UI update with the complete songs list
@@ -545,7 +579,7 @@ class PlaylistViewModel @Inject constructor(
                                                     currentPlaylistDetails = state.currentPlaylistDetails?.copy(
                                                         name = ytPlaylist.title,
                                                         songIds = allSongIds,
-                                                        coverImageUri = ytPlaylist.thumbnail
+                                                        coverImageUri = highQualityCover
                                                     ),
                                                     currentPlaylistSongs = allNativeSongs,
                                                     isLoading = false

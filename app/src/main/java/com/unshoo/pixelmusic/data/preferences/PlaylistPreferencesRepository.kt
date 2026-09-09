@@ -54,7 +54,7 @@ class PlaylistPreferencesRepository @Inject constructor(
         _pinnedPlaylistIds.value = next
     }
 
-    private fun getOrCreatePlaylistTimestamps(
+    fun getOrCreatePlaylistTimestamps(
         pId: String,
         syncTimestamp: Long,
         title: String,
@@ -102,15 +102,21 @@ class PlaylistPreferencesRepository @Inject constructor(
                         songIds = row.songs.sortedBy { it.sortOrder }.map { it.songId }
                     )
                     if (pl.source == "YOUTUBE") pl.copy(id = pl.id.removePrefix("VL")) else pl
-                }
+                }.filter { com.unshoo.pixelmusic.data.remote.youtube.YouTubeItemFilter.isMusicPlaylist(it.name, it.id) }
             },
-        AppDatabase.getInstance(context).playlistRepository().observeAllPlaylistInfo(),
+        combine(
+            AppDatabase.getInstance(context).playlistRepository().observeAllPlaylistInfo(),
+            AppDatabase.getInstance(context).playlistRepository().observeAllPlaylistSongCrossRefs()
+        ) { infos, refs -> infos to refs },
         AppDatabase.getInstance(context).playlistRepository().observePlaylistSongCounts(),
         AppDatabase.getInstance(context).songRepository().observeDownloadedSongs(),
         _pinnedPlaylistIds
-    ) { localPlaylists, ytPlaylistInfos, ytSongCountRows, downloadedSongs, pinnedIds ->
+    ) { localPlaylists, (ytPlaylistInfos, allCrossRefs), ytSongCountRows, downloadedSongs, pinnedIds ->
+        val crossRefsByPlaylistId = allCrossRefs.groupBy { it.playlistId }
         val ytSongCounts = ytSongCountRows.associate { it.playlistId to it.songCount }
-        val mappedYtPlaylists = ytPlaylistInfos.map { ytPlaylistInfo ->
+        val mappedYtPlaylists = ytPlaylistInfos
+            .filter { com.unshoo.pixelmusic.data.remote.youtube.YouTubeItemFilter.isMusicPlaylist(it.title, it.id) }
+            .map { ytPlaylistInfo ->
             val pId = ytPlaylistInfo.id.removePrefix("VL")
             val defaultCoverImage = ytPlaylistInfo.coverPath ?: ytPlaylistInfo.coverHref
             val savedCoverRaw = coverPrefs.getString("${pId}_coverImageUri", null) ?: coverPrefs.getString("${ytPlaylistInfo.id}_coverImageUri", null)
@@ -153,7 +159,11 @@ class PlaylistPreferencesRepository @Inject constructor(
             val playlistSongIds = if (ytPlaylistInfo.id == "_downloaded_") {
                 actualDownloaded.map { "youtube_${it.youtubeId}" }
             } else {
-                emptyList()
+                val refs = crossRefsByPlaylistId[ytPlaylistInfo.id]
+                    ?: crossRefsByPlaylistId["VL$pId"]
+                    ?: crossRefsByPlaylistId[pId]
+                    ?: emptyList()
+                refs.sortedBy { it.position }.map { "youtube_${it.songId}" }
             }
             val (cTime, mTime) = getOrCreatePlaylistTimestamps(pId, ytPlaylistInfo.lastSyncTimestamp, playlistTitle, playlistSongIds)
 

@@ -1316,6 +1316,7 @@ class DualPlayerEngine @Inject constructor(
                 return@withContext Uri.fromFile(java.io.File(path))
             }
 
+            preCacheFirstChunk(path)
             Uri.parse(path)
         } catch (e: Exception) {
             Timber.tag("DualPlayerEngine").e(e, "resolveYoutubeUriAsync failed for $uriString")
@@ -1326,6 +1327,7 @@ class DualPlayerEngine @Inject constructor(
                 val low = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
                     .getLowestQualityStreamUrl(context, youtubeSong)
                 if (low.startsWith("http")) {
+                    preCacheFirstChunk(low)
                     return@withContext Uri.parse(low)
                 }
                 if (low.isNotBlank() && java.io.File(low).exists()) {

@@ -95,7 +95,7 @@ fun LibraryFavoritesTab(
     val favoriteFastScrollLabelProvider = remember(favoriteSongs, sortOption) {
         { index: Int ->
             songFastScrollLabel(
-                song = favoriteSongs.peek(index),
+                song = if (index in 0 until favoriteSongs.itemCount) favoriteSongs.peek(index) else null,
                 sortOption = sortOption
             )
         }
@@ -122,7 +122,7 @@ fun LibraryFavoritesTab(
             null
         } else {
             {
-                playerViewModel.requestLocateCurrentSong()
+                playerViewModel.requestLocateCurrentFavoriteSong()
             }
         }
     }
@@ -240,7 +240,13 @@ fun LibraryFavoritesTab(
                     ) {
                         items(
                             count = favoriteSongs.itemCount,
-                            key = { index -> favoriteSongs.peek(index)?.id ?: "fav_placeholder_$index" },
+                            key = { index ->
+                                if (index in 0 until favoriteSongs.itemCount) {
+                                    favoriteSongs.peek(index)?.id ?: "fav_placeholder_$index"
+                                } else {
+                                    "fav_placeholder_$index"
+                                }
+                            },
                             contentType = { "song" }
                         ) { index ->
                             val song = favoriteSongs[index]
@@ -427,7 +433,13 @@ fun LibrarySongsTabPaginated(
 
                             items(
                                 count = paginatedSongs.itemCount,
-                                key = { index -> paginatedSongs.peek(index)?.id ?: "paged_song_$index" },
+                                key = { index ->
+                                    if (index in 0 until paginatedSongs.itemCount) {
+                                        paginatedSongs.peek(index)?.id ?: "paged_song_$index"
+                                    } else {
+                                        "paged_song_$index"
+                                    }
+                                },
                                 contentType = paginatedSongs.itemContentType { "song" }
                             ) { index ->
                                 val song = paginatedSongs[index]
