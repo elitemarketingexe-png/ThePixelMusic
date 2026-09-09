@@ -1376,6 +1376,19 @@ class DualPlayerEngine @Inject constructor(
             playerB.prepare()
             playerB.volume = 0f
             playerB.pause()
+
+            // This is the fix for the missing early ReplayGain computation: notify
+            // listeners (MusicService.prepareReplayGainForTransitionPlayer) as soon as
+            // the incoming track is prepared, NOT after the swap completes. Previously
+            // this event was registered (addTransitionDisplayPlayerListener) but never
+            // actually fired anywhere in the engine, so ReplayGain for the upcoming
+            // track was never computed in time for the fade that needed it — the value
+            // the crossfade loop read was left over from whichever track had *just*
+            // finished fading in via onPlayerSwappedListeners, one track behind where
+            // it was being consumed. Firing here gives the async tag read the entire
+            // prepare-to-transition window to complete, and ties the computed value to
+            // the correct track.
+            onTransitionDisplayPlayerListeners.forEach { it(playerB) }
         } catch (e: Exception) {
             resetPreparedWindowState()
             Timber.tag("TransitionDebug").e(e, "Failed to prepare next player")
@@ -1499,6 +1512,15 @@ class DualPlayerEngine @Inject constructor(
         val outgoingPlayer = playerA
         val incomingPlayer = playerB
 
+        // Snapshot once, right before the fade starts, instead of re-reading the
+        // shared mutable field on every ~32ms loop tick below. incomingTrackReplayGainVolume
+        // can be written asynchronously by MusicService's ReplayGain coroutine at any
+        // time; reading it repeatedly mid-loop meant a fade could start using one value
+        // and finish using a different one if that write landed mid-flight. A single
+        // snapshot makes one transition internally consistent no matter when the async
+        // write lands relative to it.
+        val incomingReplayGainSnapshot = incomingTrackReplayGainVolume
+
         incomingPlayer.repeatMode = outgoingPlayer.repeatMode
         incomingPlayer.shuffleModeEnabled = outgoingPlayer.shuffleModeEnabled
         outgoingPlayer.pauseAtEndOfMediaItems = true
@@ -1517,7 +1539,7 @@ class DualPlayerEngine @Inject constructor(
             val progress = (elapsed.toFloat() / duration).coerceIn(0f, 1f)
             val volIn = envelope(progress, settings.curveIn)
             val volOut = 1f - envelope(progress, settings.curveOut)
-            val incomingTarget = incomingTrackReplayGainVolume ?: 1f
+            val incomingTarget = incomingReplayGainSnapshot ?: 1f
             incomingPlayer.volume = (volIn * incomingTarget).coerceIn(0f, 1f)
             outgoingPlayer.volume = (volOut * outgoingStartVolume).coerceIn(0f, 1f)
 
@@ -1526,7 +1548,11 @@ class DualPlayerEngine @Inject constructor(
         }
 
         outgoingPlayer.volume = 0f
-        val postTransitionVolume = (incomingTrackReplayGainVolume ?: outgoingStartVolume.takeIf { it > 0.05f } ?: 1f).coerceIn(0.01f, 1f)
+        // Fall back to a hard 1f (full volume), never to outgoingStartVolume here: if
+        // outgoingStartVolume was itself the thing that ended up wrong on a previous
+        // cycle, using it again as "the safe fallback" would just carry the same wrong
+        // value forward into yet another track instead of correcting it.
+        val postTransitionVolume = (incomingReplayGainSnapshot ?: 1f).coerceIn(0.05f, 1f)
         incomingPlayer.volume = postTransitionVolume
         incomingTrackReplayGainVolume = null
 
@@ -1544,7 +1570,10 @@ class DualPlayerEngine @Inject constructor(
         playerA.addListener(masterPlayerListener)
         playerA.addAnalyticsListener(masterPlayerListener)
         if (playerA.volume <= 0.01f) {
-            playerA.volume = postTransitionVolume
+            // Fixed hard floor of 1f, not postTransitionVolume: if that value was itself
+            // wrong (e.g. from a stale ReplayGain read), re-applying it here just
+            // re-commits the same mistake instead of recovering from it.
+            playerA.volume = 1f
         }
         if (playerA.playWhenReady) requestAudioFocus()
 
