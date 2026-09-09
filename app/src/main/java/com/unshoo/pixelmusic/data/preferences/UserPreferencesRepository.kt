@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.unshoo.pixelmusic.data.diagnostics.AdvancedPerformanceDiagnostics
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -78,6 +79,15 @@ enum class AlbumArtQuality(val maxSize: Int, val label: String) {
     MEDIUM(512, "Medium (512px) - Balanced"),
     HIGH(800, "High (800px) - Best quality"),
     ORIGINAL(0, "Original - Maximum quality")
+}
+
+data class AdvancedPerformanceDiagnosticsSettings(
+    val enabled: Boolean,
+    val sessionStartedEpochMs: Long?,
+    val expiresAtEpochMs: Long?
+) {
+    fun isActive(nowEpochMs: Long = System.currentTimeMillis()): Boolean =
+        enabled && expiresAtEpochMs?.let { nowEpochMs < it } == true
 }
 
 enum class PlayerStreamClient {
@@ -146,6 +156,12 @@ constructor(
     )
 
     private object PreferencesKeys {
+        val ADVANCED_PERFORMANCE_DIAGNOSTICS_ENABLED =
+            booleanPreferencesKey("advanced_performance_diagnostics_enabled")
+        val ADVANCED_PERFORMANCE_DIAGNOSTICS_STARTED_AT =
+            longPreferencesKey("advanced_performance_diagnostics_started_at")
+        val ADVANCED_PERFORMANCE_DIAGNOSTICS_EXPIRES_AT =
+            longPreferencesKey("advanced_performance_diagnostics_expires_at")
         val APP_REBRAND_DIALOG_SHOWN = booleanPreferencesKey("app_rebrand_dialog_shown")
         val BETA_05_CLEAN_INSTALL_DISCLAIMER_DISMISSED =
             booleanPreferencesKey("beta_05_clean_install_disclaimer_dismissed")
@@ -2538,6 +2554,45 @@ constructor(
                 preferences[PreferencesKeys.LAST_SUCCESSFUL_YOUTUBE_CLIENT_KEY] = key
             } else {
                 preferences.remove(PreferencesKeys.LAST_SUCCESSFUL_YOUTUBE_CLIENT_KEY)
+            }
+        }
+    }
+
+    val advancedPerformanceDiagnosticsSettingsFlow: Flow<AdvancedPerformanceDiagnosticsSettings> =
+        dataStore.data.map { preferences ->
+            AdvancedPerformanceDiagnosticsSettings(
+                enabled = preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_ENABLED] ?: false,
+                sessionStartedEpochMs =
+                    preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_STARTED_AT],
+                expiresAtEpochMs =
+                    preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_EXPIRES_AT]
+            )
+        }.distinctUntilChanged()
+
+    suspend fun setAdvancedPerformanceDiagnosticsEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            if (enabled) {
+                val now = System.currentTimeMillis()
+                preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_ENABLED] = true
+                preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_STARTED_AT] = now
+                preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_EXPIRES_AT] =
+                    now + AdvancedPerformanceDiagnostics.DEFAULT_SESSION_DURATION_MS
+            } else {
+                preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_ENABLED] = false
+                preferences.remove(PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_STARTED_AT)
+                preferences.remove(PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_EXPIRES_AT)
+            }
+        }
+    }
+
+    suspend fun disableExpiredAdvancedPerformanceDiagnostics(nowEpochMs: Long = System.currentTimeMillis()) {
+        dataStore.edit { preferences ->
+            val enabled = preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_ENABLED] ?: false
+            val expiresAt = preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_EXPIRES_AT]
+            if (enabled && (expiresAt == null || nowEpochMs >= expiresAt)) {
+                preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_ENABLED] = false
+                preferences.remove(PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_STARTED_AT)
+                preferences.remove(PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_EXPIRES_AT)
             }
         }
     }

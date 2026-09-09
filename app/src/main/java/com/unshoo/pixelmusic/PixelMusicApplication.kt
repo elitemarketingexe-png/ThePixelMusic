@@ -70,6 +70,9 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
     @Inject
     lateinit var syncManager: dagger.Lazy<com.unshoo.pixelmusic.data.worker.SyncManager>
 
+    @Inject
+    lateinit var advancedPerformanceDiagnosticsController: dagger.Lazy<com.unshoo.pixelmusic.data.diagnostics.AdvancedPerformanceDiagnosticsController>
+
     // BUGFIX (slow first playback): ExoCache.cache is a `by lazy` SimpleCache. SimpleCache's
     // constructor synchronously scans/reconciles its on-disk index - cheap when the cache is
     // small, but it grows slower as more audio gets cached over time. Because ExoCache is a
@@ -161,6 +164,18 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
 
     override fun onCreate() {
         super.onCreate()
+
+        if (BuildConfig.BUILD_TYPE != "benchmark") {
+            CrashHandler.install(this)
+        }
+
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        } else {
+            Timber.plant(ReleaseTree())
+        }
+
+        advancedPerformanceDiagnosticsController.get().start(startupScope)
 
         // BUGFIX (startup jank): MediaItemBuilder/BotGuardTokenGenerator
         // initialisers are trivial (one String assignment, one Context
@@ -270,16 +285,6 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
             }.collect { locale ->
                 unshoo.ianshulyadav.pixelmusic.innertube.YouTube.locale = locale
             }
-        }
-
-        if (BuildConfig.BUILD_TYPE != "benchmark") {
-            CrashHandler.install(this)
-        }
-
-        if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
-        } else {
-            Timber.plant(ReleaseTree())
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
