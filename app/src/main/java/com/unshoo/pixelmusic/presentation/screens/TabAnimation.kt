@@ -2,8 +2,7 @@ package com.unshoo.pixelmusic.presentation.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
@@ -11,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +26,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @Composable
 fun TabAnimation(
@@ -47,17 +48,17 @@ fun TabAnimation(
     val offsetX = remember { Animatable(0f) }
     var hasAnimatedSelectionChange by remember { mutableStateOf(false) }
 
-    val springSpec = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+    val animationSpec = tween<Float>(durationMillis = 250, easing = FastOutSlowInEasing)
 
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) selectedColor else unselectedColor,
         animationSpec = tween(durationMillis = 200),
-        label = "TabBackground"
+        label = "Tab Background Color"
     )
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) onSelectedColor else onUnselectedColor,
         animationSpec = tween(durationMillis = 200),
-        label = "TabContent"
+        label = "Tab Content Color"
     )
 
     LaunchedEffect(selectedIndex) {
@@ -70,13 +71,28 @@ fun TabAnimation(
 
         if (isSelected) {
             launch {
-                scale.animateTo(1.05f, animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium))
-                scale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                scale.animateTo(1.05f, animationSpec = animationSpec)
+                scale.animateTo(1f, animationSpec = animationSpec)
             }
         } else {
-            scale.animateTo(1f, animationSpec = tween(150))
+            scale.snapTo(1f)
         }
-        offsetX.snapTo(0f)
+
+        if (!isSelected) {
+            val distance = index - selectedIndex
+            if (abs(distance) == 1) {
+                val direction = if (distance > 0) 1 else -1
+                val offsetValue = 12f * direction
+                launch {
+                    offsetX.animateTo(offsetValue, animationSpec = animationSpec)
+                    offsetX.animateTo(0f, animationSpec = animationSpec)
+                }
+            } else {
+                offsetX.snapTo(0f)
+            }
+        } else {
+            offsetX.snapTo(0f)
+        }
     }
 
     Tab(
@@ -84,7 +100,6 @@ fun TabAnimation(
             .padding(all = 5.dp)
             .graphicsLayer {
                 scaleX = scale.value
-                scaleY = scale.value
                 translationX = offsetX.value
                 this.transformOrigin = transformOrigin
             }
@@ -103,3 +118,4 @@ fun TabAnimation(
         unselectedContentColor = contentColor
     )
 }
+

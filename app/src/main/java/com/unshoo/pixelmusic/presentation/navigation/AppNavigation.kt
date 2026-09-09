@@ -92,28 +92,28 @@ fun AppNavigation(
             composable(
                 Screen.Home.route,
                 enterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = enterTransition()
                     )
                 },
                 exitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = exitTransition()
                     )
                 },
                 popEnterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popEnterTransition()
                     )
                 },
                 popExitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popExitTransition()
@@ -132,28 +132,28 @@ fun AppNavigation(
             composable(
                 Screen.Explore.route,
                 enterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = enterTransition()
                     )
                 },
                 exitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = exitTransition()
                     )
                 },
                 popEnterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popEnterTransition()
                     )
                 },
                 popExitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popExitTransition()
@@ -171,28 +171,28 @@ fun AppNavigation(
             composable(
                 Screen.Search.route,
                 enterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = enterTransition()
                     )
                 },
                 exitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = exitTransition()
                     )
                 },
                 popEnterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popEnterTransition()
                     )
                 },
                 popExitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popExitTransition()
@@ -211,28 +211,28 @@ fun AppNavigation(
             composable(
                 Screen.Library.route,
                 enterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = enterTransition()
                     )
                 },
                 exitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = exitTransition()
                     )
                 },
                 popEnterTransition = {
-                    mainTabEnterTransition(
+                    mainRootEnterTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popEnterTransition()
                     )
                 },
                 popExitTransition = {
-                    mainTabExitTransition(
+                    mainRootExitTransition(
                         fromRoute = initialState.destination.route,
                         toRoute = targetState.destination.route,
                         fallback = popExitTransition()
@@ -653,4 +653,70 @@ private fun launchTabToRoute(tab: String): String = when (tab) {
     LaunchTab.LIBRARY -> Screen.Library.route
     else -> Screen.Home.route
 }
+
+private enum class MainRootDirection {
+    FORWARD,
+    BACKWARD
+}
+
+private const val BOTTOM_NAV_TRANSITION_DURATION = 380
+
+private val BottomNavEasing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+private val MAIN_ROOT_TRANSITION_SPEC =
+    androidx.compose.animation.core.tween<IntOffset>(durationMillis = BOTTOM_NAV_TRANSITION_DURATION, easing = BottomNavEasing)
+
+private val MAIN_ROOT_FADE_SPEC =
+    androidx.compose.animation.core.tween<Float>(durationMillis = BOTTOM_NAV_TRANSITION_DURATION / 2, easing = BottomNavEasing)
+
+private fun mainRootDirection(
+    fromRoute: String?,
+    toRoute: String?
+): MainRootDirection? {
+    val fromIndex = mainRootRouteIndex(fromRoute) ?: return null
+    val toIndex = mainRootRouteIndex(toRoute) ?: return null
+    if (fromIndex == toIndex) return null
+    return if (toIndex > fromIndex) MainRootDirection.FORWARD else MainRootDirection.BACKWARD
+}
+
+private fun mainRootEnterTransition(
+    fromRoute: String?,
+    toRoute: String?,
+    fallback: EnterTransition
+): EnterTransition = when (mainRootDirection(fromRoute, toRoute)) {
+    MainRootDirection.FORWARD -> {
+        slideInHorizontally(
+            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+            initialOffsetX = { (it * 0.5f).toInt() }
+        ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+    }
+    MainRootDirection.BACKWARD -> {
+        slideInHorizontally(
+            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+            initialOffsetX = { -(it * 0.5f).toInt() }
+        ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+    }
+    null -> fallback
+}
+
+private fun mainRootExitTransition(
+    fromRoute: String?,
+    toRoute: String?,
+    fallback: ExitTransition
+): ExitTransition = when (mainRootDirection(fromRoute, toRoute)) {
+    MainRootDirection.FORWARD -> {
+        slideOutHorizontally(
+            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+            targetOffsetX = { -(it * 0.5f).toInt() }
+        ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+    }
+    MainRootDirection.BACKWARD -> {
+        slideOutHorizontally(
+            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+            targetOffsetX = { (it * 0.5f).toInt() }
+        ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+    }
+    null -> fallback
+}
+
 
