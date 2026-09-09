@@ -1,6 +1,8 @@
 package com.unshoo.pixelmusic.data.worker
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkInfo
@@ -104,11 +106,18 @@ class SyncManager @Inject constructor(
     }
 
     private fun observeAppForeground() {
-        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                sync()
-            }
-        })
+        val addObserverRunnable = Runnable {
+            ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    sync()
+                }
+            })
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            addObserverRunnable.run()
+        } else {
+            Handler(Looper.getMainLooper()).post(addObserverRunnable)
+        }
     }
 
     /**

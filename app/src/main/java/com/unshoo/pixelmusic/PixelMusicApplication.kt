@@ -186,9 +186,7 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         // 50-150ms on cold start. We move it to startupScope.
         MediaItemBuilder.initialize(this)
         BotGuardTokenGenerator.initialize(this)
-        startupScope.launch {
-            syncManager.get().start()
-        }
+        syncManager.get().start()
 
         // THERMAL OPTIMIZATION PIPELINE:
         // Consolidate background warm-up work into a staggered sequential pipeline
