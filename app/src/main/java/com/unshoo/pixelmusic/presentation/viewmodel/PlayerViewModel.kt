@@ -2578,6 +2578,7 @@ class PlayerViewModel @Inject constructor(
 
                 setupMediaControllerListeners()
                 syncCurrentPlayerState(controller)
+                updateCurrentPlaybackQueueFromPlayer(controller)
                 flushPendingRepeatMode()
                 syncShuffleStateWithSession(playbackStateHolder.stablePlayerState.value.isShuffleEnabled)
                 pendingPlaybackAction?.invoke()
