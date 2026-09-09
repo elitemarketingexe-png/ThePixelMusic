@@ -57,15 +57,18 @@ class ResilientRadioQueue(
             }
         }
 
-        if (online == null || online?.hasNextPage() == false) {
+        if (online == null || online?.hasNextPage() == false || onlineExhausted) {
             val seedId = lastKnownVideoId
             if (isOnline() && seedId != null && !hasAttemptedReseedAfterFailure) {
                 hasAttemptedReseedAfterFailure = true
-                online = YouTubeRadioQueue.radio(seedId)
+                val newOnline = YouTubeRadioQueue.radio(seedId)
+                online = newOnline
                 try {
-                    val items = online!!.nextPage()
+                    val items = newOnline.nextPage()
                     if (items.isNotEmpty()) {
-                        online?.currentVideoId?.let { lastKnownVideoId = it }
+                        newOnline.currentVideoId?.let { lastKnownVideoId = it }
+                        onlineExhausted = false
+                        hasAttemptedReseedAfterFailure = false
                         return items
                     }
                 } catch (e: CancellationException) {
@@ -76,6 +79,13 @@ class ResilientRadioQueue(
             onlineExhausted = true
         }
         return fetchLocalFallback()
+    }
+
+    fun reseedOnline(videoId: String) {
+        lastKnownVideoId = videoId
+        online = YouTubeRadioQueue.radio(videoId)
+        onlineExhausted = false
+        hasAttemptedReseedAfterFailure = false
     }
 
     fun updateLocalSeed(entity: SongEntity?) {

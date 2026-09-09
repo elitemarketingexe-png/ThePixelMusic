@@ -30,7 +30,9 @@ import com.unshoo.pixelmusic.data.database.MusicDao
 
 object AutoQueueManager {
     private const val TAG = "AutoQueueMgr"
-    private const val REFILL_THRESHOLD = 8
+    private const val REFILL_THRESHOLD = 20
+    private const val TARGET_UPCOMING_COUNT = 40
+    private const val MAX_REFILL_BATCH_ATTEMPTS = 5
     private const val STARTUP_SAFETY_CHECK_DELAY_MS = 2_500L
     private const val SETTINGS_READ_TIMEOUT_MS = 3_000L
 
@@ -340,43 +342,93 @@ object AutoQueueManager {
         if (livePlayer() == null) return
         if (!isAutoQueueEnabled()) return
 
-        val remaining = withContext(Dispatchers.Main) {
+        var remaining = withContext(Dispatchers.Main) {
             val p = livePlayer() ?: return@withContext -1
             computeRemainingUpcoming(p)
         }
-        if (remaining < 0) return
-        if (remaining > REFILL_THRESHOLD) return
+        if (remaining < 0 || remaining > REFILL_THRESHOLD) return
 
         if (currentQueue === EmptyQueue) {
             val currentId = withContext(Dispatchers.Main) { livePlayer()?.currentMediaItem?.mediaId }
             if (currentId != null) seedFromMediaId(currentId)
         }
 
-        val activeQueue = currentQueue
-        if (activeQueue === EmptyQueue || !activeQueue.hasNextPage()) return
+        var batchAttempts = 0
+        var totalAdded = 0
+        var consecutiveEmptyFetches = 0
 
-        val existingIds = withContext(Dispatchers.Main) {
-            val p = livePlayer() ?: return@withContext emptySet<String>()
-            (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.toSet()
+        while (remaining < TARGET_UPCOMING_COUNT && batchAttempts < MAX_REFILL_BATCH_ATTEMPTS) {
+            batchAttempts++
+            val activeQueue = currentQueue
+            if (activeQueue === EmptyQueue) {
+                val seedMediaId = withContext(Dispatchers.Main) {
+                    val p = livePlayer() ?: return@withContext null
+                    p.currentMediaItem?.mediaId
+                        ?: if (p.mediaItemCount > 0) p.getMediaItemAt(p.mediaItemCount - 1).mediaId else null
+                }
+                if (seedMediaId != null) {
+                    seedFromMediaId(seedMediaId)
+                } else {
+                    break
+                }
+            }
+
+            val existingIds = withContext(Dispatchers.Main) {
+                val p = livePlayer() ?: return@withContext emptySet<String>()
+                (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.toSet()
+            }
+
+            val fetched = try {
+                currentQueue.nextPage()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "nextPage() failed on batch %d", batchAttempts)
+                emptyList()
+            }
+
+            val newItems = fetched.filterNot { it.mediaId in existingIds }
+
+            if (newItems.isNotEmpty()) {
+                consecutiveEmptyFetches = 0
+                withContext(Dispatchers.Main) {
+                    livePlayer()?.addMediaItems(newItems)
+                    onQueueItemsAddedCallback?.invoke()
+                }
+                totalAdded += newItems.size
+                remaining = withContext(Dispatchers.Main) {
+                    val p = livePlayer() ?: return@withContext -1
+                    computeRemainingUpcoming(p)
+                }
+                Timber.tag(TAG).d("Batch %d: added %d items -> remaining is now %d", batchAttempts, newItems.size, remaining)
+            } else {
+                consecutiveEmptyFetches++
+                Timber.tag(TAG).w("Batch %d yielded no new items (fetched=%d, existing=%d). Consecutive empty=%d",
+                    batchAttempts, fetched.size, existingIds.size, consecutiveEmptyFetches)
+
+                if (consecutiveEmptyFetches >= 2) {
+                    // Try reseeding from current playing track or the last track in the player queue
+                    val reseedId = withContext(Dispatchers.Main) {
+                        val p = livePlayer() ?: return@withContext null
+                        p.currentMediaItem?.mediaId
+                            ?: if (p.mediaItemCount > 0) p.getMediaItemAt(p.mediaItemCount - 1).mediaId else null
+                    }
+                    if (reseedId != null) {
+                        Timber.tag(TAG).d("Reseeding AutoQueue from song: %s", reseedId)
+                        seedFromMediaId(reseedId)
+                    } else {
+                        break
+                    }
+                }
+                if (consecutiveEmptyFetches >= 4) {
+                    break
+                }
+            }
         }
 
-        val fetched = try {
-            activeQueue.nextPage()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "nextPage() failed")
-            return
+        if (totalAdded > 0) {
+            Timber.tag(TAG).d("doRefillLocked finished: total added %d items, upcoming remaining is now %d", totalAdded, remaining)
         }
-
-        val newItems = fetched.filterNot { it.mediaId in existingIds }
-        if (newItems.isEmpty()) return
-
-        withContext(Dispatchers.Main) {
-            livePlayer()?.addMediaItems(newItems)
-            onQueueItemsAddedCallback?.invoke()
-        }
-        Timber.tag(TAG).d("Refill added %d items (remaining was %d)", newItems.size, remaining)
     }
 
     private suspend fun seedFromMediaId(mediaId: String) {
