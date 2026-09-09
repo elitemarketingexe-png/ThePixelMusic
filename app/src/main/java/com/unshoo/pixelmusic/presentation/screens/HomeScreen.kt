@@ -156,20 +156,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
 
-    // DEFERRED PRE-WARMING PIPELINE:
-    // Do not instantiate LibraryViewModel inline during initial layout inflation.
-    // Defer pre-warming by 600ms after initial render to guarantee 120 FPS launch AND zero-lag tab switching.
-    val viewModelStoreOwner = androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current
-    LaunchedEffect(viewModelStoreOwner) {
-        if (viewModelStoreOwner != null) {
-            kotlinx.coroutines.delay(600L)
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
-                runCatching {
-                    androidx.lifecycle.ViewModelProvider(viewModelStoreOwner)[LibraryViewModel::class.java]
-                }
-            }
-        }
-    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, quickPicksViewModel) {
         val observer = LifecycleEventObserver { _, event ->

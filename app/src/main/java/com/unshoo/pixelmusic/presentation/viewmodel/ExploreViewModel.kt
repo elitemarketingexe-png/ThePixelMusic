@@ -131,8 +131,13 @@ class ExploreViewModel @Inject constructor(
                 }
         }
         viewModelScope.launch {
+            YouTube.personalizedExploreEnabled = runCatching {
+                userPreferencesRepository.youtubePersonalizedExploreFlow.first()
+            }.getOrDefault(false)
+
             userPreferencesRepository.youtubePersonalizedExploreFlow
                 .distinctUntilChanged()
+                .drop(1)
                 .collect { enabled ->
                     YouTube.personalizedExploreEnabled = enabled
                     if (cacheFile.exists()) {

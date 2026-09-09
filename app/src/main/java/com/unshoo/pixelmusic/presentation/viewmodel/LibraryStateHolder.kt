@@ -188,7 +188,6 @@ class LibraryStateHolder @Inject constructor(
 
             _currentStorageFilter.value = userPreferencesRepository.lastStorageFilterFlow.first()
         }
-        startObservingLibraryData()
     }
 
     fun onCleared() {

@@ -66,9 +66,9 @@ class QuickPicksViewModel @Inject constructor(
     private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     init {
-        // Immediately populate from cache so the UI shows something on relaunch.
-        loadFromCache()
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            loadFromCache()
+            AppReadinessSignal.awaitReady()
             loadQuickPicks(_selectedCategory.value, forceRefresh = isCacheExpired())
             userPreferencesRepository.discoverFlow.collect { _ ->
                 if (_selectedCategory.value == "All") {

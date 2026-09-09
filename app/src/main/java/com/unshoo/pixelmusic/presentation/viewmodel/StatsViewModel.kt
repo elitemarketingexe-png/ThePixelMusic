@@ -7,6 +7,7 @@ import com.unshoo.pixelmusic.data.repository.MusicRepository
 import com.unshoo.pixelmusic.data.stats.PlaybackStatsRepository
 import com.unshoo.pixelmusic.data.stats.PlaybackStatsRepository.PlaybackStatsSummary
 import com.unshoo.pixelmusic.data.stats.StatsTimeRange
+import com.unshoo.pixelmusic.utils.AppReadinessSignal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -48,12 +49,10 @@ class StatsViewModel @Inject constructor(
 
     init {
         observeStatsRefreshFlow()
-        refreshRange(
-            range = StatsTimeRange.WEEK,
-            showLoading = true,
-            updateWeeklyOverview = true
-        )
-        refreshHomeOverview()
+        viewModelScope.launch {
+            AppReadinessSignal.awaitReady()
+            refreshHomeOverview()
+        }
     }
 
     fun onRangeSelected(range: StatsTimeRange) {

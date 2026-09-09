@@ -15,6 +15,7 @@ import org.json.JSONArray
 import timber.log.Timber
 import unshoo.ianshulyadav.pixelmusic.innertube.YouTube as InnerTubeYouTube
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YTItem
+import com.unshoo.pixelmusic.utils.AppReadinessSignal
 import javax.inject.Inject
 
 @HiltViewModel
@@ -29,7 +30,10 @@ class FavoriteArtistReleasesViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        loadReleases()
+        viewModelScope.launch {
+            AppReadinessSignal.awaitReady()
+            loadReleases()
+        }
     }
 
     fun loadReleases() {

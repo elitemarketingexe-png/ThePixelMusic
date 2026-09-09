@@ -2355,19 +2355,16 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
-            if (!isSyncingStateFlow.value && !_isInitialDataLoaded.value && libraryStateHolder.allSongs.value.isEmpty()) {
-                Log.i("PlayerViewModel", "Initial check: Sync not active and initial data not loaded. Calling resetAndLoadInitialData.")
-                resetAndLoadInitialData("Initial Check")
-            }
-        }
 
         connectMediaController()
         startMediaControllerHealthMonitor()
 
 
-        // Start Cast discovery
-        castStateHolder.startDiscovery()
+        // Start Cast discovery (deferred until after first frame)
+        viewModelScope.launch {
+            AppReadinessSignal.awaitReady()
+            castStateHolder.startDiscovery()
+        }
 
         // Observe selection for HTTP server management
         viewModelScope.launch {
@@ -2582,7 +2579,6 @@ class PlayerViewModel @Inject constructor(
     fun onMainActivityStart() {
         Trace.beginSection("PlayerViewModel.onMainActivityStart")
         try {
-            preloadThemesAndInitialData()
             checkAndUpdateDailyMixIfNeeded()
             checkAndReconnectMediaController()
             preWarmCurrentSongStream()
@@ -2602,6 +2598,7 @@ class PlayerViewModel @Inject constructor(
         val scheme = uri.scheme
         if (scheme == "youtube" || scheme == "telegram" || scheme == "gdrive") {
             viewModelScope.launch(Dispatchers.IO) {
+                AppReadinessSignal.awaitReady()
                 runCatching {
                     dualPlayerEngine.ensureFreshStreamForResume()
                 }.onFailure { e ->
@@ -2859,27 +2856,17 @@ class PlayerViewModel @Inject constructor(
 
 
     private fun checkAndUpdateDailyMixIfNeeded() {
-        // Delegate to DailyMixStateHolder
-        dailyMixStateHolder.checkAndUpdateIfNeeded(
-            favoriteSongIdsFlow = favoriteSongIds
-        )
+        // Delegate to DailyMixStateHolder after UI is interactive
+        viewModelScope.launch {
+            AppReadinessSignal.awaitReady()
+            dailyMixStateHolder.checkAndUpdateIfNeeded(
+                favoriteSongIdsFlow = favoriteSongIds
+            )
+        }
     }
 
     private fun preloadThemesAndInitialData() {
-        Trace.beginSection("PlayerViewModel.preloadThemesAndInitialData")
-        try {
-            viewModelScope.launch {
-                _isInitialThemePreloadComplete.value = false
-                if (isSyncingStateFlow.value && !_isInitialDataLoaded.value) {
-                    // Sync is active - defer to sync completion handler
-                } else if (!_isInitialDataLoaded.value && libraryStateHolder.allSongs.value.isEmpty()) {
-                    resetAndLoadInitialData("preloadThemesAndInitialData")
-                }
-                _isInitialThemePreloadComplete.value = true
-            }
-        } finally {
-            Trace.endSection()
-        }
+        _isInitialThemePreloadComplete.value = true
     }
 
     private fun loadInitialLibraryDataParallel() {
@@ -2893,8 +2880,10 @@ class PlayerViewModel @Inject constructor(
         Trace.beginSection("PlayerViewModel.resetAndLoadInitialData")
         try {
             Log.d("PlayerViewModel", "resetAndLoadInitialData called by $caller")
-            loadInitialLibraryDataParallel()
-            updateDailyMix()
+            if (libraryStateHolder.allSongs.value.isNotEmpty()) {
+                loadInitialLibraryDataParallel()
+            }
+            dailyMixStateHolder.checkAndUpdateIfNeeded(favoriteSongIds)
         } finally {
             Trace.endSection()
         }
