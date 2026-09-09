@@ -5339,6 +5339,7 @@ class PlayerViewModel @Inject constructor(
                     syncPlaybackPositionFromPlayer(playerCtrl.currentMediaItem?.mediaId, readyPosition)
                     playbackStateHolder.updateStablePlayerState { it.copy(totalDuration = resolvedDuration) }
                     startProgressUpdates()
+                    updateCurrentPlaybackQueueFromPlayer(playerCtrl)
                 }
                 if (playbackState == Player.STATE_IDLE && playerCtrl.mediaItemCount == 0) {
                     val hasPreloadedQueue = _playerUiState.value.currentPlaybackQueue.isNotEmpty()
@@ -5380,17 +5381,8 @@ class PlayerViewModel @Inject constructor(
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                 if (isRemoteSessionControllingPlayback()) return
                 syncDisplayedMediaItemIfChanged(playerCtrl)
-                // Skip updates during crossfade transitions to prevent UI freeze and jumpy state.
-                if (dualPlayerEngine.isTransitionRunning()) return
-
                 transitionSchedulerJob?.cancel()
-                
-                // Refresh full queue on structural changes, source updates, or if UI queue is currently empty
-                if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED ||
-                    reason == Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE ||
-                    (_playerUiState.value.currentPlaybackQueue.isEmpty() && timeline.windowCount > 0)) {
-                    updateCurrentPlaybackQueueFromPlayer(playerCtrl)
-                }
+                updateCurrentPlaybackQueueFromPlayer(playerCtrl)
             }
         }
         playerCtrl.addListener(checkNotNull(mediaControllerPlaybackListener))
