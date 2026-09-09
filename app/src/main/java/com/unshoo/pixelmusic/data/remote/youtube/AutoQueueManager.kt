@@ -1,12 +1,12 @@
 package com.unshoo.pixelmusic.data.remote.youtube
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
-import com.unshoo.pixelmusic.data.remote.youtube.PixelMusicHelper.printe
-import com.unshoo.pixelmusic.data.remote.youtube.PixelMusicHelper.printd
 import com.unshoo.pixelmusic.data.remote.youtube.queue.EmptyQueue
 import com.unshoo.pixelmusic.data.remote.youtube.queue.Queue
 import com.unshoo.pixelmusic.data.remote.youtube.queue.ResilientRadioQueue
@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import timber.log.Timber
 import kotlin.math.absoluteValue
 
 import unshoo.ianshulyadav.pixelmusic.innertube.models.WatchEndpoint
@@ -52,24 +53,32 @@ object AutoQueueManager {
         return if (s != null && s.isActive) s else internalScope
     }
 
+    private fun runOnMain(action: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            action()
+        } else {
+            Handler(Looper.getMainLooper()).post(action)
+        }
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (mediaItem == null) return
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) return
-            printd("$TAG: onMediaItemTransition reason=$reason mediaId=${mediaItem.mediaId}")
+            Timber.tag(TAG).d("onMediaItemTransition reason=%d mediaId=%s", reason, mediaItem.mediaId)
             checkAndRefill()
         }
 
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
             if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
-                printd("$TAG: onTimelineChanged(PLAYLIST_CHANGED), windowCount=${timeline.windowCount}")
+                Timber.tag(TAG).d("onTimelineChanged(PLAYLIST_CHANGED), windowCount=%d", timeline.windowCount)
                 checkAndRefill()
             }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState == Player.STATE_ENDED) {
-                printd("$TAG: STATE_ENDED — forcing immediate refill")
+                Timber.tag(TAG).d("STATE_ENDED — forcing immediate refill")
                 checkAndRefill(forceImmediate = true)
             }
         }
@@ -88,48 +97,56 @@ object AutoQueueManager {
         engagementDao: com.unshoo.pixelmusic.data.database.EngagementDao,
         onQueueItemsAdded: (() -> Unit)? = null
     ) {
-        scope = coroutineScope
-        contextRef = context.applicationContext
-        datastoreRepository = datastoreRepo
-        playerRef = player
-        musicDaoRef = musicDao
-        engagementDaoRef = engagementDao
-        onQueueItemsAddedCallback = onQueueItemsAdded
-        player.addListener(playerListener)
-        printd("$TAG: Attached to player")
+        runOnMain {
+            scope = coroutineScope
+            contextRef = context.applicationContext
+            datastoreRepository = datastoreRepo
+            playerRef = player
+            musicDaoRef = musicDao
+            engagementDaoRef = engagementDao
+            onQueueItemsAddedCallback = onQueueItemsAdded
+            player.addListener(playerListener)
+            Timber.tag(TAG).d("Attached to player")
 
-        checkAndRefill()
-
-        getActiveScope().launch(Dispatchers.IO) {
-            delay(STARTUP_SAFETY_CHECK_DELAY_MS)
             checkAndRefill()
+
+            getActiveScope().launch(Dispatchers.IO) {
+                delay(STARTUP_SAFETY_CHECK_DELAY_MS)
+                checkAndRefill()
+            }
         }
     }
 
     fun updatePlayer(newPlayer: Player) {
-        val oldPlayer = playerRef
-        if (oldPlayer !== newPlayer) {
-            oldPlayer?.removeListener(playerListener)
-            playerRef = newPlayer
-            newPlayer.addListener(playerListener)
-            printd("$TAG: Player updated")
-            checkAndRefill()
+        runOnMain {
+            val oldPlayer = playerRef
+            if (oldPlayer !== newPlayer) {
+                oldPlayer?.removeListener(playerListener)
+                playerRef = newPlayer
+                newPlayer.addListener(playerListener)
+                Timber.tag(TAG).d("Player updated")
+                checkAndRefill()
+            }
         }
     }
 
     fun detach(player: Player?) {
-        player?.removeListener(playerListener)
-        playerRef = null
-        scope = null
-        contextRef = null
-        datastoreRepository = null
-        musicDaoRef = null
-        engagementDaoRef = null
-        printd("$TAG: Detached")
+        runOnMain {
+            playerRef?.removeListener(playerListener)
+            player?.removeListener(playerListener)
+            playerRef = null
+            scope = null
+            contextRef = null
+            datastoreRepository = null
+            musicDaoRef = null
+            engagementDaoRef = null
+            onQueueItemsAddedCallback = null
+            Timber.tag(TAG).d("Detached")
+        }
     }
 
     fun reset() {
-        printd("$TAG: reset() called")
+        Timber.tag(TAG).d("reset() called")
         currentQueue = EmptyQueue
     }
 
@@ -141,18 +158,18 @@ object AutoQueueManager {
             val currentIndex = player.currentMediaItemIndex
             if (totalCount <= currentIndex + 1) return@launch
             player.removeMediaItems(currentIndex + 1, totalCount)
-            printd("$TAG: disableAndTrimQueue removed ${totalCount - currentIndex - 1} upcoming tracks")
+            Timber.tag(TAG).d("disableAndTrimQueue removed %d upcoming tracks", totalCount - currentIndex - 1)
         }
     }
 
     fun resetAndReseedFromCurrentSong() {
-        printd("$TAG: resetAndReseedFromCurrentSong()")
+        Timber.tag(TAG).d("resetAndReseedFromCurrentSong()")
         reset()
         val player = playerRef ?: return
         getActiveScope().launch(Dispatchers.IO) {
             try {
                 if (!isAutoQueueEnabled()) {
-                    printd("$TAG: AutoQueue disabled, skipping reseed")
+                    Timber.tag(TAG).d("AutoQueue disabled, skipping reseed")
                     return@launch
                 }
                 val currentId = withContext(Dispatchers.Main) { player.currentMediaItem?.mediaId } ?: return@launch
@@ -161,7 +178,7 @@ object AutoQueueManager {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                printe("$TAG: resetAndReseedFromCurrentSong failed: ${e.message}")
+                Timber.tag(TAG).e(e, "resetAndReseedFromCurrentSong failed")
             }
         }
     }
@@ -174,7 +191,7 @@ object AutoQueueManager {
             musicDao = dao,
             isOnline = ::hasInternet,
         )
-        printd("$TAG: seed() videoId=$videoId hasContinuation=${continuation != null}")
+        Timber.tag(TAG).d("seed() videoId=%s hasContinuation=%b", videoId, continuation != null)
         getActiveScope().launch(Dispatchers.IO) { ensureLocalSeed(videoId) }
     }
 
@@ -227,7 +244,7 @@ object AutoQueueManager {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                printe("$TAG: checkAndRefill error: ${e.message}")
+                Timber.tag(TAG).e(e, "checkAndRefill error")
             }
         }
     }
@@ -276,7 +293,7 @@ object AutoQueueManager {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            printe("$TAG: nextPage() failed: ${e.message}")
+            Timber.tag(TAG).e(e, "nextPage() failed")
             return
         }
 
@@ -285,9 +302,9 @@ object AutoQueueManager {
 
         withContext(Dispatchers.Main) {
             playerRef?.addMediaItems(newItems)
+            onQueueItemsAddedCallback?.invoke()
         }
-        onQueueItemsAddedCallback?.invoke()
-        printd("$TAG: Refill added ${newItems.size} items (remaining was $remaining)")
+        Timber.tag(TAG).d("Refill added %d items (remaining was %d)", newItems.size, remaining)
     }
 
     private suspend fun seedFromMediaId(mediaId: String) {

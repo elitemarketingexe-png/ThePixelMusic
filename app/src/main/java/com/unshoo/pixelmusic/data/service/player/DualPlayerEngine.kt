@@ -397,7 +397,13 @@ class DualPlayerEngine @Inject constructor(
      * [getNextTransitionTarget] returns the correct next track immediately.
      */
     fun forceRefreshQueueSnapshot() {
-        refreshQueueSnapshotFromMaster(windowStartIndex = 0, usesWindowedQueue = false)
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            refreshQueueSnapshotFromMaster(windowStartIndex = 0, usesWindowedQueue = false)
+        } else {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                refreshQueueSnapshotFromMaster(windowStartIndex = 0, usesWindowedQueue = false)
+            }
+        }
     }
 
     fun removeTransitionFinishedListener(listener: () -> Unit) {
