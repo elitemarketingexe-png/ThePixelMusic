@@ -274,6 +274,7 @@ class DualPlayerEngine @Inject constructor(
             } else {
                 telegramCacheManager.setActivePlayback(null)
             }
+            isSleepingForOffload = false
             applyWakeModeForCurrentItem()
 
             // --- Pre-Resolve Next/Prev Tracks with Debounce to prevent flooding ---
@@ -354,6 +355,14 @@ class DualPlayerEngine @Inject constructor(
             ) {
                 lastSeekAtMs = SystemClock.elapsedRealtime()
             }
+        }
+    }
+
+    private val masterAudioOffloadListener = object : ExoPlayer.AudioOffloadListener {
+        override fun onSleepingForOffloadChanged(sleepingForOffload: Boolean) {
+            isSleepingForOffload = sleepingForOffload
+            applyWakeModeForCurrentItem()
+            Timber.tag("DualPlayerEngine").d("Sleeping for offload changed: %b", sleepingForOffload)
         }
     }
 
@@ -439,7 +448,7 @@ class DualPlayerEngine @Inject constructor(
     private val activeResolutions = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Uri>>()
 
     /** Fire-and-forget stream resolve used by the non-blocking ResolvingDataSource path. */
-    private fun kickBackgroundResolve(uri: Uri) {
+    fun kickBackgroundResolve(uri: Uri) {
         val uriString = uri.toString()
         if (resolvedUriCache.get(uriString) != null) return
         // Always funnel through resolveCloudUri so in-flight requests are deduped.
@@ -447,6 +456,21 @@ class DualPlayerEngine @Inject constructor(
             runCatching { resolveCloudUri(uri) }
                 .onFailure { Timber.tag("DualPlayerEngine").w(it, "Background resolve failed for %s", uriString) }
         }
+    }
+
+    fun getCachedResolvedUri(uri: Uri): Uri? {
+        val uriString = uri.toString()
+        localFilePathCache[uriString]?.let { localPath ->
+            if (java.io.File(localPath).exists()) return Uri.fromFile(java.io.File(localPath))
+        }
+        val cached = resolvedUriCache.get(uriString) ?: activePlaybackResolvedUris[uriString]
+        return if (cached != null && isResolvedUriFresh(uriString, cached)) cached else null
+    }
+
+    fun getCachedResolvedMediaItem(mediaItem: MediaItem): MediaItem? {
+        val uri = mediaItem.localConfiguration?.uri ?: return mediaItem
+        val resolved = getCachedResolvedUri(uri) ?: return null
+        return mediaItem.buildUpon().setUri(resolved).build()
     }
 
     /**
@@ -484,14 +508,6 @@ class DualPlayerEngine @Inject constructor(
         // Next/prev are warmed in the background AFTER we return — waiting on them
         // was adding multi-second delay on low connectivity before audio started.
         result[safeStart] = preResolveForPlayback(result[safeStart])
-
-        // SpatialFlow-style: pre-cache the first ~256KB of the resolved stream so
-        // ExoPlayer hits disk cache on prepare and starts in <250ms.
-        result[safeStart].localConfiguration?.uri?.toString()?.let { uriStr ->
-            if (uriStr.startsWith("http")) {
-                preCacheFirstChunk(uriStr)
-            }
-        }
 
         val warm = buildList {
             if (safeStart + 1 <= result.lastIndex) add(safeStart + 1)
@@ -644,6 +660,7 @@ class DualPlayerEngine @Inject constructor(
 
         playerA.addListener(masterPlayerListener)
         playerA.addAnalyticsListener(masterPlayerListener)
+        playerA.addAudioOffloadListener(masterAudioOffloadListener)
 
         _activeAudioSessionId.value = playerA.audioSessionId
         isReleased = false
@@ -735,11 +752,16 @@ class DualPlayerEngine @Inject constructor(
         }
     }
 
+    private var isSleepingForOffload: Boolean = false
     private var currentWakeMode: Int = C.WAKE_MODE_LOCAL
 
     private fun applyWakeModeForCurrentItem() {
         if (!::playerA.isInitialized) return
-        val mode = wakeModeFor(playerA.currentMediaItem)
+        val mode = if (isSleepingForOffload) {
+            C.WAKE_MODE_NONE
+        } else {
+            wakeModeFor(playerA.currentMediaItem)
+        }
         if (currentWakeMode == mode) return
         
         try {
@@ -748,7 +770,7 @@ class DualPlayerEngine @Inject constructor(
                 playerB.setWakeMode(mode)
             }
             currentWakeMode = mode
-            Timber.tag("DualPlayerEngine").d("Wake mode updated to %d", mode)
+            Timber.tag("DualPlayerEngine").d("Wake mode updated to %d (sleepingForOffload=%b)", mode, isSleepingForOffload)
         } catch (e: Exception) {
             Timber.tag("DualPlayerEngine").w(e, "Failed to update wake mode")
         }
@@ -794,6 +816,7 @@ class DualPlayerEngine @Inject constructor(
 
         playerA.removeListener(masterPlayerListener)
         playerA.removeAnalyticsListener(masterPlayerListener)
+        playerA.removeAudioOffloadListener(masterAudioOffloadListener)
         onPlayerAboutToBeReleasedListener?.invoke(playerA)
         playerA.release()
         playerB.release()
@@ -803,6 +826,7 @@ class DualPlayerEngine @Inject constructor(
 
         playerA.addListener(masterPlayerListener)
         playerA.addAnalyticsListener(masterPlayerListener)
+        playerA.addAudioOffloadListener(masterAudioOffloadListener)
         playerA.volume = volume
         playerA.pauseAtEndOfMediaItems = pauseAtEnd
         playerA.playbackParameters = playbackParameters
@@ -1292,7 +1316,6 @@ class DualPlayerEngine @Inject constructor(
                 return@withContext Uri.fromFile(java.io.File(path))
             }
 
-            preCacheFirstChunk(path)
             Uri.parse(path)
         } catch (e: Exception) {
             Timber.tag("DualPlayerEngine").e(e, "resolveYoutubeUriAsync failed for $uriString")
@@ -1303,7 +1326,6 @@ class DualPlayerEngine @Inject constructor(
                 val low = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
                     .getLowestQualityStreamUrl(context, youtubeSong)
                 if (low.startsWith("http")) {
-                    preCacheFirstChunk(low)
                     return@withContext Uri.parse(low)
                 }
                 if (low.isNotBlank() && java.io.File(low).exists()) {
@@ -1558,6 +1580,7 @@ class DualPlayerEngine @Inject constructor(
 
         outgoingPlayer.removeListener(masterPlayerListener)
         outgoingPlayer.removeAnalyticsListener(masterPlayerListener)
+        outgoingPlayer.removeAudioOffloadListener(masterAudioOffloadListener)
 
         playerA = incomingPlayer
         playerB = outgoingPlayer
@@ -1569,6 +1592,7 @@ class DualPlayerEngine @Inject constructor(
         playerB.pauseAtEndOfMediaItems = false
         playerA.addListener(masterPlayerListener)
         playerA.addAnalyticsListener(masterPlayerListener)
+        playerA.addAudioOffloadListener(masterAudioOffloadListener)
         if (playerA.volume <= 0.01f) {
             // Fixed hard floor of 1f, not postTransitionVolume: if that value was itself
             // wrong (e.g. from a stale ReplayGain read), re-applying it here just
@@ -1713,6 +1737,7 @@ class DualPlayerEngine @Inject constructor(
         if (::playerA.isInitialized) {
             playerA.removeListener(masterPlayerListener)
             playerA.removeAnalyticsListener(masterPlayerListener)
+            playerA.removeAudioOffloadListener(masterAudioOffloadListener)
             onPlayerAboutToBeReleasedListener?.invoke(playerA)
             playerA.release()
         }

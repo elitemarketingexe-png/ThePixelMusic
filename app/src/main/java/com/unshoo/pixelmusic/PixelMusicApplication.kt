@@ -92,7 +92,7 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
     // while this still makes forward progress as early as possible in the background.
     private val warmUpDispatcher = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "PixelMusic-WarmUp").apply {
-            priority = Thread.MIN_PRIORITY
+            priority = Thread.NORM_PRIORITY - 1
         }
     }.asCoroutineDispatcher()
     private val warmUpScope = CoroutineScope(SupervisorJob() + warmUpDispatcher)
@@ -175,8 +175,7 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         // coroutine launches simultaneously on startup forces the CPU governor to
         // scale all cores to max frequency, causing thermal dissipation (device heat).
         warmUpScope.launch {
-            // Stage 1 (T+500ms): Pre-warm ExoCache lazy SimpleCache index and DNS resolution off the main thread
-            kotlinx.coroutines.delay(500L)
+            // Stage 1 (Immediate): Pre-warm ExoCache lazy SimpleCache index and DNS resolution off the main thread
             try {
                 exoCache.get().cache
             } catch (e: Exception) {
@@ -189,8 +188,7 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
                 Timber.w(e, "DNS pre-warming failed (non-fatal)")
             }
 
-            // Stage 2 (T+1500ms): Initialize NewPipe YouTube Extractor and CardColorExtractor
-            kotlinx.coroutines.delay(1000L)
+            // Stage 2 (Immediate): Initialize NewPipe YouTube Extractor and CardColorExtractor
             try {
                 com.unshoo.pixelmusic.presentation.utils.CardColorExtractor.init(this@PixelMusicApplication)
                 org.schabi.newpipe.extractor.NewPipe.init(
@@ -202,8 +200,8 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
                 Timber.w(e, "NewPipe / CardColorExtractor warm-up failed")
             }
 
-            // Stage 3 (T+3000ms): Initialize AdManager and LastFM
-            kotlinx.coroutines.delay(1500L)
+            // Stage 3 (T+1000ms): Initialize AdManager and LastFM
+            kotlinx.coroutines.delay(1000L)
             try {
                 com.unshoo.pixelmusic.data.ads.AdManager.initialize(this@PixelMusicApplication)
                 com.unshoo.pixelmusic.data.ads.AdManager.incrementAppOpenCount(this@PixelMusicApplication)
