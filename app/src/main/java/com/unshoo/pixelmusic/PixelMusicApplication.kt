@@ -339,10 +339,27 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         }
     }
 
-    // 3. Sobrescribe el método para proveer la configuración de WorkManager
+    private val workManagerExecutor by lazy {
+        java.util.concurrent.Executors.newFixedThreadPool(8) { runnable ->
+            Thread(runnable, "PixelMusic-Work").apply {
+                priority = Thread.NORM_PRIORITY - 1
+            }
+        }
+    }
+
+    private val workManagerTaskExecutor by lazy {
+        java.util.concurrent.Executors.newFixedThreadPool(4) { runnable ->
+            Thread(runnable, "PixelMusic-WorkTask").apply {
+                priority = Thread.NORM_PRIORITY - 1
+            }
+        }
+    }
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
+            .setExecutor(workManagerExecutor)
+            .setTaskExecutor(workManagerTaskExecutor)
             .build()
 
 }
