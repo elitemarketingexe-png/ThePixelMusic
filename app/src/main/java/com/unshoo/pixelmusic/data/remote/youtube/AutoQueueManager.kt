@@ -43,10 +43,34 @@ object AutoQueueManager {
     private var scope: CoroutineScope? = null
     private var contextRef: Context? = null
     private var datastoreRepository: DatastoreRepository? = null
+
+    // playerRef is kept ONLY for listener add/remove bookkeeping (you must call
+    // addListener/removeListener on the exact instance that has the listener).
+    // It is NOT used for reading state anymore — see livePlayer() below.
     private var playerRef: Player? = null
+
+    // The dual-player crossfade engine swaps which underlying ExoPlayer instance is
+    // "master" on every single transition (see DualPlayerEngine: playerA becomes
+    // playerB and vice-versa), and notifies listeners of that swap through several
+    // conditional layers (cast-session checks, a pre-crossfade "display player"
+    // publish, a post-crossfade publish). If ANY of those layers is delayed or
+    // skipped for a given transition, a cached player reference goes stale — and the
+    // old instance gets stop()+clearMediaItems()'d moments later. Reading state from
+    // a stale reference silently "succeeds" while operating on a dead player nobody
+    // is listening to, which looks exactly like "the queue randomly stops
+    // populating." playerProvider() sidesteps this entirely: every state read and
+    // every addMediaItems() call asks "what is the live player RIGHT NOW", so it is
+    // correct even if the swap-notification pipeline is late, skipped, or racy.
+    private var playerProvider: (() -> Player)? = null
+    private fun livePlayer(): Player? = playerProvider?.invoke() ?: playerRef
+
     private var musicDaoRef: MusicDao? = null
     private var engagementDaoRef: com.unshoo.pixelmusic.data.database.EngagementDao? = null
     private var onQueueItemsAddedCallback: (() -> Unit)? = null
+
+    @Volatile private var lastReseedRequestAtMs = 0L
+    @Volatile private var lastTrimRequestAtMs = 0L
+    private const val DUPLICATE_CALL_DEBOUNCE_MS = 400L
 
     private fun getActiveScope(): CoroutineScope {
         val s = scope
@@ -88,8 +112,14 @@ object AutoQueueManager {
         }
     }
 
+    /**
+     * @param playerProvider Returns whichever player is CURRENTLY the live/master
+     *   player at the moment it's called. For a simple single-player setup this can
+     *   just be `{ player }`; for a crossfade dual-player engine it should be
+     *   `{ engine.masterPlayer }` so every read reflects reality even between swaps.
+     */
     fun attach(
-        player: Player,
+        playerProvider: () -> Player,
         context: Context,
         datastoreRepo: DatastoreRepository,
         coroutineScope: CoroutineScope,
@@ -101,11 +131,13 @@ object AutoQueueManager {
             scope = coroutineScope
             contextRef = context.applicationContext
             datastoreRepository = datastoreRepo
-            playerRef = player
+            this.playerProvider = playerProvider
+            val initialPlayer = playerProvider()
+            playerRef = initialPlayer
             musicDaoRef = musicDao
             engagementDaoRef = engagementDao
             onQueueItemsAddedCallback = onQueueItemsAdded
-            player.addListener(playerListener)
+            initialPlayer.addListener(playerListener)
             Timber.tag(TAG).d("Attached to player")
 
             checkAndRefill()
@@ -117,6 +149,36 @@ object AutoQueueManager {
         }
     }
 
+    /**
+     * Legacy attach overload for single Player reference.
+     */
+    fun attach(
+        player: Player,
+        context: Context,
+        datastoreRepo: DatastoreRepository,
+        coroutineScope: CoroutineScope,
+        musicDao: MusicDao,
+        engagementDao: com.unshoo.pixelmusic.data.database.EngagementDao,
+        onQueueItemsAdded: (() -> Unit)? = null
+    ) {
+        attach(
+            playerProvider = { player },
+            context = context,
+            datastoreRepo = datastoreRepo,
+            coroutineScope = coroutineScope,
+            musicDao = musicDao,
+            engagementDao = engagementDao,
+            onQueueItemsAdded = onQueueItemsAdded
+        )
+    }
+
+    /**
+     * Re-points the listener after a player swap (crossfade transition, cast
+     * connect/disconnect, etc). Only affects listener bookkeeping — state reads
+     * already go through [livePlayer] and don't depend on this having fired yet,
+     * so a late or occasionally-skipped swap notification can no longer cause a
+     * refill to silently operate on a dead player.
+     */
     fun updatePlayer(newPlayer: Player) {
         runOnMain {
             val oldPlayer = playerRef
@@ -125,7 +187,6 @@ object AutoQueueManager {
                 playerRef = newPlayer
                 newPlayer.addListener(playerListener)
                 Timber.tag(TAG).d("Player updated")
-                checkAndRefill()
             }
         }
     }
@@ -135,6 +196,7 @@ object AutoQueueManager {
             playerRef?.removeListener(playerListener)
             player?.removeListener(playerListener)
             playerRef = null
+            playerProvider = null
             scope = null
             contextRef = null
             datastoreRepository = null
@@ -151,9 +213,15 @@ object AutoQueueManager {
     }
 
     fun disableAndTrimQueue() {
+        val now = System.currentTimeMillis()
+        if (now - lastTrimRequestAtMs < DUPLICATE_CALL_DEBOUNCE_MS) {
+            Timber.tag(TAG).d("disableAndTrimQueue() ignored — duplicate call within %d ms", DUPLICATE_CALL_DEBOUNCE_MS)
+            return
+        }
+        lastTrimRequestAtMs = now
         reset()
         getActiveScope().launch(Dispatchers.Main) {
-            val player = playerRef ?: return@launch
+            val player = livePlayer() ?: return@launch
             val totalCount = player.mediaItemCount
             val currentIndex = player.currentMediaItemIndex
             if (totalCount <= currentIndex + 1) return@launch
@@ -163,16 +231,21 @@ object AutoQueueManager {
     }
 
     fun resetAndReseedFromCurrentSong() {
+        val now = System.currentTimeMillis()
+        if (now - lastReseedRequestAtMs < DUPLICATE_CALL_DEBOUNCE_MS) {
+            Timber.tag(TAG).d("resetAndReseedFromCurrentSong() ignored — duplicate call within %d ms", DUPLICATE_CALL_DEBOUNCE_MS)
+            return
+        }
+        lastReseedRequestAtMs = now
         Timber.tag(TAG).d("resetAndReseedFromCurrentSong()")
         reset()
-        val player = playerRef ?: return
         getActiveScope().launch(Dispatchers.IO) {
             try {
                 if (!isAutoQueueEnabled()) {
                     Timber.tag(TAG).d("AutoQueue disabled, skipping reseed")
                     return@launch
                 }
-                val currentId = withContext(Dispatchers.Main) { player.currentMediaItem?.mediaId } ?: return@launch
+                val currentId = withContext(Dispatchers.Main) { livePlayer()?.currentMediaItem?.mediaId } ?: return@launch
                 seedFromMediaId(currentId)
                 checkAndRefill(forceImmediate = true)
             } catch (e: CancellationException) {
@@ -199,8 +272,7 @@ object AutoQueueManager {
         getActiveScope().launch(Dispatchers.IO) {
             if (delayMs != null && delayMs > 0L) delay(delayMs)
             if (forceRefresh) {
-                val player = playerRef
-                val currentId = withContext(Dispatchers.Main) { player?.currentMediaItem?.mediaId }
+                val currentId = withContext(Dispatchers.Main) { livePlayer()?.currentMediaItem?.mediaId }
                 if (currentId != null) seedFromMediaId(currentId)
             }
             doRefill()
@@ -233,7 +305,7 @@ object AutoQueueManager {
                 if (!isAutoQueueEnabled()) return@launch
 
                 val remaining = withContext(Dispatchers.Main) {
-                    val p = playerRef ?: return@withContext -1
+                    val p = livePlayer() ?: return@withContext -1
                     computeRemainingUpcoming(p)
                 }
                 if (remaining < 0) return@launch
@@ -265,18 +337,18 @@ object AutoQueueManager {
     }
 
     private suspend fun doRefillLocked() {
-        if (playerRef == null) return
+        if (livePlayer() == null) return
         if (!isAutoQueueEnabled()) return
 
         val remaining = withContext(Dispatchers.Main) {
-            val p = playerRef ?: return@withContext -1
+            val p = livePlayer() ?: return@withContext -1
             computeRemainingUpcoming(p)
         }
         if (remaining < 0) return
         if (remaining > REFILL_THRESHOLD) return
 
         if (currentQueue === EmptyQueue) {
-            val currentId = withContext(Dispatchers.Main) { playerRef?.currentMediaItem?.mediaId }
+            val currentId = withContext(Dispatchers.Main) { livePlayer()?.currentMediaItem?.mediaId }
             if (currentId != null) seedFromMediaId(currentId)
         }
 
@@ -284,7 +356,7 @@ object AutoQueueManager {
         if (activeQueue === EmptyQueue || !activeQueue.hasNextPage()) return
 
         val existingIds = withContext(Dispatchers.Main) {
-            val p = playerRef ?: return@withContext emptySet<String>()
+            val p = livePlayer() ?: return@withContext emptySet<String>()
             (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.toSet()
         }
 
@@ -301,7 +373,7 @@ object AutoQueueManager {
         if (newItems.isEmpty()) return
 
         withContext(Dispatchers.Main) {
-            playerRef?.addMediaItems(newItems)
+            livePlayer()?.addMediaItems(newItems)
             onQueueItemsAddedCallback?.invoke()
         }
         Timber.tag(TAG).d("Refill added %d items (remaining was %d)", newItems.size, remaining)
