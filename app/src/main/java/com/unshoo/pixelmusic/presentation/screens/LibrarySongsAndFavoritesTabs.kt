@@ -109,11 +109,12 @@ fun LibraryFavoritesTab(
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = null)
 
-    val currentSongListIndex = remember(favoriteSongs.itemCount, currentSongId) {
+    val currentSongListIndex = remember(favoriteSongs.itemSnapshotList, currentSongId) {
         if (currentSongId == null) -1
         else {
-            val items = favoriteSongs.itemSnapshotList
-            items.indexOfFirst { it?.id == currentSongId }
+            val snapshot = favoriteSongs.itemSnapshotList
+            val indexInSnapshot = snapshot.items.indexOfFirst { it.id == currentSongId }
+            if (indexInSnapshot != -1) indexInSnapshot + snapshot.placeholdersBefore else -1
         }
     }
     // New action just triggers the ViewModel request

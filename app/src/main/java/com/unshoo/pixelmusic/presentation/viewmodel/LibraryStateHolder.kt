@@ -1,5 +1,6 @@
 package com.unshoo.pixelmusic.presentation.viewmodel
 
+import android.content.ComponentCallbacks2
 import androidx.paging.filter
 import com.unshoo.pixelmusic.data.model.Album
 import com.unshoo.pixelmusic.data.model.Artist
@@ -16,17 +17,21 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -155,90 +160,287 @@ class LibraryStateHolder @Inject constructor(
         .distinctUntilChanged()
         .flowOn(Dispatchers.Default)
 
-    private var foldersJob: kotlinx.coroutines.Job? = null
     private var scope: CoroutineScope? = null
+    private var songsJob: Job? = null
+    private var albumsJob: Job? = null
+    private var artistsJob: Job? = null
+    private var foldersJob: Job? = null
+    @Volatile
+    private var needsReloadAfterTrim: Boolean = false
 
     fun initialize(scope: CoroutineScope) {
         this.scope = scope
+        scope.launch {
+            val songSortKey = userPreferencesRepository.songsSortOptionFlow.first()
+            _currentSongSortOption.value = SortOption.SONGS.find { it.storageKey == songSortKey } ?: SortOption.SongDefaultOrder
+
+            val albumSortKey = userPreferencesRepository.albumsSortOptionFlow.first()
+            _currentAlbumSortOption.value = SortOption.ALBUMS.find { it.storageKey == albumSortKey } ?: SortOption.AlbumTitleAZ
+
+            val artistSortKey = userPreferencesRepository.artistsSortOptionFlow.first()
+            _currentArtistSortOption.value = SortOption.ARTISTS.find { it.storageKey == artistSortKey } ?: SortOption.ArtistNameAZ
+
+            val folderSortKey = userPreferencesRepository.foldersSortOptionFlow.first()
+            _currentFolderSortOption.value = SortOption.FOLDERS.find { it.storageKey == folderSortKey } ?: SortOption.FolderNameAZ
+
+            val likedSortKey = userPreferencesRepository.likedSongsSortOptionFlow.first()
+            _currentFavoriteSortOption.value = SortOption.LIKED.find { it.storageKey == likedSortKey } ?: SortOption.LikedSongDateLiked
+
+            _currentStorageFilter.value = userPreferencesRepository.lastStorageFilterFlow.first()
+        }
+        startObservingLibraryData()
+    }
+
+    fun onCleared() {
+        songsJob?.cancel()
+        albumsJob?.cancel()
+        artistsJob?.cancel()
         foldersJob?.cancel()
-        foldersJob = scope.launch {
+        songsJob = null
+        albumsJob = null
+        artistsJob = null
+        foldersJob = null
+        scope = null
+    }
+
+    fun startObservingLibraryData() {
+        if (
+            songsJob?.isActive == true &&
+            albumsJob?.isActive == true &&
+            artistsJob?.isActive == true &&
+            foldersJob?.isActive == true
+        ) {
+            return
+        }
+
+        Timber.tag("LibraryStateHolder").d("startObservingLibraryData called.")
+        needsReloadAfterTrim = false
+
+        songsJob = scope?.launch {
+            _isLoadingLibrary.value = true
+            musicRepository.getAudioFiles().conflate().collect { songs ->
+                val immutableSongs = withContext(Dispatchers.Default) { songs.toImmutableList() }
+                val songsMap = withContext(Dispatchers.Default) { songs.associateBy { it.id } }
+
+                _allSongs.value = immutableSongs
+                _allSongsById.value = songsMap
+
+                sortSongs(_currentSongSortOption.value, persist = false)
+                _isLoadingLibrary.value = false
+            }
+        }
+
+        albumsJob = scope?.launch {
+            _isLoadingCategories.value = true
+            @OptIn(ExperimentalCoroutinesApi::class)
             combine(
                 effectiveStorageFilter,
-                _currentFolderSortOption
-            ) { filter, sortOption ->
-                filter to sortOption
-            }.flatMapLatest { (filter, sortOption) ->
-                musicRepository.getMusicFolders(StorageFilter.LOCAL)
-                    .map { folders ->
-                        sortFoldersList(folders, sortOption).toImmutableList()
-                    }
-            }.flowOn(Dispatchers.IO)
-            .collect { sortedFolders ->
+                userPreferencesRepository.minTracksPerAlbumFlow
+            ) { filter, minTracks ->
+                filter to minTracks
+            }.flatMapLatest { (filter, minTracks) ->
+                musicRepository.getAlbums(filter, minTracks)
+            }.conflate().collect { albums ->
+                val sortedAlbums = withContext(Dispatchers.Default) {
+                    sortAlbumsList(albums, _currentAlbumSortOption.value).toImmutableList()
+                }
+                _albums.value = sortedAlbums
+                _isLoadingCategories.value = false
+            }
+        }
+
+        artistsJob = scope?.launch {
+            _isLoadingCategories.value = true
+            @OptIn(ExperimentalCoroutinesApi::class)
+            effectiveStorageFilter.flatMapLatest { filter ->
+                musicRepository.getArtists(filter)
+            }.conflate().collect { artists ->
+                val sortedArtists = withContext(Dispatchers.Default) {
+                    sortArtistsList(artists, _currentArtistSortOption.value).toImmutableList()
+                }
+                _artists.value = sortedArtists
+                _isLoadingCategories.value = false
+            }
+        }
+
+        foldersJob = scope?.launch {
+            @OptIn(ExperimentalCoroutinesApi::class)
+            effectiveStorageFilter.flatMapLatest { filter ->
+                musicRepository.getMusicFolders(filter)
+            }.conflate().collect { folders ->
+                val sortedFolders = withContext(Dispatchers.Default) {
+                    sortFoldersList(folders, _currentFolderSortOption.value).toImmutableList()
+                }
                 _musicFolders.value = sortedFolders
             }
         }
     }
 
-    fun onCleared() {
-        foldersJob?.cancel()
-        scope = null
+    fun loadSongsFromRepository() {
+        startObservingLibraryData()
     }
 
-    // --- No-op data loaders (paging flows auto-refresh from DB; nothing to do here) ---
-    fun startObservingLibraryData() {}
-    fun loadAlbumsFromRepository() {}
-    fun loadArtistsFromRepository() {}
-    fun loadFoldersFromRepository() {}
-    fun loadAlbumsIfNeeded() {}
-    fun loadArtistsIfNeeded() {}
+    fun loadAlbumsFromRepository() {
+        startObservingLibraryData()
+    }
 
-    // --- allSongs / allSongsById hydration ---
-    // NOTE: this is NOT what backs the visible library list (that's songsPagingFlow, above,
-    // and must stay on PagingSource). This is a separate, bounded (~library-size) background
-    // cache that PlayerViewModel relies on for queue building (resolvePlaybackQueueFromSortedIds)
-    // and id->title lookups. It used to be populated eagerly pre-Paging; when the Songs tab
-    // moved to PagingData these loaders were stubbed to no-ops and nobody re-wired the cache,
-    // so every full-queue playback silently fell back to chunked DB fetches instead of an O(1)
-    // map lookup, and the id/title lookups silently missed. Restoring it here, off the paging
-    // path, on a background dispatcher, coalescing concurrent callers into one load.
-    private var songsHydrationJob: kotlinx.coroutines.Job? = null
+    fun loadArtistsFromRepository() {
+        startObservingLibraryData()
+    }
 
-    fun loadSongsFromRepository() {
-        val activeScope = scope ?: return
-        if (songsHydrationJob?.isActive == true) return
-        songsHydrationJob = activeScope.launch(Dispatchers.IO) {
-            runCatching { musicRepository.getAllSongsOnce() }
-                .onSuccess { songs ->
-                    _allSongsById.value = songs.associateBy { it.id }
-                    _allSongs.value = songs.toImmutableList()
-                }
-                .onFailure { e ->
-                    Timber.e(e, "LibraryStateHolder: failed to hydrate allSongs/allSongsById cache")
-                }
-        }
+    fun loadFoldersFromRepository() {
+        startObservingLibraryData()
     }
 
     fun loadSongsIfNeeded() {
-        if (_allSongs.value.isEmpty()) {
-            loadSongsFromRepository()
-        }
+        startObservingLibraryData()
+    }
+
+    fun loadAlbumsIfNeeded() {
+        startObservingLibraryData()
+    }
+
+    fun loadArtistsIfNeeded() {
+        startObservingLibraryData()
     }
 
     // --- Sort options ---
     fun sortSongs(sortOption: SortOption, persist: Boolean = true) {
-        _currentSongSortOption.value = sortOption
+        scope?.launch {
+            if (persist && _currentSongSortOption.value.storageKey == sortOption.storageKey) {
+                return@launch
+            }
+            if (persist) {
+                userPreferencesRepository.setSongsSortOption(sortOption.storageKey)
+            }
+            _currentSongSortOption.value = sortOption
+        }
     }
 
     fun sortAlbums(sortOption: SortOption, persist: Boolean = true) {
-        _currentAlbumSortOption.value = sortOption
+        scope?.launch {
+            if (persist && _currentAlbumSortOption.value.storageKey == sortOption.storageKey) {
+                return@launch
+            }
+            if (persist) {
+                userPreferencesRepository.setAlbumsSortOption(sortOption.storageKey)
+            }
+            _currentAlbumSortOption.value = sortOption
+
+            val sorted = withContext(Dispatchers.Default) {
+                sortAlbumsList(_albums.value, sortOption).toImmutableList()
+            }
+            _albums.value = sorted
+        }
     }
 
     fun sortArtists(sortOption: SortOption, persist: Boolean = true) {
-        _currentArtistSortOption.value = sortOption
+        scope?.launch {
+            if (persist && _currentArtistSortOption.value.storageKey == sortOption.storageKey) {
+                return@launch
+            }
+            if (persist) {
+                userPreferencesRepository.setArtistsSortOption(sortOption.storageKey)
+            }
+            _currentArtistSortOption.value = sortOption
+
+            val sorted = withContext(Dispatchers.Default) {
+                sortArtistsList(_artists.value, sortOption).toImmutableList()
+            }
+            _artists.value = sorted
+        }
     }
 
     fun sortFolders(sortOption: SortOption, persist: Boolean = true) {
-        _currentFolderSortOption.value = sortOption
+        scope?.launch {
+            if (persist && _currentFolderSortOption.value.storageKey == sortOption.storageKey) {
+                return@launch
+            }
+            if (persist) {
+                userPreferencesRepository.setFoldersSortOption(sortOption.storageKey)
+            }
+            _currentFolderSortOption.value = sortOption
+
+            val sorted = withContext(Dispatchers.Default) {
+                sortFoldersList(_musicFolders.value, sortOption).toImmutableList()
+            }
+            _musicFolders.value = sorted
+        }
+    }
+
+    private fun sortAlbumsList(albums: Iterable<Album>, sortOption: SortOption): List<Album> {
+        return when (sortOption) {
+            SortOption.AlbumTitleAZ -> albums.sortedWith(
+                compareBy<Album> { it.title.lowercase() }
+                    .thenBy { it.artist.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumTitleZA -> albums.sortedWith(
+                compareByDescending<Album> { it.title.lowercase() }
+                    .thenBy { it.artist.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumArtist -> albums.sortedWith(
+                compareBy<Album> { it.artist.lowercase() }
+                    .thenBy { it.title.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumArtistDesc -> albums.sortedWith(
+                compareByDescending<Album> { it.artist.lowercase() }
+                    .thenBy { it.title.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumReleaseYear -> albums.sortedWith(
+                compareByDescending<Album> { it.year }
+                    .thenBy { it.title.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumReleaseYearAsc -> albums.sortedWith(
+                compareBy<Album> { it.year }
+                    .thenBy { it.title.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumDateAdded -> albums.sortedWith(
+                compareByDescending<Album> { it.dateAdded }
+                    .thenBy { it.title.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumSizeAsc -> albums.sortedWith(
+                compareBy<Album> { it.songCount }
+                    .thenBy { it.title.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.AlbumSizeDesc -> albums.sortedWith(
+                compareByDescending<Album> { it.songCount }
+                    .thenBy { it.title.lowercase() }
+                    .thenBy { it.id }
+            )
+            else -> albums.toList()
+        }
+    }
+
+    private fun sortArtistsList(artists: Iterable<Artist>, sortOption: SortOption): List<Artist> {
+        return when (sortOption) {
+            SortOption.ArtistNameAZ -> artists.sortedWith(
+                compareBy<Artist> { it.name.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.ArtistNameZA -> artists.sortedWith(
+                compareByDescending<Artist> { it.name.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.ArtistNumSongsDesc -> artists.sortedWith(
+                compareByDescending<Artist> { it.songCount }
+                    .thenBy { it.name.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.ArtistNumSongsAsc -> artists.sortedWith(
+                compareBy<Artist> { it.songCount }
+                    .thenBy { it.name.lowercase() }
+                    .thenBy { it.id }
+            )
+            else -> artists.toList()
+        }
     }
 
     private fun sortFoldersList(folders: Iterable<MusicFolder>, sortOption: SortOption): List<MusicFolder> {
@@ -276,7 +478,15 @@ class LibraryStateHolder @Inject constructor(
     }
 
     fun sortFavoriteSongs(sortOption: SortOption, persist: Boolean = true) {
-        _currentFavoriteSortOption.value = sortOption
+        scope?.launch {
+            if (persist && _currentFavoriteSortOption.value.storageKey == sortOption.storageKey) {
+                return@launch
+            }
+            if (persist) {
+                userPreferencesRepository.setLikedSongsSortOption(sortOption.storageKey)
+            }
+            _currentFavoriteSortOption.value = sortOption
+        }
     }
 
     fun updateSong(updatedSong: Song) {
@@ -291,36 +501,51 @@ class LibraryStateHolder @Inject constructor(
 
     fun setStorageFilter(filter: StorageFilter) {
         _currentStorageFilter.value = filter
+        scope?.launch {
+            userPreferencesRepository.saveLastStorageFilter(filter)
+        }
     }
 
-    private var isTrimmed = false
-
+    @Suppress("DEPRECATION")
     fun trimMemory(level: Int) {
-        if (
-            level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
-            level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
-            level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-        ) {
-            if (_allSongs.value.isNotEmpty()) {
-                Timber.d("LibraryStateHolder: trimming memory, clearing in-memory collections")
-                _allSongs.value = persistentListOf()
-                _allSongsById.value = emptyMap()
-                _albums.value = persistentListOf()
-                _artists.value = persistentListOf()
-                _musicFolders.value = persistentListOf()
-                isTrimmed = true
-            }
-        }
+        val shouldReleaseLibraryState =
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+                level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+        if (!shouldReleaseLibraryState) return
+
+        val hasLoadedData =
+            _allSongs.value.isNotEmpty() ||
+                _albums.value.isNotEmpty() ||
+                _artists.value.isNotEmpty() ||
+                _musicFolders.value.isNotEmpty()
+        val hasActiveCollectors =
+            songsJob?.isActive == true ||
+                albumsJob?.isActive == true ||
+                artistsJob?.isActive == true ||
+                foldersJob?.isActive == true
+        if (!hasLoadedData && !hasActiveCollectors) return
+
+        songsJob?.cancel()
+        albumsJob?.cancel()
+        artistsJob?.cancel()
+        foldersJob?.cancel()
+        songsJob = null
+        albumsJob = null
+        artistsJob = null
+        foldersJob = null
+
+        _allSongs.value = persistentListOf()
+        _allSongsById.value = emptyMap()
+        _albums.value = persistentListOf()
+        _artists.value = persistentListOf()
+        _musicFolders.value = persistentListOf()
+        _isLoadingLibrary.value = false
+        _isLoadingCategories.value = false
+        needsReloadAfterTrim = true
     }
 
     fun restoreAfterTrimIfNeeded() {
-        if (isTrimmed) {
-            Timber.d("LibraryStateHolder: restoring after trim")
-            isTrimmed = false
-            loadSongsFromRepository()
-            loadAlbumsFromRepository()
-            loadArtistsFromRepository()
-            loadFoldersFromRepository()
-        }
+        if (!needsReloadAfterTrim || scope == null) return
+        startObservingLibraryData()
     }
 }

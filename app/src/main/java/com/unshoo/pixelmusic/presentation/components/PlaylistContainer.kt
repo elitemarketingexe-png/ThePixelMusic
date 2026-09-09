@@ -4,9 +4,10 @@ import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
 
 
 import androidx.compose.animation.animateColorAsState
-
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
@@ -39,6 +40,7 @@ import androidx.compose.material.icons.rounded.Topic
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material3.BasicAlertDialog
@@ -366,9 +368,14 @@ fun PlaylistItem(
         }
     }
 
+    val isLikedMusicHero = playlist.id == "ytm_liked_music"
+
     val selectionScale by animateFloatAsState(
         targetValue = if (isSelected) 0.98f else 1f,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatial(),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "playlistSelectionScaleAnimation"
     )
 
@@ -382,6 +389,7 @@ fun PlaylistItem(
         targetValue = when {
             isAddingToPlaylist -> MaterialTheme.colorScheme.surfaceContainerHigh
             isSelected -> MaterialTheme.colorScheme.secondaryContainer
+            isLikedMusicHero -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
             else -> MaterialTheme.colorScheme.surfaceContainerLow
         },
         animationSpec = tween(durationMillis = 300),
@@ -430,7 +438,7 @@ fun PlaylistItem(
             PlaylistCover(
                 playlist = playlist,
                 playlistSongs = playlistSongs ?: emptyList(),
-                size = 48.dp
+                size = if (isLikedMusicHero) 52.dp else 48.dp
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -440,6 +448,15 @@ fun PlaylistItem(
                     modifier = Modifier.padding(end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (isLikedMusicHero) {
+                        Icon(
+                            imageVector = Icons.Rounded.Favorite,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
                     Text(
                         text = playlist.name,
                         style = MaterialTheme.typography.titleMedium.copy(fontFamily = GoogleSansRounded),

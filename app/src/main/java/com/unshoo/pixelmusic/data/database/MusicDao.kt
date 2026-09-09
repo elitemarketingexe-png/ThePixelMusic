@@ -141,13 +141,15 @@ interface MusicDao {
     @Transaction
     suspend fun insertSongs(songs: List<SongEntity>) {
         if (songs.isEmpty()) return
-        val insertResults = insertSongsIgnoreConflicts(songs)
-        val songsToUpdate = mutableListOf<SongEntity>()
-        insertResults.forEachIndexed { index, rowId ->
-            if (rowId == -1L) songsToUpdate.add(songs[index])
-        }
-        if (songsToUpdate.isNotEmpty()) {
-            updateSongs(songsToUpdate)
+        songs.chunked(SONG_BATCH_SIZE).forEach { batch ->
+            val insertResults = insertSongsIgnoreConflicts(batch)
+            val songsToUpdate = mutableListOf<SongEntity>()
+            insertResults.forEachIndexed { index, rowId ->
+                if (rowId == -1L) songsToUpdate.add(batch[index])
+            }
+            if (songsToUpdate.isNotEmpty()) {
+                updateSongs(songsToUpdate)
+            }
         }
     }
 
@@ -195,7 +197,9 @@ interface MusicDao {
     suspend fun insertMusicData(songs: List<SongEntity>, albums: List<AlbumEntity>, artists: List<ArtistEntity>) {
         insertArtists(artists)
         insertAlbums(albums)
-        insertSongs(songs)
+        songs.chunked(SONG_BATCH_SIZE).forEach { chunk ->
+            insertSongs(chunk)
+        }
     }
 
     @Transaction
@@ -2308,7 +2312,9 @@ interface MusicDao {
     ) {
         insertArtists(artists)
         insertAlbums(albums)
-        insertSongs(songs)
+        songs.chunked(SONG_BATCH_SIZE).forEach { chunk ->
+            insertSongs(chunk)
+        }
         // Insert cross-refs in chunks to avoid SQLite variable limit.
         // Each SongArtistCrossRef has 3 fields, so batch size is calculated accordingly.
         crossRefs.chunked(CROSS_REF_BATCH_SIZE).forEach { chunk ->
@@ -2334,7 +2340,9 @@ interface MusicDao {
 
         insertArtists(artists)
         insertAlbums(albums)
-        insertSongs(songs)
+        songs.chunked(SONG_BATCH_SIZE).forEach { chunk ->
+            insertSongs(chunk)
+        }
         crossRefs.chunked(CROSS_REF_BATCH_SIZE).forEach { chunk ->
             insertSongArtistCrossRefs(chunk)
         }

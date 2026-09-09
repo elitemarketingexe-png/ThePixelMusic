@@ -77,7 +77,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.text.style.TextOverflow
+
+private val EmptyColorSchemePairFlow: StateFlow<ColorSchemePair?> = MutableStateFlow(null)
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -279,7 +282,7 @@ fun LibraryAlbumsTab(
                         items(8, key = { "skeleton_album_list_$it" }) {
                             AlbumListItem(
                                 album = Album.empty(),
-                                albumColorSchemePairFlow = MutableStateFlow<ColorSchemePair?>(null),
+                                albumColorSchemePairFlow = EmptyColorSchemePairFlow,
                                 onClick = {},
                                 isLoading = true
                             )
@@ -307,7 +310,7 @@ fun LibraryAlbumsTab(
                         items(8, key = { "skeleton_album_grid_$it" }) {
                             AlbumGridItemRedesigned(
                                 album = Album.empty(),
-                                albumColorSchemePairFlow = MutableStateFlow<ColorSchemePair?>(null),
+                                albumColorSchemePairFlow = EmptyColorSchemePairFlow,
                                 onClick = {},
                                 isLoading = true
                             )
@@ -344,7 +347,7 @@ fun LibraryAlbumsTab(
                         if (isListView) {
                             LazyColumn(
                                 modifier = Modifier
-                                    .padding(start = 14.dp, end = 24.dp, bottom = 6.dp)
+                                    .padding(start = 14.dp, end = if (listState.canScrollForward || listState.canScrollBackward) 24.dp else 14.dp, bottom = 6.dp)
                                     .clip(
                                         RoundedCornerShape(
                                             topStart = 16.dp,
@@ -359,13 +362,7 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index ->
-                                        if (index in 0 until albums.itemCount) {
-                                            albums.peek(index)?.id ?: "album_placeholder_${System.identityHashCode(albums)}_$index"
-                                        } else {
-                                            "album_placeholder_${System.identityHashCode(albums)}_$index"
-                                        }
-                                    },
+                                    key = { index -> albums.peek(index)?.id ?: "album_placeholder_$index" },
                                     contentType = { "album_list_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -395,15 +392,19 @@ fun LibraryAlbumsTab(
                                     } else {
                                         AlbumListItem(
                                             album = Album.empty(),
-                                            albumColorSchemePairFlow = MutableStateFlow<ColorSchemePair?>(null),
+                                            albumColorSchemePairFlow = EmptyColorSchemePairFlow,
                                             onClick = {},
                                             isLoading = true
                                         )
                                     }
                                 }
                             }
-                            val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
-                            val bottomPadding = if (stablePlayerState.currentSong != null && stablePlayerState.currentSong != Song.emptySong())
+                            val hasActiveSong by remember {
+                                playerViewModel.stablePlayerState
+                                    .map { it.currentSong != null && it.currentSong != Song.emptySong() }
+                                    .distinctUntilChanged()
+                            }.collectAsStateWithLifecycle(initialValue = false)
+                            val bottomPadding = if (hasActiveSong)
                                 bottomBarHeight + MiniPlayerHeight + 16.dp
                             else
                                 bottomBarHeight + 16.dp
@@ -418,7 +419,7 @@ fun LibraryAlbumsTab(
                         } else {
                             LazyVerticalGrid(
                                 modifier = Modifier
-                                    .padding(start = 14.dp, end = 24.dp, bottom = 6.dp)
+                                    .padding(start = 14.dp, end = if (gridState.canScrollForward || gridState.canScrollBackward) 24.dp else 14.dp, bottom = 6.dp)
                                     .clip(
                                         RoundedCornerShape(
                                             topStart = 16.dp,
@@ -435,13 +436,7 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index ->
-                                        if (index in 0 until albums.itemCount) {
-                                            albums.peek(index)?.id ?: "album_grid_placeholder_${System.identityHashCode(albums)}_$index"
-                                        } else {
-                                            "album_grid_placeholder_${System.identityHashCode(albums)}_$index"
-                                        }
-                                    },
+                                    key = { index -> albums.peek(index)?.id ?: "album_grid_placeholder_$index" },
                                     contentType = { "album_grid_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -471,7 +466,7 @@ fun LibraryAlbumsTab(
                                     } else {
                                         AlbumGridItemRedesigned(
                                             album = Album.empty(),
-                                            albumColorSchemePairFlow = MutableStateFlow<ColorSchemePair?>(null),
+                                            albumColorSchemePairFlow = EmptyColorSchemePairFlow,
                                             onClick = {},
                                             isLoading = true
                                         )
@@ -479,8 +474,12 @@ fun LibraryAlbumsTab(
                                 }
                             }
 
-                            val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
-                            val bottomPadding = if (stablePlayerState.currentSong != null && stablePlayerState.currentSong != Song.emptySong())
+                            val hasActiveSong by remember {
+                                playerViewModel.stablePlayerState
+                                    .map { it.currentSong != null && it.currentSong != Song.emptySong() }
+                                    .distinctUntilChanged()
+                            }.collectAsStateWithLifecycle(initialValue = false)
+                            val bottomPadding = if (hasActiveSong)
                                 bottomBarHeight + MiniPlayerHeight + 16.dp
                             else
                                 bottomBarHeight + 16.dp
@@ -658,13 +657,7 @@ fun LibraryArtistsTab(
                         ) {
                             items(
                                 count = artists.itemCount,
-                                key = { index ->
-                                    if (index in 0 until artists.itemCount) {
-                                        artists.peek(index)?.id ?: "artist_placeholder_${System.identityHashCode(artists)}_$index"
-                                    } else {
-                                        "artist_placeholder_${System.identityHashCode(artists)}_$index"
-                                    }
-                                },
+                                key = { index -> artists.peek(index)?.id ?: "artist_placeholder_$index" },
                                 contentType = { "artist" }
                             ) { index ->
                                 val artist = artists[index]
@@ -683,8 +676,12 @@ fun LibraryArtistsTab(
                             }
                         }
 
-                        val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
-                        val bottomPadding = if (stablePlayerState.currentSong != null && stablePlayerState.currentSong != Song.emptySong())
+                        val hasActiveSong by remember {
+                            playerViewModel.stablePlayerState
+                                .map { it.currentSong != null && it.currentSong != Song.emptySong() }
+                                .distinctUntilChanged()
+                        }.collectAsStateWithLifecycle(initialValue = false)
+                        val bottomPadding = if (hasActiveSong)
                             bottomBarHeight + MiniPlayerHeight + 16.dp
                         else
                             bottomBarHeight + 16.dp
