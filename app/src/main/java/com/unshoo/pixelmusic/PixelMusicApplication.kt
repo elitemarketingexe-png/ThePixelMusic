@@ -68,9 +68,6 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
     lateinit var userPreferencesRepository: dagger.Lazy<UserPreferencesRepository>
 
     @Inject
-    lateinit var syncManager: dagger.Lazy<com.unshoo.pixelmusic.data.worker.SyncManager>
-
-    @Inject
     lateinit var advancedPerformanceDiagnosticsController: dagger.Lazy<com.unshoo.pixelmusic.data.diagnostics.AdvancedPerformanceDiagnosticsController>
 
     // BUGFIX (slow first playback): ExoCache.cache is a `by lazy` SimpleCache. SimpleCache's
@@ -186,8 +183,6 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         // 50-150ms on cold start. We move it to startupScope.
         MediaItemBuilder.initialize(this)
         BotGuardTokenGenerator.initialize(this)
-        syncManager.get().start()
-
         // THERMAL OPTIMIZATION PIPELINE:
         // Consolidate background warm-up work into a staggered sequential pipeline
         // executing on warmUpScope (Thread.MIN_PRIORITY). Running 7+ parallel

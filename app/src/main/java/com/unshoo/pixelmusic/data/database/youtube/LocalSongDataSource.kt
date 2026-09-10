@@ -26,6 +26,19 @@ interface LocalSongDataSource {
     )
     suspend fun getDownloadedSongs(): List<Song>
 
+    @Query("SELECT COUNT(*) FROM songs WHERE audioFilePath IS NOT NULL AND audioFilePath != ''")
+    suspend fun getDownloadedSongCount(): Int
+
+    @Query(
+        """
+        SELECT * FROM songs
+        WHERE audioFilePath IS NOT NULL AND audioFilePath != ''
+        ORDER BY songs.title COLLATE NOCASE ASC, songs.artist COLLATE NOCASE ASC
+        LIMIT :limit OFFSET :offset
+        """
+    )
+    suspend fun getDownloadedSongsPage(limit: Int, offset: Int): List<Song>
+
     @Query(
         """
     SELECT * 

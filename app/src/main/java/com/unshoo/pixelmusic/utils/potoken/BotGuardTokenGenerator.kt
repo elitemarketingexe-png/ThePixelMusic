@@ -8,6 +8,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.MainThread
 import androidx.collection.ArrayMap
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -200,7 +202,7 @@ object BotGuardTokenGenerator {
         mutex.withLock {
             if (engine != null) {
                 Timber.tag(TAG).d("Releasing engine (app backgrounded)")
-                destroyEngine()
+                destroyEngineLocked()
             }
         }
     }
@@ -222,7 +224,7 @@ object BotGuardTokenGenerator {
     suspend fun invalidateAll() {
         mutex.withLock {
             playerTokenCache.clear()
-            destroyEngine()
+            destroyEngineLocked()
         }
     }
 
@@ -244,19 +246,26 @@ object BotGuardTokenGenerator {
                 || engine!!.isExpired
 
             if (needsNew) {
-                withContext(Dispatchers.Main) {
-                    engine?.close()
-                }
-                engine = BotGuardEngine.create(ctx)
+                destroyEngineLocked()
+                val newEngine = BotGuardEngine.create(ctx)
+                val newSessionToken = newEngine.mint(sessionId)
+                engine = newEngine
                 engineSessionId = sessionId
-                cachedSessionToken = engine!!.mint(sessionId)
+                cachedSessionToken = newSessionToken
                 engineReady = true
-            } else if (engineSessionId != sessionId) {
-                engineSessionId = sessionId
-                cachedSessionToken = engine!!.mint(sessionId)
+                Triple(newEngine, newSessionToken, true)
+            } else {
+                val currentEngine = engine!!
+                val token = if (engineSessionId != sessionId || cachedSessionToken == null) {
+                    val minted = currentEngine.mint(sessionId)
+                    engineSessionId = sessionId
+                    cachedSessionToken = minted
+                    minted
+                } else {
+                    cachedSessionToken!!
+                }
+                Triple(currentEngine, token, false)
             }
-
-            Triple(engine!!, cachedSessionToken!!, needsNew)
         }
 
         val playerTok = try {
@@ -271,28 +280,42 @@ object BotGuardTokenGenerator {
     }
 
     private suspend fun destroyEngine() {
-        withContext(Dispatchers.Main) {
-            engine?.close()
+        mutex.withLock {
+            destroyEngineLocked()
         }
+    }
+
+    private suspend fun destroyEngineLocked() {
+        val eng = engine
         engine = null
         engineSessionId = null
         cachedSessionToken = null
         engineReady = false
+        if (eng != null) {
+            withContext(Dispatchers.Main) {
+                eng.close()
+            }
+        }
     }
 
     // ── WebView wrapper ──────────────────────────────────────────────
 
     private class BotGuardEngine private constructor(
         private val webView: WebView,
-        private val readySignal: Continuation<BotGuardEngine>,
     ) {
         private val scope = MainScope()
+        private val readyDeferred = CompletableDeferred<Unit>()
         private val pendingMints = Collections.synchronizedMap(
-            ArrayMap<String, Continuation<String>>()
+            ArrayMap<String, CompletableDeferred<String>>()
         )
+        private val activeCalls = Collections.synchronizedSet(mutableSetOf<okhttp3.Call>())
         private lateinit var expiry: Instant
 
         val isExpired: Boolean get() = Instant.now().isAfter(expiry)
+
+        suspend fun awaitReady() {
+            readyDeferred.await()
+        }
 
         fun startBootstrap() {
             scope.launch(exceptionHandler) {
@@ -357,10 +380,18 @@ object BotGuardTokenGenerator {
             }
         }
 
+        private fun signalReady() {
+            readyDeferred.complete(Unit)
+        }
+
+        fun signalError(error: Throwable) {
+            readyDeferred.completeExceptionally(error)
+        }
+
         @JavascriptInterface
         fun onMinterReady() {
             Timber.tag(TAG).d("Minter ready")
-            readySignal.resume(this@BotGuardEngine)
+            signalReady()
         }
 
         @JavascriptInterface
@@ -370,9 +401,10 @@ object BotGuardTokenGenerator {
         }
 
         suspend fun mint(identifier: String): String {
-            return withContext(Dispatchers.Main) {
-                suspendCancellableCoroutine { cont ->
-                    pendingMints[identifier] = cont
+            val deferred = CompletableDeferred<String>()
+            pendingMints[identifier] = deferred
+            try {
+                withContext(Dispatchers.Main) {
                     val u8Arg = stringToJsUint8Array(identifier)
                     webView.evaluateJavascript(
                         """
@@ -387,6 +419,9 @@ object BotGuardTokenGenerator {
                         null
                     )
                 }
+                return deferred.await()
+            } finally {
+                pendingMints.remove(identifier)
             }
         }
 
@@ -394,20 +429,20 @@ object BotGuardTokenGenerator {
         fun onMintOk(identifier: String, csvBytes: String) {
             val base64 = commaSeparatedBytesToBase64(csvBytes)
             Timber.tag(TAG).d("Minted token for $identifier (${base64.length} chars)")
-            pendingMints.remove(identifier)?.resume(base64)
+            val deferred = pendingMints.remove(identifier)
+            deferred?.complete(base64)
         }
 
         @JavascriptInterface
         fun onMintErr(identifier: String, error: String) {
             Timber.tag(TAG).e("Mint failed for $identifier: $error")
-            pendingMints.remove(identifier)?.resumeWithException(classifyJsError(error))
+            val deferred = pendingMints.remove(identifier)
+            deferred?.completeExceptionally(classifyJsError(error))
         }
 
-        private val exceptionHandler = CoroutineExceptionHandler { _, t -> signalError(t) }
-
-        private fun signalError(error: Throwable) {
-            close()
-            readySignal.resumeWithException(error)
+        private val exceptionHandler = CoroutineExceptionHandler { _, t ->
+            Timber.tag(TAG).w(t, "Coroutines exception in BotGuardEngine")
+            signalError(t)
         }
 
         private fun postToBotGuard(
@@ -415,37 +450,65 @@ object BotGuardTokenGenerator {
             jsonBody: String,
             onSuccess: (String) -> Unit,
         ) {
+            val request = okhttp3.Request.Builder()
+                .url(url)
+                .post(jsonBody.toRequestBody())
+                .headers(
+                    mapOf(
+                        "User-Agent" to WV_USER_AGENT,
+                        "Accept" to "application/json",
+                        "Content-Type" to "application/json+protobuf",
+                        "x-goog-api-key" to API_KEY,
+                        "x-user-agent" to "grpc-web-javascript/0.1",
+                    ).toHeaders()
+                )
+                .build()
+
+            val call = httpClient.newCall(request)
+            activeCalls.add(call)
+
             scope.launch(exceptionHandler) {
-                val request = okhttp3.Request.Builder()
-                    .url(url)
-                    .post(jsonBody.toRequestBody())
-                    .headers(
-                        mapOf(
-                            "User-Agent" to WV_USER_AGENT,
-                            "Accept" to "application/json",
-                            "Content-Type" to "application/json+protobuf",
-                            "x-goog-api-key" to API_KEY,
-                            "x-user-agent" to "grpc-web-javascript/0.1",
-                        ).toHeaders()
-                    )
-                    .build()
-
-                val response = withContext(Dispatchers.IO) {
-                    httpClient.newCall(request).execute()
-                }
-
-                if (response.code != 200) {
-                    signalError(PoTokenException("BotGuard HTTP ${response.code} from $url"))
-                } else {
-                    val body = withContext(Dispatchers.IO) { response.body!!.string() }
-                    onSuccess(body)
+                try {
+                    val response = withContext(Dispatchers.IO) {
+                        call.execute()
+                    }
+                    response.use { resp ->
+                        if (resp.code != 200) {
+                            signalError(PoTokenException("BotGuard HTTP ${resp.code} from $url"))
+                        } else {
+                            val body = resp.body.string()
+                            onSuccess(body)
+                        }
+                    }
+                } catch (e: Throwable) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    Timber.tag(TAG).w(e, "postToBotGuard failed for $url")
+                    signalError(e)
+                } finally {
+                    activeCalls.remove(call)
                 }
             }
         }
 
         @MainThread
         fun close() {
+            readyDeferred.completeExceptionally(PoTokenException("Engine closed"))
             scope.cancel()
+
+            val calls = synchronized(activeCalls) {
+                val copy = ArrayList(activeCalls)
+                activeCalls.clear()
+                copy
+            }
+            calls.forEach { runCatching { it.cancel() } }
+
+            val pending = synchronized(pendingMints) {
+                val copy = ArrayList(pendingMints.values)
+                pendingMints.clear()
+                copy
+            }
+            pending.forEach { it.completeExceptionally(PoTokenException("Engine closed")) }
+
             webView.clearHistory()
             webView.clearCache(true)
             webView.loadUrl("about:blank")
@@ -456,40 +519,46 @@ object BotGuardTokenGenerator {
 
         companion object {
             suspend fun create(context: Context): BotGuardEngine {
-                return withContext(Dispatchers.Main) {
-                    suspendCancellableCoroutine { cont ->
-                        val wv = WebView(context).apply {
-                            settings.javaScriptEnabled = true
-                            settings.userAgentString = WV_USER_AGENT
-                            webChromeClient = object : WebChromeClient() {
-                                override fun onConsoleMessage(m: ConsoleMessage): Boolean {
-                                    if (m.message().contains("Uncaught")) {
-                                        val err = "\"${m.message()}\", ${m.sourceId()} (${m.lineNumber()})"
-                                        cont.resumeWithException(BrokenWebViewException(err))
-                                    }
-                                    return super.onConsoleMessage(m)
+                val engine = withContext(Dispatchers.Main) {
+                    var engineRef: BotGuardEngine? = null
+                    val wv = WebView(context).apply {
+                        settings.javaScriptEnabled = true
+                        settings.userAgentString = WV_USER_AGENT
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onConsoleMessage(m: ConsoleMessage): Boolean {
+                                if (m.message().contains("Uncaught")) {
+                                    val err = "\"${m.message()}\", ${m.sourceId()} (${m.lineNumber()})"
+                                    engineRef?.signalError(BrokenWebViewException(err))
                                 }
-                            }
-                            webViewClient = object : WebViewClient() {
-                                override fun onRenderProcessGone(
-                                    view: WebView,
-                                    detail: android.webkit.RenderProcessGoneDetail
-                                ): Boolean {
-                                    Timber.tag(TAG).w("WebView renderer gone (crashed=${detail.didCrash()})")
-                                    runCatching {
-                                        cont.resumeWithException(
-                                            PoTokenException("WebView renderer process gone")
-                                        )
-                                    }
-                                    return true
-                                }
+                                return super.onConsoleMessage(m)
                             }
                         }
-                        val engine = BotGuardEngine(wv, cont)
-                        wv.addJavascriptInterface(engine, JS_BRIDGE)
-                        engine.startBootstrap()
+                        webViewClient = object : WebViewClient() {
+                            override fun onRenderProcessGone(
+                                view: WebView,
+                                detail: android.webkit.RenderProcessGoneDetail
+                            ): Boolean {
+                                Timber.tag(TAG).w("WebView renderer gone (crashed=${detail.didCrash()})")
+                                engineRef?.signalError(PoTokenException("WebView renderer process gone"))
+                                return true
+                            }
+                        }
                     }
+                    val created = BotGuardEngine(wv)
+                    engineRef = created
+                    wv.addJavascriptInterface(created, JS_BRIDGE)
+                    created.startBootstrap()
+                    created
                 }
+                try {
+                    engine.awaitReady()
+                } catch (e: Throwable) {
+                    withContext(Dispatchers.Main) {
+                        engine.close()
+                    }
+                    throw e
+                }
+                return engine
             }
         }
     }

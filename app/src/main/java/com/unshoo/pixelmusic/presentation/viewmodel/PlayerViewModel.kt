@@ -1301,6 +1301,7 @@ class PlayerViewModel @Inject constructor(
         // frame is committed (the signal is raised by MainActivity at
         // line ~296 right after the contentVisible transition starts).
         viewModelScope.launch(Dispatchers.IO) {
+            AppReadinessSignal.awaitReady()
             // On cold start, the MediaController connects asynchronously, leaving stablePlayerState.currentSong
             // and currentPlaybackQueue empty until that happens. Pre-load the snapshot from DataStore immediately
             // so the UI and miniplayer populate with the restored queue on the very first frame.
@@ -2859,6 +2860,7 @@ class PlayerViewModel @Inject constructor(
         // Delegate to DailyMixStateHolder after UI is interactive
         viewModelScope.launch {
             AppReadinessSignal.awaitReady()
+            delay(1_500L)
             dailyMixStateHolder.checkAndUpdateIfNeeded(
                 favoriteSongIdsFlow = favoriteSongIds
             )

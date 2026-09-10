@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.util.Calendar
+import kotlin.random.Random
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -63,6 +64,23 @@ class DailyMixStateHolder @Inject constructor(
         }
     }
 
+    private suspend fun loadMixCandidates(maxCandidates: Int = 1_000): List<Song> {
+        val totalSongs = musicRepository.getSongCountFlow().first()
+        if (totalSongs <= maxCandidates) return musicRepository.getAllSongsOnce()
+
+        val pageSize = 200
+        val pageCount = (maxCandidates + pageSize - 1) / pageSize
+        val maxOffset = (totalSongs - pageSize).coerceAtLeast(0)
+        val offsets = LinkedHashSet<Int>(pageCount)
+        while (offsets.size < pageCount) {
+            offsets += if (maxOffset == 0) 0 else Random.nextInt(maxOffset + 1)
+        }
+
+        return offsets.flatMap { offset ->
+            musicRepository.getSongsPage(limit = pageSize, offset = offset)
+        }.distinctBy { it.id }
+    }
+
     /**
      * Update the daily mix with new songs.
      * Uses getAllSongsOnce() to load songs on-demand instead of keeping a permanent subscription.
@@ -70,7 +88,7 @@ class DailyMixStateHolder @Inject constructor(
     fun updateDailyMix(favoriteSongIdsFlow: kotlinx.coroutines.flow.Flow<Set<String>>) {
         updateJob?.cancel()
         updateJob = scope?.launch(Dispatchers.IO) {
-            val allSongs = musicRepository.getAllSongsOnce()
+            val allSongs = loadMixCandidates()
             if (allSongs.isNotEmpty()) {
                 val favoriteIds = favoriteSongIdsFlow.first()
 
@@ -138,7 +156,7 @@ class DailyMixStateHolder @Inject constructor(
             // Immediately purge persisted DataStore IDs and reset timestamp
             userPreferencesRepository.clearDailyMixData()
 
-            val allSongs = musicRepository.getAllSongsOnce()
+            val allSongs = loadMixCandidates()
             if (allSongs.isNotEmpty()) {
                 val favoriteIds = favoriteSongIdsFlow.first()
 
@@ -164,7 +182,7 @@ class DailyMixStateHolder @Inject constructor(
      * Check if daily mix needs updating (new day) and update if so.
      */
     fun checkAndUpdateIfNeeded(favoriteSongIdsFlow: kotlinx.coroutines.flow.Flow<Set<String>>) {
-        scope?.launch {
+        scope?.launch(Dispatchers.IO) {
             val lastUpdate = userPreferencesRepository.lastDailyMixUpdateFlow.first()
             val now = Calendar.getInstance()
             val lastCal = Calendar.getInstance().apply { timeInMillis = lastUpdate }

@@ -27,17 +27,21 @@ object PlayerInfoStateDefinition : GlanceStateDefinition<PlayerInfo> { // Change
         coerceInputValues = true // Important if some default values in PlayerInfo might be null initially
     }
 
-    private val Context.playerInfoDataStore: DataStore<PlayerInfo> by dataStore(
-        fileName = DATASTORE_FILE_NAME,
-        serializer = PlayerInfoJsonSerializer(json) // Use new JSON serializer
-    )
+    @Volatile
+    private var dataStoreInstance: DataStore<PlayerInfo>? = null
 
     override suspend fun getDataStore(context: Context, fileKey: String): DataStore<PlayerInfo> {
-        return context.playerInfoDataStore
+        val appCtx = context.applicationContext
+        return dataStoreInstance ?: synchronized(this) {
+            dataStoreInstance ?: androidx.datastore.core.DataStoreFactory.create(
+                serializer = PlayerInfoJsonSerializer(json),
+                produceFile = { File(appCtx.filesDir, "datastore/$DATASTORE_FILE_NAME") }
+            ).also { dataStoreInstance = it }
+        }
     }
 
     override fun getLocation(context: Context, fileKey: String): File {
-        return File(context.filesDir, "datastore/$DATASTORE_FILE_NAME")
+        return File(context.applicationContext.filesDir, "datastore/$DATASTORE_FILE_NAME")
     }
 }
 

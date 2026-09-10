@@ -112,9 +112,14 @@ class DailyMixManager @Inject constructor(
      * P2-2: Awaits migration completion before querying, ensuring data consistency
      * without blocking any thread at startup.
      */
-    private suspend fun readEngagements(): Map<String, SongEngagementStats> {
-        migrationDeferred.await() // Only waits if migration is still running
-        return engagementDao.getAllEngagements().associate { entity ->
+    private suspend fun readEngagements(songIds: Collection<String>? = null): Map<String, SongEngagementStats> {
+        migrationDeferred.await()
+        val engagements = if (songIds == null) {
+            engagementDao.getAllEngagements()
+        } else {
+            songIds.distinct().chunked(800).flatMap { engagementDao.getEngagementsBySongIds(it) }
+        }
+        return engagements.associate { entity ->
             entity.songId to SongEngagementStats(
                 playCount = entity.playCount,
                 totalPlayDurationMs = entity.totalPlayDurationMs,
@@ -291,7 +296,7 @@ class DailyMixManager @Inject constructor(
     ): List<RankedSong> = kotlinx.coroutines.withContext(Dispatchers.Default) {
         if (allSongs.isEmpty()) return@withContext emptyList()
 
-        val engagements = readEngagements()
+        val engagements = readEngagements(allSongs.map { it.id })
         // Fast path: if engagements empty, skip affinity computation
         val hasEngagements = engagements.isNotEmpty()
         val songById = if (hasEngagements) allSongs.associateBy { it.id } else emptyMap()

@@ -6,13 +6,15 @@ import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.repository.MusicRepository
 import com.unshoo.pixelmusic.data.worker.SyncManager
 import com.unshoo.pixelmusic.data.worker.SyncProgress
-import com.unshoo.pixelmusic.data.worker.YouTubeLibrarySyncManager
 import com.unshoo.pixelmusic.utils.LogUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.unshoo.pixelmusic.data.preferences.PlaylistPreferencesRepository
@@ -20,56 +22,64 @@ import com.unshoo.pixelmusic.data.preferences.PlaylistPreferencesRepository
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val syncManager: SyncManager,
-    private val youTubeLibrarySyncManager: YouTubeLibrarySyncManager,
     private val datastoreRepository: com.unshoo.pixelmusic.data.remote.youtube.DatastoreRepository,
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
     musicRepository: MusicRepository,
     userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
-    private var hasTriggeredAccountLibrarySync = false
+    private var lastKnownCookie: String? = null
+    private var profileRefreshJob: Job? = null
 
     init {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             playlistPreferencesRepository.pruneExpiredPlaylists()
         }
         viewModelScope.launch {
-            datastoreRepository.cookies.collect { cookies ->
-                val rawCookie = cookies.toRawCookie()
-                unshoo.ianshulyadav.pixelmusic.innertube.YouTube.cookie = rawCookie
-                LogUtils.d(this@MainViewModel, "MainViewModel: Syncing cookies to YouTube singleton. Size = ${rawCookie.length}")
-                if (rawCookie.isNotEmpty()) {
-                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            unshoo.ianshulyadav.pixelmusic.innertube.YouTube.accountInfo()
-                                .onSuccess { info ->
-                                    datastoreRepository.saveYtProfile(
-                                        name = info.name,
-                                        handle = info.channelHandle ?: "",
-                                        avatarUrl = info.thumbnailUrl ?: ""
-                                    )
-                                }
-                                .onFailure { e ->
-                                    LogUtils.e(this@MainViewModel, e, "Failed to fetch YouTube account info")
-                                }
-                            // Profile info is synced here on login/cookie change;
-                            // Mass library sync is deferred to user pull-to-refresh to avoid startup mass requests.
-                        } catch (e: Exception) {
-                            LogUtils.e(this@MainViewModel, e, "Error fetching YouTube account info")
-                        }
-                    }
-                } else {
-                    hasTriggeredAccountLibrarySync = false
-                    viewModelScope.launch {
+            datastoreRepository.cookies
+                .map { it.toRawCookie() }
+                .distinctUntilChanged()
+                .collect { rawCookie ->
+                    val isInitialValue = lastKnownCookie == null
+                    unshoo.ianshulyadav.pixelmusic.innertube.YouTube.cookie = rawCookie
+                    lastKnownCookie = rawCookie
+                    if (rawCookie.isNotEmpty()) {
+                        refreshProfile(rawCookie, delayForColdStart = isInitialValue)
+                    } else {
+                        profileRefreshJob?.cancel()
+                        profileRefreshJob = null
                         datastoreRepository.saveYtProfile("", "", "")
                     }
                 }
-            }
         }
         viewModelScope.launch {
             datastoreRepository.dataSyncId.collect { id ->
                 unshoo.ianshulyadav.pixelmusic.innertube.YouTube.dataSyncId = id
                 LogUtils.d(this@MainViewModel, "MainViewModel: Syncing dataSyncId to YouTube singleton.")
+            }
+        }
+    }
+
+    private fun refreshProfile(cookie: String, delayForColdStart: Boolean) {
+        profileRefreshJob?.cancel()
+        profileRefreshJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.unshoo.pixelmusic.utils.AppReadinessSignal.awaitReady()
+            if (delayForColdStart) delay(10_000L)
+            if (lastKnownCookie != cookie) return@launch
+            try {
+                unshoo.ianshulyadav.pixelmusic.innertube.YouTube.accountInfo()
+                    .onSuccess { info ->
+                        datastoreRepository.saveYtProfile(
+                            name = info.name,
+                            handle = info.channelHandle ?: "",
+                            avatarUrl = info.thumbnailUrl ?: ""
+                        )
+                    }
+                    .onFailure { error ->
+                        LogUtils.e(this@MainViewModel, error, "Failed to fetch YouTube account info")
+                    }
+            } catch (error: Exception) {
+                LogUtils.e(this@MainViewModel, error, "Error fetching YouTube account info")
             }
         }
     }
@@ -132,10 +142,8 @@ class MainViewModel @Inject constructor(
         LogUtils.i(this, "startSync called")
         viewModelScope.launch {
             if (isSetupComplete.value == true) {
-                kotlinx.coroutines.delay(8_000L)
-                syncManager.sync()
-                kotlinx.coroutines.delay(12_000L)
-                youTubeLibrarySyncManager.syncNow()
+                com.unshoo.pixelmusic.utils.AppReadinessSignal.awaitReady()
+                syncManager.start()
             }
         }
     }

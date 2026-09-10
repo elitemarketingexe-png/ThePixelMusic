@@ -6,7 +6,6 @@ import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -89,14 +88,11 @@ import androidx.compose.ui.unit.lerp
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.google.common.util.concurrent.ListenableFuture
 import com.unshoo.pixelmusic.data.github.GitHubAnnouncementPropertiesService
 import com.unshoo.pixelmusic.data.github.PlayStoreAnnouncementRemoteConfig
 import com.unshoo.pixelmusic.data.preferences.AppThemeMode
@@ -172,7 +168,6 @@ class MainActivity : ComponentActivity() {
     private val playerViewModel: PlayerViewModel by viewModels()
     private val mainViewModel: MainViewModel by viewModels()
     private var isUIVisiblyReady = false
-    private var mediaControllerFuture: ListenableFuture<MediaController>? = null
     @Inject
     lateinit var userPreferencesRepository: UserPreferencesRepository // Inject here
     @Inject
@@ -890,7 +885,10 @@ class MainActivity : ComponentActivity() {
         }
 
         LaunchedEffect(userPreferencesRepository) {
-            userPreferencesRepository.clearDeprecatedPlayerSheetPreference()
+            com.unshoo.pixelmusic.utils.AppReadinessSignal.awaitReady()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                userPreferencesRepository.clearDeprecatedPlayerSheetPreference()
+            }
         }
 
         CompositionLocalProvider(
@@ -1159,14 +1157,16 @@ class MainActivity : ComponentActivity() {
                         // entire content lambda. Use the StateFlow as a
                         // `State<Float>` directly with `collectAsStateWithLifecycle`.
                         val isMiniPlayerDismissingForOverlay by playerViewModel.isMiniPlayerDismissing.collectAsStateWithLifecycle()
+                        val expansionFractionForOverlay =
+                            playerViewModel.playerContentExpansionFraction.value
                         val isExpandedOrExpanding = remember(
-                            playerViewModel.playerContentExpansionFraction.value,
+                            expansionFractionForOverlay,
                             showPlayerContentInitially,
                             isMiniPlayerDismissingForOverlay
                         ) {
                             !isMiniPlayerDismissingForOverlay &&
                                 showPlayerContentInitially &&
-                                playerViewModel.playerContentExpansionFraction.value > 0.01f
+                                expansionFractionForOverlay > 0.01f
                         }
 
                         AnimatedVisibility(
@@ -1259,12 +1259,6 @@ class MainActivity : ComponentActivity() {
         LogUtils.d(this, "onStart")
         playerViewModel.onMainActivityStart()
 
-        if (intent.getBooleanExtra("is_benchmark", false)) {
-            // Benchmark mode no longer loads dummy data - uses real library data instead
-        }
-
-        val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
-        mediaControllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         // BUGFIX (was: empty lambda + directExecutor): the previous
         // addListener passed an empty lambda. The whole point of the
         // listener is to react to the future completing, but with no
@@ -1276,13 +1270,6 @@ class MainActivity : ComponentActivity() {
         // for runtime state. We drop the dead listener entirely.
     }
 
-    override fun onStop() {
-        super.onStop()
-        LogUtils.d(this, "onStop")
-        mediaControllerFuture?.let {
-            MediaController.releaseFuture(it)
-        }
-    }
 }
 
 private class DynamicSmoothCornerShape(

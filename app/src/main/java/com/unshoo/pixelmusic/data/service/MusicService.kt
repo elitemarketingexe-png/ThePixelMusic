@@ -471,10 +471,34 @@ class MusicService : MediaLibraryService() {
         val existingHandler = Thread.currentThread().uncaughtExceptionHandler
         previousMainThreadExceptionHandler = existingHandler
         Thread.currentThread().setUncaughtExceptionHandler { thread, throwable ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                throwable is ForegroundServiceStartNotAllowedException
-            ) {
-                Timber.tag(TAG).w(throwable, "Suppressed ForegroundServiceStartNotAllowedException from Media3/Cast internal path")
+            fun isStartForegroundIssue(t: Throwable?): Boolean {
+                if (t == null) return false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    (t is ForegroundServiceStartNotAllowedException || t is BackgroundServiceStartNotAllowedException)
+                ) return true
+                if (Build.VERSION.SDK_INT >= 34 && t.javaClass.name == "android.app.MissingForegroundServiceTypeException") return true
+                if (t is IllegalStateException) {
+                    val msg = t.message.orEmpty()
+                    val hasStartForegroundFrame = t.stackTrace.any { it.methodName == "startForeground" }
+                    if (hasStartForegroundFrame || msg.contains("startForeground", ignoreCase = true)) {
+                        return true
+                    }
+                }
+                return isStartForegroundIssue(t.cause)
+            }
+
+            if (isStartForegroundIssue(throwable)) {
+                Timber.tag(TAG).w(throwable, "Foreground promotion rejected by Android runtime; gracefully detaching foreground state")
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        stopForeground(STOP_FOREGROUND_DETACH)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        stopForeground(false)
+                    }
+                } catch (detachErr: Throwable) {
+                    Timber.tag(TAG).w(detachErr, "Failed to detach foreground state after startForeground restriction")
+                }
             } else {
                 existingHandler?.uncaughtException(thread, throwable)
             }
@@ -1254,6 +1278,16 @@ class MusicService : MediaLibraryService() {
             )
         } catch (e: Exception) {
             Timber.tag(TAG).w(e, "Failed to promote service to foreground for external command")
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_DETACH)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(false)
+                }
+            } catch (detachErr: Throwable) {
+                Timber.tag(TAG).w(detachErr, "Failed to detach foreground after failed external command promotion")
+            }
         }
     }
 

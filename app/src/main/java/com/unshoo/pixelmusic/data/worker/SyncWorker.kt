@@ -77,7 +77,8 @@ import timber.log.Timber
 enum class SyncMode {
     INCREMENTAL,
     FULL,
-    REBUILD
+    REBUILD,
+    MAINTENANCE
 }
 
 @HiltWorker
@@ -123,6 +124,13 @@ constructor(
                                 PROGRESS_TOTAL to total,
                                 PROGRESS_PHASE to phaseOrdinal
                             )
+                        )
+                    }
+
+                    if (syncMode == SyncMode.MAINTENANCE) {
+                        val totalSongs = runDeferredMaintenance(::reportProgressThrottled)
+                        return@withContext Result.success(
+                            workDataOf(OUTPUT_TOTAL_SONGS to totalSongs.toLong())
                         )
                     }
 
@@ -183,23 +191,24 @@ constructor(
                         )
                     }
 
-                    // --- DELETION PHASE ---
-                    // Detect and remove deleted songs efficiently using ID comparison
-                    // We do this for INCREMENTAL and FULL modes. REBUILD clears everything anyway.
-                    if (syncMode != SyncMode.REBUILD) {
-                        // Only compare MediaStore-backed songs; cloud sources are excluded.
-                        val localSongIds = musicDao.getAllMediaStoreSongIds().toHashSet()
+                    val localMediaStoreSongIds = if (syncMode == SyncMode.REBUILD) {
+                        emptyList()
+                    } else {
+                        musicDao.getAllMediaStoreSongIds()
+                    }
+                    val isFreshInstall = localMediaStoreSongIds.isEmpty()
+                    var deletedSongIds = emptyList<Long>()
+
+                    if (localMediaStoreSongIds.isNotEmpty()) {
+                        val localSongIds = localMediaStoreSongIds.toHashSet()
                         val mediaStoreIds = fetchMediaStoreIds(directoryResolver)
+                        deletedSongIds = (localSongIds - mediaStoreIds).toList()
 
-                        // Identify IDs that are in local DB but not in MediaStore
-                        val deletedIds = localSongIds - mediaStoreIds
-
-                        if (deletedIds.isNotEmpty()) {
+                        if (deletedSongIds.isNotEmpty()) {
                             Timber.tag(TAG)
-                                .i("Found ${deletedIds.size} deleted songs. Removing from database...")
-                            // Chunk deletions to avoid SQLite variable limit (default 999)
+                                .i("Found ${deletedSongIds.size} deleted songs. Removing from database...")
                             val batchSize = 500
-                            deletedIds.chunked(batchSize).forEach { chunk ->
+                            deletedSongIds.chunked(batchSize).forEach { chunk ->
                                 musicDao.deleteSongsByIds(chunk.toList())
                                 musicDao.deleteCrossRefsBySongIds(chunk.toList())
                             }
@@ -208,13 +217,6 @@ constructor(
                         }
                     }
 
-                    // --- FETCH PHASE ---
-                    // Determine what to fetch based on mode
-                    val isFreshInstall = musicDao.getSongCount().first() == 0
-
-                    // If REBUILD or FULL or RescanRequired or Fresh Install -> Fetch EVERYTHING
-                    // (timestamp = 0)
-                    // If INCREMENTAL -> Fetch only changes since lastSyncTimestamp
                     val fetchTimestamp =
                             if (syncMode == SyncMode.INCREMENTAL &&
                                             !rescanRequired &&
@@ -330,18 +332,28 @@ constructor(
                     // Count total songs for the output
                     val totalSongs = musicDao.getSongCount().first()
 
-                    // --- LRC SCANNING PHASE ---
+                    val deferMaintenance = inputData.getBoolean(INPUT_DEFER_MAINTENANCE, false)
+                    if (deferMaintenance) {
+                        enqueueDeferredMaintenance()
+                        return@withContext Result.success(
+                            workDataOf(OUTPUT_TOTAL_SONGS to totalSongs.toLong())
+                        )
+                    }
+
                     val autoScanLrc = userPreferencesRepository.autoScanLrcFilesFlow.first()
-                    if (autoScanLrc) {
+                    val lrcSongIds = if (forceMetadata || syncMode != SyncMode.INCREMENTAL) {
+                        musicDao.getAllMediaStoreSongIds()
+                    } else {
+                        songsToInsert.map { it.id }
+                    }
+                    if (autoScanLrc && lrcSongIds.isNotEmpty()) {
                         Timber.tag(TAG)
                             .i("Auto-scan LRC files enabled. Starting scan phase in chunks...")
 
-                        // Get ALL media store song IDs to scan in manageable chunks
-                        val mediaStoreSongIds = musicDao.getAllMediaStoreSongIds()
-                        val totalToScan = mediaStoreSongIds.size
+                        val totalToScan = lrcSongIds.size
                         var totalScannedCount = 0
 
-                        mediaStoreSongIds.chunked(1000).forEach { idBatch ->
+                        lrcSongIds.chunked(1000).forEach { idBatch ->
                             val batchEntities = musicDao.getSongsByIdsListSimple(idBatch)
                             val batchSongs =
                                     batchEntities.map { entity ->
@@ -389,14 +401,15 @@ constructor(
                         Log.i(TAG, "LRC Scan finished for $totalToScan songs.")
                     }
 
-                    // Clean orphaned album art cache files
-                    setProgress(
-                        workDataOf(
-                            PROGRESS_PHASE to SyncProgress.SyncPhase.CLEANING_CACHE.ordinal
+                    if (anySongsFetched || deletedSongIds.isNotEmpty()) {
+                        setProgress(
+                            workDataOf(
+                                PROGRESS_PHASE to SyncProgress.SyncPhase.CLEANING_CACHE.ordinal
+                            )
                         )
-                    )
-                    val allSongIds = musicDao.getAllSongIds().toSet()
-                    AlbumArtCacheManager.cleanOrphanedCacheFiles(applicationContext, allSongIds)
+                        val allSongIds = musicDao.getAllSongIds().toSet()
+                        AlbumArtCacheManager.cleanOrphanedCacheFiles(applicationContext, allSongIds)
+                    }
 
                     // Sync cloud songs into the unified songs table.
                     // OPT #7: Guard each source to avoid opening Room transactions when
@@ -1347,6 +1360,8 @@ constructor(
         private const val TAG = "SyncWorker"
         const val INPUT_FORCE_METADATA = "input_force_metadata"
         const val INPUT_SYNC_MODE = "input_sync_mode"
+        const val INPUT_DEFER_MAINTENANCE = "input_defer_maintenance"
+        private const val MAINTENANCE_WORK_NAME = "$WORK_NAME.maintenance"
 
         // Progress reporting constants
         const val PROGRESS_CURRENT = "progress_current"
@@ -1381,6 +1396,7 @@ constructor(
                         .setInputData(
                                 workDataOf(
                                         INPUT_FORCE_METADATA to deepScan,
+                                        INPUT_DEFER_MAINTENANCE to true,
                                         INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name
                                 )
                         )
@@ -1421,6 +1437,85 @@ constructor(
                         .build()
     }
     
+    private fun enqueueDeferredMaintenance() {
+        val constraints = Constraints.Builder()
+            .setRequiresDeviceIdle(true)
+            .setRequiresStorageNotLow(true)
+            .build()
+        val request = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setInputData(workDataOf(INPUT_SYNC_MODE to SyncMode.MAINTENANCE.name))
+            .setConstraints(constraints)
+            .setInitialDelay(2, TimeUnit.MINUTES)
+            .build()
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            MAINTENANCE_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    private suspend fun runDeferredMaintenance(
+        reportProgress: suspend (Int, Int, Int) -> Unit
+    ): Int {
+        val mediaStoreSongIds = musicDao.getAllMediaStoreSongIds()
+        if (userPreferencesRepository.autoScanLrcFilesFlow.first() && mediaStoreSongIds.isNotEmpty()) {
+            var scannedCount = 0
+            val total = mediaStoreSongIds.size
+            mediaStoreSongIds.chunked(1_000).forEach { idBatch ->
+                val songs = musicDao.getSongsByIdsListSimple(idBatch).map { entity ->
+                    Song(
+                        id = entity.id.toString(),
+                        title = entity.title,
+                        artist = entity.artistName,
+                        artistId = entity.artistId,
+                        album = entity.albumName,
+                        albumId = entity.albumId,
+                        path = entity.filePath,
+                        contentUriString = entity.contentUriString,
+                        albumArtUriString = entity.albumArtUriString,
+                        duration = entity.duration,
+                        lyrics = entity.lyrics,
+                        dateAdded = entity.dateAdded,
+                        trackNumber = entity.trackNumber,
+                        year = entity.year,
+                        mimeType = entity.mimeType,
+                        bitrate = entity.bitrate,
+                        sampleRate = entity.sampleRate
+                    )
+                }
+                lyricsRepository.scanAndAssignLocalLrcFiles(songs) { current, _ ->
+                    reportProgress(
+                        scannedCount + current,
+                        total,
+                        SyncProgress.SyncPhase.SCANNING_LRC.ordinal
+                    )
+                }
+                scannedCount += idBatch.size
+            }
+        }
+
+        setProgress(workDataOf(PROGRESS_PHASE to SyncProgress.SyncPhase.CLEANING_CACHE.ordinal))
+        AlbumArtCacheManager.cleanOrphanedCacheFiles(
+            applicationContext,
+            musicDao.getAllSongIds().toSet()
+        )
+
+        val hasTelegramChannels = telegramDao.getAllChannels().first().isNotEmpty()
+        val isYoutubeConnected = youtubeDatastoreRepository.cookies.first().toRawCookie().isNotEmpty()
+        if (hasTelegramChannels || isYoutubeConnected) {
+            setProgress(workDataOf(PROGRESS_PHASE to SyncProgress.SyncPhase.SYNCING_CLOUD.ordinal))
+        }
+        if (hasTelegramChannels) {
+            syncTelegramData { current, total ->
+                reportProgress(current, total, SyncProgress.SyncPhase.SYNCING_TELEGRAM_ART.ordinal)
+            }
+        }
+        if (isYoutubeConnected) {
+            syncYoutubeData()
+        }
+        return musicDao.getSongCountOnce()
+    }
+
     // Logic to sync Telegram songs into main DB with Unified Library Support
     private suspend fun syncTelegramData(onArtProgress: suspend (Int, Int) -> Unit) {
         Log.i(TAG, "Syncing Telegram songs to main database (Unified Mode)...")
