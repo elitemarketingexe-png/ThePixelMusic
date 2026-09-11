@@ -175,7 +175,11 @@ fun HomeScreen(
         (context as? android.app.Activity)?.intent?.getBooleanExtra("is_benchmark", false) ?: false
     }
     val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
-    val accountsUiState by accountsViewModel.uiState.collectAsStateWithLifecycle()
+    val rawUserName by remember(accountsViewModel.uiState) {
+        accountsViewModel.uiState
+            .map { it.userName }
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = null)
     val exploreUiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
     val discoverYoutubeSongs = remember(exploreUiState.homePageSections) {
         exploreUiState.homePageSections
@@ -194,8 +198,8 @@ fun HomeScreen(
     val mergedDailyMixSongs = remember(dailyMixSongsRaw, discoverYoutubeSongs) {
         (dailyMixSongsRaw + discoverYoutubeSongs).distinctBy { it.id }.toImmutableList()
     }
-    val userName = remember(accountsUiState.userName) {
-        val rawName = accountsUiState.userName
+    val userName = remember(rawUserName) {
+        val rawName = rawUserName
         if (!rawName.isNullOrBlank()) {
             val cleanName = if (rawName.startsWith("@")) rawName.substring(1) else rawName
             val baseName = if (!cleanName.contains("@")) {
@@ -287,26 +291,15 @@ fun HomeScreen(
 
     val yourMixSong: String = "Today's Mix for you"
 
-    // 2) Observar sólo el currentSong (o null) para saber si mostrar padding
-    val currentSong by remember(playerViewModel.stablePlayerState) {
+    // 2) Observar sólo el currentSongId (o null) para saber si mostrar padding y destacar canción activa
+    val currentSongId by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState
-            .map { it.currentSong }
+            .map { it.currentSong?.id }
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = null)
 
-    // 3) Observe shuffle state for sync
-    val isShuffleEnabled by remember(playerViewModel.stablePlayerState) {
-        playerViewModel.stablePlayerState
-            .map { it.isShuffleEnabled }
-            .distinctUntilChanged()
-    }.collectAsStateWithLifecycle(initialValue = false)
-
     // Padding inferior si hay canción en reproducción
-    val bottomPadding = if (currentSong != null) MiniPlayerHeight else 0.dp
-    val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
-    val navBarHeightOffsetRaw by playerViewModel.navBarHeightOffset.collectAsStateWithLifecycle()
-    val navBarHeightOffset = navBarHeightOffsetRaw.dp
-    val bottomGradientHeight = resolveMainScreenBottomGradientHeight(navBarCompactMode, navBarHeightOffset)
+    val bottomPadding = if (currentSongId != null) MiniPlayerHeight else 0.dp
 
     var showOptionsBottomSheet by remember { mutableStateOf(false) }
     var showChangelogBottomSheet by remember { mutableStateOf(false) }
@@ -456,7 +449,7 @@ fun HomeScreen(
                             onSeeAllClick = {
                                 navController.navigateSafely(Screen.QuickPicksAll.route)
                             },
-                            currentSongId = currentSong?.id,
+                            currentSongId = currentSongId,
                             displayMode = quickPicksDisplayMode
                         )
                     }
@@ -493,7 +486,7 @@ fun HomeScreen(
                     ) {
                         YourMixHeader(
                             song = yourMixSong,
-                            isShuffleEnabled = isShuffleEnabled,
+                            playerViewModel = playerViewModel,
                              onPlayShuffled = {
                                  val songsToUse = quickPicks.ifEmpty { yourMixSongs }
                                  if (songsToUse.isNotEmpty()) {
@@ -590,7 +583,7 @@ fun HomeScreen(
                                 navController.navigateSafely(Screen.RecentlyPlayed.route)
                             },
                             themeStateHolder = playerViewModel.themeStateHolder,
-                            currentSongId = currentSong?.id,
+                            currentSongId = currentSongId,
                             contentPadding = PaddingValues(start = 8.dp, end = 24.dp)
                         )
                     }
@@ -799,9 +792,14 @@ private fun YourMixEmptyPlaceholder(
 @Composable
 fun YourMixHeader(
     song: String,
-    isShuffleEnabled: Boolean = false,
+    playerViewModel: PlayerViewModel,
     onPlayShuffled: () -> Unit
 ) {
+    val isShuffleEnabled by remember(playerViewModel.stablePlayerState) {
+        playerViewModel.stablePlayerState
+            .map { it.isShuffleEnabled }
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
     val colors = MaterialTheme.colorScheme
     val titleStyle = rememberYourMixTitleStyle()
     val playShuffledLabel = stringResource(R.string.cd_shuffle_play)
@@ -931,35 +929,7 @@ fun SongListItemFavs(
     }
 }
 
-// Wrapper Composable for SongListItemFavs to isolate state observation
-@androidx.annotation.OptIn(UnstableApi::class)
-@Composable
-fun SongListItemFavsWrapper(
-    song: Song,
-    playerViewModel: PlayerViewModel,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // Collect the stablePlayerState once
-    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
 
-    // Derive isThisSongPlaying using remember
-    val isThisSongPlaying = remember(song.id, stablePlayerState.currentSong?.id, stablePlayerState.isPlaying) {
-        song.id == stablePlayerState.currentSong?.id
-    }
-
-    // Call the presentational composable
-    SongListItemFavs(
-        modifier = modifier,
-        cardCorners = 0.dp,
-        title = song.title,
-        artist = song.displayArtist,
-        albumArtUrl = song.albumArtUriString,
-        isPlaying = stablePlayerState.isPlaying,
-        isCurrentSong = song.id == stablePlayerState.currentSong?.id,
-        onClick = onClick
-    )
-}
 
 
 @OptIn(ExperimentalTextApi::class)

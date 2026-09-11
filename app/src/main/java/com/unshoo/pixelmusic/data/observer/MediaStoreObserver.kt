@@ -11,9 +11,10 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.debounce
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +27,8 @@ class MediaStoreObserver @Inject constructor(
         replay = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
-    val mediaStoreChanges: SharedFlow<Unit> = _mediaStoreChanges.asSharedFlow()
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    val mediaStoreChanges: Flow<Unit> = _mediaStoreChanges.asSharedFlow().debounce(500L)
 
     @Volatile
     private var isRegistered: Boolean = false

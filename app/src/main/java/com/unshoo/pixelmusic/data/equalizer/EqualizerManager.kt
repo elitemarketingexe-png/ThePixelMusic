@@ -85,7 +85,12 @@ class EqualizerManager @Inject constructor() {
     private var effectsDisableReason: String? = null
     
     init {
-        checkDeviceSupport()
+        // Run global audio effects query off the main thread to avoid AudioFlinger IPC during app startup
+        java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+            Thread(r, "AudioEffects-Query").apply { priority = Thread.MIN_PRIORITY }
+        }.execute {
+            checkDeviceSupport()
+        }
     }
     
     private fun checkDeviceSupport() {
@@ -95,9 +100,7 @@ class EqualizerManager @Inject constructor() {
             isVirtualizerSupportedGlobal = effects.any { it.type == android.media.audiofx.AudioEffect.EFFECT_TYPE_VIRTUALIZER }
             Timber.tag(TAG).d("Global Support Check - BassBoost: $isBassBoostSupportedGlobal, Virtualizer: $isVirtualizerSupportedGlobal")
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Failed to query global audio effects")
-            // Fallback to assuming false until proven otherwise? Or true? 
-            // Better false to avoid broken UI, but unlikely to fail.
+            Timber.tag(TAG).d("Failed to query global audio effects: %s", e.message)
         }
     }
 
@@ -125,10 +128,6 @@ class EqualizerManager @Inject constructor() {
      * Attaches the equalizer to an audio session ID.
      * Call this when the player is created or swapped during crossfade.
      */
-    /**
-     * Attaches the equalizer to an audio session ID.
-     * Call this when the player is created or swapped during crossfade.
-     */
     suspend fun attachToAudioSession(audioSessionId: Int) {
         if (effectsDisabledForProcess) {
             Timber.tag(TAG).d(
@@ -140,6 +139,12 @@ class EqualizerManager @Inject constructor() {
 
         if (audioSessionId == 0) {
             Timber.tag(TAG).w("Invalid audio session ID: 0")
+            return
+        }
+
+        if (!hasAnyEnabledEffects) {
+            Timber.tag(TAG).d("Skipping attachToAudioSession($audioSessionId): all audio effects are currently disabled")
+            currentAudioSessionId = audioSessionId
             return
         }
         

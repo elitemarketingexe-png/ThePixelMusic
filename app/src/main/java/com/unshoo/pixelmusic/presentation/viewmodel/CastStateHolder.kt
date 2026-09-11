@@ -36,9 +36,60 @@ class CastStateHolder @Inject constructor(
     // Cached SessionManager to avoid runBlocking and repeated lookups across threads
     @Volatile
     private var _sessionManager: SessionManager? = null
+    private val readyCallbacks = java.util.concurrent.CopyOnWriteArrayList<(SessionManager) -> Unit>()
+
+    init {
+        // Pre-warm CastContext on a dedicated background thread so CastDynamiteModule doesn't block the main thread at launch
+        val bgExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+            Thread(r, "Cast-Init").apply { priority = Thread.MIN_PRIORITY }
+        }
+        try {
+            CastContext.getSharedInstance(context, bgExecutor)
+                .addOnSuccessListener { castContext ->
+                    onSessionManagerReady(castContext.sessionManager)
+                }
+                .addOnFailureListener { e ->
+                    Timber.tag(CAST_STATE_TAG).d("CastContext background async init skipped: %s", e.message)
+                }
+        } catch (e: Throwable) {
+            bgExecutor.execute {
+                try {
+                    val manager = CastContext.getSharedInstance(context).sessionManager
+                    onSessionManagerReady(manager)
+                } catch (t: Throwable) {
+                    Timber.tag(CAST_STATE_TAG).d("Fallback CastContext init skipped: %s", t.message)
+                }
+            }
+        }
+    }
+
+    private fun onSessionManagerReady(manager: SessionManager) {
+        _sessionManager = manager
+        if (readyCallbacks.isNotEmpty()) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                val iterator = readyCallbacks.iterator()
+                while (iterator.hasNext()) {
+                    try {
+                        iterator.next().invoke(manager)
+                    } catch (e: Throwable) {
+                        Timber.tag(CAST_STATE_TAG).e(e, "Error executing session manager callback")
+                    }
+                }
+                readyCallbacks.clear()
+            }
+        }
+    }
+
+    fun withSessionManager(action: (SessionManager) -> Unit) {
+        val cached = _sessionManager
+        if (cached != null) {
+            action(cached)
+        } else {
+            readyCallbacks.add(action)
+        }
+    }
 
     // Cast session manager - non-blocking property lookup.
-    // If not cached and called off-main-thread, returns null instead of blocking with runBlocking.
     val sessionManager: SessionManager?
         get() {
             val cached = _sessionManager
@@ -49,12 +100,10 @@ class CastStateHolder @Inject constructor(
                     _sessionManager = manager
                     manager
                 } else {
-                    // Non-blocking fallback: avoid runBlocking on background threads.
-                    // Returns null until initialized on the main thread or cached.
                     null
                 }
             } catch (e: Throwable) {
-                Timber.tag(CAST_STATE_TAG).e(e, "Failed to get CastContext/SessionManager")
+                Timber.tag(CAST_STATE_TAG).d("Failed to get CastContext/SessionManager synchronously: %s", e.message)
                 null
             }
         }

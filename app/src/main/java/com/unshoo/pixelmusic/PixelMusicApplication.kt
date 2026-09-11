@@ -32,6 +32,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -217,11 +218,13 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
             // Stage 3 (T+1000ms & Idle): Initialize AdManager and LastFM
             kotlinx.coroutines.delay(1000L)
             awaitMainThreadIdle()
-            try {
-                com.unshoo.pixelmusic.data.ads.AdManager.initialize(this@PixelMusicApplication)
-                com.unshoo.pixelmusic.data.ads.AdManager.incrementAppOpenCount(this@PixelMusicApplication)
-            } catch (e: Throwable) {
-                Timber.e(e, "AdMob initialization failed")
+            withContext(Dispatchers.Main) {
+                try {
+                    com.unshoo.pixelmusic.data.ads.AdManager.initialize(this@PixelMusicApplication)
+                    com.unshoo.pixelmusic.data.ads.AdManager.incrementAppOpenCount(this@PixelMusicApplication)
+                } catch (e: Throwable) {
+                    Timber.e(e, "AdMob initialization failed")
+                }
             }
 
             val prefs = userPreferencesRepository.get()
@@ -259,12 +262,6 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
             com.unshoo.pixelmusic.utils.JapaneseDictionaryManager.initAtAppStart(this@PixelMusicApplication)
         }
 
-        // Initialize Last.fm client defaults
-        com.unshoo.pixelmusic.data.lastfm.LastFM.initialize(
-            apiKey = BuildConfig.LASTFM_API_KEY,
-            secret = BuildConfig.LASTFM_SECRET
-        )
-
         // Bind Content Language and Country to YouTube.locale
         startupScope.launch {
             kotlinx.coroutines.flow.combine(
@@ -293,8 +290,9 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycleObserver)
     }
 
-    override fun newImageLoader(): ImageLoader {
-        return imageLoader.get().newBuilder()
+    // Single shared ImageLoader singleton instance as recommended by Coil documentation
+    private val appImageLoader: ImageLoader by lazy {
+        imageLoader.get().newBuilder()
             .components {
                 add(localArtworkCoilFetcherFactory.get())
                 add(telegramCoilFetcherFactory.get())
@@ -302,11 +300,15 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
             .build()
     }
 
+    override fun newImageLoader(): ImageLoader {
+        return appImageLoader
+    }
+
     @Suppress("DEPRECATION")
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
 
-        imageLoader.get().memoryCache?.trimMemory(level)
+        appImageLoader.memoryCache?.trimMemory(level)
 
         if (
             level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE ||
@@ -333,7 +335,7 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
             level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
             level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
         ) {
-            imageLoader.get().memoryCache?.clear()
+            appImageLoader.memoryCache?.clear()
         }
     }
 

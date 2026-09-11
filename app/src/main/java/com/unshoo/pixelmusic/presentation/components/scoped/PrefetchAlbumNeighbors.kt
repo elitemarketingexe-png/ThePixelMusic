@@ -17,42 +17,6 @@ import com.unshoo.pixelmusic.utils.LocalArtworkUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-@Composable
-fun PrefetchAlbumNeighborsImg(
-    current: Song?,
-    queue: ImmutableList<Song>,
-    radius: Int = 1
-) {
-    if (current == null) return
-    val context = LocalContext.current
-    val loader = context.imageLoader
-    val index = remember(current, queue) { queue.indexOfFirst { it.id == current.id } }
-    LaunchedEffect(index, queue) {
-        if (index == -1) return@LaunchedEffect
-        val bounds = (maxOf(0, index - radius))..(minOf(queue.lastIndex, index + radius))
-        for (i in bounds) {
-            if (i == index) continue
-            queue[i].albumArtUriString?.let { data ->
-                val diskPolicy = if (LocalArtworkUri.isLocalArtworkUri(data)) CachePolicy.DISABLED else CachePolicy.ENABLED
-                val targetSize = safeAlbumArtTargetSize(Size.ORIGINAL)
-                val memoryCacheKey = albumArtMemoryCacheKey(data, targetSize)
-                val req = coil.request.ImageRequest.Builder(context)
-                    .data(data)
-                    .apply {
-                        if (memoryCacheKey != null) {
-                            memoryCacheKey(memoryCacheKey)
-                        }
-                    }
-                    .diskCacheKey(if (diskPolicy == CachePolicy.DISABLED) null else memoryCacheKey)
-                    .diskCachePolicy(diskPolicy)
-                    .size(targetSize)
-                    .build()
-                loader.enqueue(req)
-            }
-        }
-    }
-}
-
 
 @Composable
 fun PrefetchAlbumNeighbors(

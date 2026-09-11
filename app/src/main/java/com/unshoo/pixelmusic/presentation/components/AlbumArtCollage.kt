@@ -54,18 +54,8 @@ fun AlbumArtCollage(
         (songs.take(6) + List(6 - songs.size.coerceAtMost(6)) { null }).toImmutableList()
     }
 
-    val requests = remember(songsToShow) {
-        songsToShow.map { song ->
-            song?.albumArtUriString?.let {
-                ImageRequest.Builder(context)
-                    .data(it)
-                    .dispatcher(Dispatchers.IO)
-                    .crossfade(true)
-                    //.placeholder(R.drawable.ic_music_placeholder)
-                    .error(R.drawable.ic_music_placeholder)
-                    .build()
-            }
-        }.toImmutableList()
+    val artUris = remember(songsToShow) {
+        songsToShow.map { it?.albumArtUriString }.toImmutableList()
     }
 
     BoxWithConstraints(
@@ -90,7 +80,7 @@ fun AlbumArtCollage(
                     topConfigs.forEachIndexed { idx, cfg ->
                         songsToShow.getOrNull(idx)?.let { song ->
                             SmartImage(
-                                model = requests[idx],
+                                model = artUris.getOrNull(idx),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
@@ -112,7 +102,7 @@ fun AlbumArtCollage(
                     bottomConfigs.forEachIndexed { j, cfg ->
                         songsToShow.getOrNull(j + 3)?.let { song ->
                             SmartImage(
-                                model = requests[j + 3],
+                                model = artUris.getOrNull(j + 3),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier

@@ -286,7 +286,7 @@ object AppModule {
             .okHttpClient(okHttpClient)
             .dispatcher(Dispatchers.IO.limitedParallelism(2))
             .allowHardware(true)
-            .crossfade(250)
+            .crossfade(false)
             .bitmapConfig(if (isLowRamDevice) android.graphics.Bitmap.Config.RGB_565 else android.graphics.Bitmap.Config.ARGB_8888)
             .memoryCache {
                 MemoryCache.Builder(context)

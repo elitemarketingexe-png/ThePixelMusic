@@ -84,7 +84,7 @@ fun SmartImage(
     // second, each forcing a recomposition of the surrounding card.
     // 120ms is long enough to look polished on the full-player cover,
     // and short enough that scrolling lists don't visibly queue.
-    crossfadeDurationMillis: Int = 220,
+    crossfadeDurationMillis: Int = 0,
     useDiskCache: Boolean = true,
     useMemoryCache: Boolean = true,
     allowHardware: Boolean = true,
@@ -160,11 +160,11 @@ fun SmartImage(
         return
     }
 
-    // OPTIMIZED: Pre-compiled regex patterns (avoid compiling Regex on every composition)
-    // These were previously created inside remember{} on each SmartImage call - now static.
     val memoryCacheKey = remember(model, requestTargetSize) {
-        if (model is String) {
-            MemoryCache.Key(model)
+        if (model is String && model.isNotBlank()) {
+            val w = (requestTargetSize.width as? coil.size.Dimension.Pixels)?.px ?: 0
+            val h = (requestTargetSize.height as? coil.size.Dimension.Pixels)?.px ?: 0
+            if (w > 0 && h > 0) MemoryCache.Key("${model}_${w}x${h}") else MemoryCache.Key(model)
         } else {
             null
         }
@@ -196,17 +196,21 @@ fun SmartImage(
             model
         }
 
-        val effectiveCrossfade = crossfadeDurationMillis
+        val hasCrossfade = crossfadeDurationMillis > 0
 
         if (optimizedModel is ImageRequest) {
             optimizedModel.newBuilder(context)
                 .size(requestTargetSize)
-                .crossfade(effectiveCrossfade)
+                .apply {
+                    if (hasCrossfade) crossfade(crossfadeDurationMillis) else crossfade(false)
+                }
                 .build()
         } else {
             ImageRequest.Builder(context)
                 .data(optimizedModel)
-                .crossfade(effectiveCrossfade)
+                .apply {
+                    if (hasCrossfade) crossfade(crossfadeDurationMillis) else crossfade(false)
+                }
                 .diskCachePolicy(if (useDiskCache) CachePolicy.ENABLED else CachePolicy.DISABLED)
                 .memoryCachePolicy(if (useMemoryCache) CachePolicy.ENABLED else CachePolicy.DISABLED)
                 .allowHardware(allowHardware)

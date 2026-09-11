@@ -218,25 +218,30 @@ class CastTransferStateHolder @Inject constructor(
             }
         }
         
-        sessionManager?.addSessionManagerListener(castSessionManagerListener as SessionManagerListener<CastSession>, CastSession::class.java)
-        
-        // Sync initial state if session exists
-        val currentSession = sessionManager?.currentCastSession
-        castStateHolder.setCastSession(currentSession)
-        castStateHolder.setRemotePlaybackActive(currentSession != null)
-        
-        if (currentSession != null) {
-            val callback = remoteMediaClientCallback
-            val progressListener = remoteProgressListener
-            if (callback != null) {
-                currentSession.remoteMediaClient?.registerCallback(callback)
+        castStateHolder.withSessionManager { sm ->
+            castSessionManagerListener?.let { listener ->
+                @Suppress("UNCHECKED_CAST")
+                sm.addSessionManagerListener(listener as SessionManagerListener<CastSession>, CastSession::class.java)
             }
-            if (progressListener != null) {
-                currentSession.remoteMediaClient?.addProgressListener(progressListener, 1000)
+            
+            // Sync initial state if session exists
+            val currentSession = sm.currentCastSession
+            castStateHolder.setCastSession(currentSession)
+            castStateHolder.setRemotePlaybackActive(currentSession != null)
+            
+            if (currentSession != null) {
+                val callback = remoteMediaClientCallback
+                val progressListener = remoteProgressListener
+                if (callback != null) {
+                    currentSession.remoteMediaClient?.registerCallback(callback)
+                }
+                if (progressListener != null) {
+                    currentSession.remoteMediaClient?.addProgressListener(progressListener, 1000)
+                }
+                startRemoteProgressObserver()
+                playbackStateHolder.startProgressUpdates()
+                currentSession.remoteMediaClient?.requestStatus()
             }
-            startRemoteProgressObserver()
-            playbackStateHolder.startProgressUpdates()
-            currentSession.remoteMediaClient?.requestStatus()
         }
     }
 

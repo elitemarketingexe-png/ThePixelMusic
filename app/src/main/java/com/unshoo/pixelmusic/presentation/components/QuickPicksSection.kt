@@ -149,24 +149,6 @@ fun QuickPicksSection(
         if (displayMode == QuickPicksDisplayMode.CARD) {
             val lazyListState = rememberLazyListState()
             val limitSongs = remember(songs) { songs.take(20) }
-            
-            // Use snapshotFlow instead of LaunchedEffect(isScrollInProgress) so the
-            // coroutine doesn't restart on every user touch — it just waits inside.
-            LaunchedEffect(limitSongs) {
-                if (limitSongs.isEmpty()) return@LaunchedEffect
-                while (isActive) {
-                    // Wait until the user is not scrolling before auto-advancing
-                    snapshotFlow { lazyListState.isScrollInProgress }
-                        .filter { !it }
-                        .first()
-                    delay(2500)
-                    // Re-check after delay in case user started scrolling again
-                    if (isActive && !lazyListState.isScrollInProgress) {
-                        val nextIndex = (lazyListState.firstVisibleItemIndex + 1) % limitSongs.size
-                        lazyListState.animateScrollToItem(nextIndex)
-                    }
-                }
-            }
 
             LazyRow(
                 state = lazyListState,
@@ -182,66 +164,22 @@ fun QuickPicksSection(
                         modifier = Modifier
                             .width(cardSize)
                             .height(cardSize)
-                            .graphicsLayer {
-                                val layoutInfo = lazyListState.layoutInfo
-                                val visibleItems = layoutInfo.visibleItemsInfo
-                                val itemInfo = visibleItems.firstOrNull { it.key == song.id }
-                                if (itemInfo != null) {
-                                    val focalPoint = layoutInfo.viewportStartOffset + 16.dp.toPx()
-                                    val distanceFromStart = (itemInfo.offset.toFloat() - focalPoint).absoluteValue
-                                    val maxDistance = (cardSize + 8.dp).toPx()
-                                    val fraction = (distanceFromStart / maxDistance).coerceIn(0f, 1f)
-                                    val scale = 0.86f + (1f - 0.86f) * (1f - fraction)
-                                    scaleX = scale
-                                    scaleY = scale
-                                    alpha = 0.7f + (1f - 0.7f) * (1f - fraction)
-                                } else {
-                                    scaleX = 0.86f
-                                    scaleY = 0.86f
-                                    alpha = 0.7f
-                                }
-                            }
                     )
                 }
             }
         } else if (displayMode == QuickPicksDisplayMode.CARD_CLASSIC) {
+            val context = LocalContext.current
+            val isReducedMotion = remember(context) {
+                android.provider.Settings.Global.getFloat(
+                    context.contentResolver,
+                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1f
+                ) == 0f
+            }
             val limitSongs = remember(songs) { songs.take(20) }
             val lazyListState = rememberLazyListState()
-            val context = LocalContext.current
-            
-            // Query system reduced motion (animation scale)
-            val isReducedMotion = remember(context) {
-                try {
-                    android.provider.Settings.Global.getFloat(
-                        context.contentResolver,
-                        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                        1f
-                    ) == 0f
-                } catch (e: Exception) {
-                    false
-                }
-            }
-
-            // Same snapshotFlow-based fix as CARD mode above
-            LaunchedEffect(limitSongs) {
-                if (limitSongs.isEmpty()) return@LaunchedEffect
-                while (isActive) {
-                    snapshotFlow { lazyListState.isScrollInProgress }
-                        .filter { !it }
-                        .first()
-                    delay(2500)
-                    if (isActive && !lazyListState.isScrollInProgress) {
-                        val nextIndex = (lazyListState.firstVisibleItemIndex + 1) % limitSongs.size
-                        if (isReducedMotion) {
-                            lazyListState.scrollToItem(nextIndex)
-                        } else {
-                            lazyListState.animateScrollToItem(nextIndex)
-                        }
-                    }
-                }
-            }
-
             val cardShape = remember { AbsoluteSmoothCornerShape(20.dp, 60) }
+
             LazyRow(
                 state = lazyListState,
                 contentPadding = PaddingValues(start = 16.dp, end = 60.dp),
@@ -314,12 +252,11 @@ fun QuickPicksSection(
                             }
                         }
                         
-                        Spacer(modifier = Modifier.height(7.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         
-                        // Metadata details below card
                         Text(
                             text = song.title,
-                            style = MaterialTheme.typography.titleSmall.copy(
+                            style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = GoogleSansRounded,
                                 color = if (song.id == currentSongId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
@@ -331,7 +268,7 @@ fun QuickPicksSection(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = song.artist,
-                            style = MaterialTheme.typography.bodySmall.copy(
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             maxLines = 1,
@@ -344,6 +281,7 @@ fun QuickPicksSection(
         } else if (displayMode == QuickPicksDisplayMode.UNCONTAINED) {
             val limitSongs = remember(songs) { songs.take(20) }
             val lazyListState = rememberLazyListState()
+            val uncontainedShape = remember { AbsoluteSmoothCornerShape(24.dp, 80) }
             
             LazyRow(
                 state = lazyListState,
@@ -379,24 +317,13 @@ fun QuickPicksSection(
                                         scaleX = scale
                                         scaleY = scale
                                         alpha = 0.7f + (1f - 0.7f) * scale
-                                        
-                                        // Dynamic Material 3 shape morphing: squircle corner sizes change on scroll position
-                                        val currentCorner = if (fraction > 0.5f) {
-                                            val morphProgress = (fraction - 0.5f) * 2f
-                                            24.dp + (56.dp - 24.dp) * morphProgress.coerceIn(0f, 1f)
-                                        } else {
-                                            24.dp
-                                        }
-                                        shape = AbsoluteSmoothCornerShape(currentCorner, 80)
-                                        clip = true
                                     } else {
                                         scaleX = 0.88f
                                         scaleY = 0.88f
                                         alpha = 0.7f
-                                        shape = AbsoluteSmoothCornerShape(56.dp, 80)
-                                        clip = true
                                     }
                                 },
+                            shape = uncontainedShape,
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                         ) {
