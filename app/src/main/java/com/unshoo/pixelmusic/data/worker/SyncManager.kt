@@ -87,9 +87,13 @@ class SyncManager @Inject constructor(
         if (!started.compareAndSet(false, true)) return
         observeStorageChanges()
         observeAppForeground()
-        sync()
+        sharingScope.launch {
+            kotlinx.coroutines.delay(2000L)
+            sync()
+        }
     }
 
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun observeStorageChanges() {
         sharingScope.launch {
             mediaStoreObserver.mediaStoreChanges

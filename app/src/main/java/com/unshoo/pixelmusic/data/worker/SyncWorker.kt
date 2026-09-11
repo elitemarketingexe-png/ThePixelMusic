@@ -98,6 +98,7 @@ constructor(
         private val persistenceManager: YouTubeLibraryPersistenceManager
 ) : CoroutineWorker(appContext, workerParams) {
 
+
     private val contentResolver: ContentResolver = appContext.contentResolver
     private val isLowRamDevice: Boolean =
         (appContext.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice == true
@@ -106,6 +107,11 @@ constructor(
 
     override suspend fun doWork(): Result =
             withContext(Dispatchers.IO) {
+                try {
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to set background thread priority for SyncWorker")
+                }
                 Trace.beginSection("SyncWorker.doWork")
                 try {
                     val syncModeName =

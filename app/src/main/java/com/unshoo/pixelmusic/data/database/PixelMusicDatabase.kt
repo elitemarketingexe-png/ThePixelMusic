@@ -1266,6 +1266,18 @@ abstract class PixelMusicDatabase : RoomDatabase() {
                     installFavoriteSyncTriggers(db)
                     installSongsSearchSyncTriggers(db)
                 }
+
+                override fun onOpen(db: SupportSQLiteDatabase) {
+                    super.onOpen(db)
+                    try {
+                        db.execSQL("PRAGMA synchronous = NORMAL")
+                        db.execSQL("PRAGMA temp_store = MEMORY")
+                        db.execSQL("PRAGMA mmap_size = 30000000")
+                        db.execSQL("PRAGMA foreign_keys = ON")
+                    } catch (e: Exception) {
+                        timber.log.Timber.w(e, "Failed to apply database performance PRAGMAs")
+                    }
+                }
             }
         }
 

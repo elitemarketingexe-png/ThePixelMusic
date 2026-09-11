@@ -9,6 +9,7 @@ import com.unshoo.pixelmusic.data.model.youtube.PlaylistInfo
 import com.unshoo.pixelmusic.data.model.youtube.PlaylistSongCrossRef
 import com.unshoo.pixelmusic.data.model.youtube.Song
 import com.unshoo.pixelmusic.data.model.youtube.Version
+import androidx.sqlite.db.SupportSQLiteDatabase
 import java.util.concurrent.Executors
 
 @Database(
@@ -42,6 +43,18 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java, Constants.Database.NAME
             )
+                .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onOpen(db: SupportSQLiteDatabase) {
+                        super.onOpen(db)
+                        try {
+                            db.execSQL("PRAGMA synchronous = NORMAL")
+                            db.execSQL("PRAGMA temp_store = MEMORY")
+                        } catch (e: Exception) {
+                            timber.log.Timber.w(e, "Failed to apply YouTube DB performance PRAGMAs")
+                        }
+                    }
+                })
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
 

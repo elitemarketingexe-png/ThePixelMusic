@@ -818,8 +818,10 @@ class DualPlayerEngine @Inject constructor(
         playerA.removeAnalyticsListener(masterPlayerListener)
         playerA.removeAudioOffloadListener(masterAudioOffloadListener)
         onPlayerAboutToBeReleasedListener?.invoke(playerA)
-        playerA.release()
-        playerB.release()
+        runCatching { playerA.stop() }
+        runCatching { playerA.release() }
+        runCatching { playerB.stop() }
+        runCatching { playerB.release() }
 
         playerA = buildPlayer()
         playerB = buildPlayer()
@@ -1741,9 +1743,13 @@ class DualPlayerEngine @Inject constructor(
             playerA.removeAnalyticsListener(masterPlayerListener)
             playerA.removeAudioOffloadListener(masterAudioOffloadListener)
             onPlayerAboutToBeReleasedListener?.invoke(playerA)
-            playerA.release()
+            runCatching { playerA.stop() }
+            runCatching { playerA.release() }
         }
-        if (::playerB.isInitialized) playerB.release()
+        if (::playerB.isInitialized) {
+            runCatching { playerB.stop() }
+            runCatching { playerB.release() }
+        }
         isReleased = true
     }
 }
