@@ -81,6 +81,7 @@ class PlayerViewModelTest {
     private val mockTelegramCacheManager: TelegramCacheManager = mockk(relaxed = true)
     private val mockTelegramCacheManagerProvider: Lazy<TelegramCacheManager> = mockk()
     private val mockTelegramRepository: com.unshoo.pixelmusic.data.telegram.TelegramRepository = mockk(relaxed = true)
+    private val mockTelegramRepositoryProvider: dagger.Lazy<com.unshoo.pixelmusic.data.telegram.TelegramRepository> = mockk()
     private val mockListeningStatsTracker: ListeningStatsTracker = mockk(relaxed = true)
     private val mockDailyMixStateHolder: DailyMixStateHolder = mockk(relaxed = true)
     private val mockLyricsStateHolder: LyricsStateHolder = mockk(relaxed = true)
@@ -132,6 +133,7 @@ class PlayerViewModelTest {
         every { ContextCompat.getMainExecutor(any()) } returns directExecutor
         every { mockTelegramCacheManager.embeddedArtUpdated } returns kotlinx.coroutines.flow.MutableSharedFlow()
         every { mockTelegramCacheManagerProvider.get() } returns mockTelegramCacheManager
+        every { mockTelegramRepositoryProvider.get() } returns mockTelegramRepository
 
         mockkStatic(android.net.Uri::class)
         every { android.net.Uri.parse(any()) } answers {
@@ -273,6 +275,7 @@ class PlayerViewModelTest {
             mockDualPlayerEngine,
             mockAppShortcutManager,
             mockTelegramCacheManagerProvider,
+            mockTelegramRepositoryProvider,
             mockListeningStatsTracker,
             mockDailyMixStateHolder,
             mockLyricsStateHolder,

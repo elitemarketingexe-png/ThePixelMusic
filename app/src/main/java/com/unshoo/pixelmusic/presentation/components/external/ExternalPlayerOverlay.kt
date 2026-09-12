@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.media3.common.util.UnstableApi
 import coil.size.Size
 import com.unshoo.pixelmusic.R
@@ -71,6 +72,8 @@ fun ExternalPlayerOverlay(
     onDismiss: () -> Unit,
     onOpenFullPlayer: () -> Unit
 ) {
+    // Read once for the overlay artwork request size
+    val overlayArtDensity = LocalDensity.current.density
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val playbackPosition by playerViewModel.currentPlaybackPosition.collectAsStateWithLifecycle()
     val remotePosition by playerViewModel.remotePosition.collectAsStateWithLifecycle()
@@ -225,7 +228,10 @@ fun ExternalPlayerOverlay(
                                     modifier = Modifier
                                         .size(96.dp)
                                         .clip(RoundedCornerShape(18.dp)),
-                                    targetSize = Size(192, 192)
+                                    targetSize = remember(overlayArtDensity) {
+                                        val px = (96 * overlayArtDensity).toInt().coerceAtLeast(192)
+                                        Size(px, px)
+                                    }
                                 )
                             }
 

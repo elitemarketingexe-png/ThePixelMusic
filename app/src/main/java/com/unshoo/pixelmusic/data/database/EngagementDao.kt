@@ -51,6 +51,46 @@ interface EngagementDao {
     @Query("DELETE FROM song_engagements")
     suspend fun clearAllEngagements()
 
+    /* ------------------------------------------------------------------ *
+     *                       library_membership                          *
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Marks a song as belonging to the library because it has been played.
+     * OnConflictStrategy.IGNORE ensures that when the row already exists, SQLite skips it,
+     * no AFTER INSERT trigger fires, and Room queries observing this table are not invalidated.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertLibraryMembership(membership: LibraryMembershipEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertLibraryMemberships(memberships: List<LibraryMembershipEntity>)
+
+    @Query("""
+        DELETE FROM library_membership
+        WHERE song_key NOT IN (SELECT CAST(id AS TEXT) FROM songs WHERE source_type != 7)
+          AND song_key NOT IN (SELECT content_uri_string FROM songs WHERE source_type = 7)
+    """)
+    suspend fun deleteOrphanedLibraryMembership()
+
+    /**
+     * Records a play and marks library membership in one transaction.
+     */
+    @Transaction
+    suspend fun recordPlayAndMarkMembership(
+        songId: String,
+        durationMs: Long,
+        timestamp: Long
+    ) {
+        recordPlay(songId = songId, durationMs = durationMs, timestamp = timestamp)
+        insertLibraryMembership(
+            LibraryMembershipEntity(
+                songKey = songId.toLibraryMembershipKey(),
+                firstPlayedTimestamp = timestamp
+            )
+        )
+    }
+
     /**
      * Increments play count and updates last played timestamp atomically.
      * More efficient than read-modify-write pattern.
@@ -80,6 +120,18 @@ interface EngagementDao {
     @Transaction
     suspend fun replaceAll(engagements: List<SongEngagementEntity>) {
         clearAllEngagements()
-        if (engagements.isNotEmpty()) upsertEngagements(engagements)
+        if (engagements.isNotEmpty()) {
+            upsertEngagements(engagements)
+            insertLibraryMemberships(
+                engagements
+                    .filter { it.playCount > 0 }
+                    .map {
+                        LibraryMembershipEntity(
+                            songKey = it.songId.toLibraryMembershipKey(),
+                            firstPlayedTimestamp = it.lastPlayedTimestamp.coerceAtLeast(0L)
+                        )
+                    }
+            )
+        }
     }
 }

@@ -255,7 +255,13 @@ class DailyMixManager @Inject constructor(
         songDurationMs: Long = 0L,
         timestamp: Long = System.currentTimeMillis()
     ) {
-        engagementDao.recordPlay(
+        // PERF: was engagementDao.recordPlay(...). That single call invalidated all 20 MusicDao
+        // queries whose membership predicate read song_engagements, on every song transition, even
+        // though `play_count > 0` is monotonic and the increment cannot change any result set.
+        // recordPlayAndMarkMembership() keeps the counter write and puts the membership signal
+        // in the append-only library_membership table via INSERT OR IGNORE, which fires no trigger
+        // - and therefore causes no invalidation - for every play after the first.
+        engagementDao.recordPlayAndMarkMembership(
             songId = songId,
             durationMs = songDurationMs.coerceAtLeast(0L),
             timestamp = timestamp.coerceAtLeast(0L)

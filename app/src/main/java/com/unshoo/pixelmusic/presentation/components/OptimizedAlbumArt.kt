@@ -24,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalDensity
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
@@ -52,14 +51,21 @@ fun OptimizedAlbumArt(
     placeholderModel: Any? = null
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current.density
-    val requestTargetSize = remember(targetSize, density) {
+    // `density` is deliberately no longer read here: targetSize is already in pixels.
+    val requestTargetSize = remember(targetSize) {
         val safeSize = safeAlbumArtTargetSize(targetSize)
         val w = (safeSize.width as? Dimension.Pixels)?.px
         val h = (safeSize.height as? Dimension.Pixels)?.px
         if (w != null && h != null) {
-            val scaledW = (w * density).toInt().coerceAtMost(MaxSafeAlbumArtDimensionPx)
-            val scaledH = (h * density).toInt().coerceAtMost(MaxSafeAlbumArtDimensionPx)
+            // PERF/BUGFIX: `targetSize` is already expressed in PIXELS by callers
+            // (e.g. AlbumArtQuality.maxSize is 512px for Medium, 800px for High;
+            // SafeOriginalAlbumArtSize is 1280px). Multiplying by density a second time
+            // forced all sizes above LOW to clamp to 1280px, allocating 6.55MB ARGB_8888
+            // bitmaps in ART Large Object Space and dropping HWUI image decodes.
+            // Treating targetSize as pixels also re-aligns this request with
+            // PrefetchAlbumNeighbors, making memory cache lookups hit as intended.
+            val scaledW = w.coerceAtMost(MaxSafeAlbumArtDimensionPx)
+            val scaledH = h.coerceAtMost(MaxSafeAlbumArtDimensionPx)
             Size(scaledW, scaledH)
         } else {
             safeSize

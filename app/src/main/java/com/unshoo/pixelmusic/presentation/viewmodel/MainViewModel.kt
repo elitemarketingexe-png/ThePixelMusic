@@ -126,8 +126,8 @@ class MainViewModel @Inject constructor(
      * Nos ayuda a saber si es la primera vez que se abre la app.
      */
     val isLibraryEmpty: StateFlow<Boolean> = musicRepository
-        .getAudioFiles()
-        .map { it.isEmpty() }
+        .getSongCountFlow()
+        .map { it == 0 }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

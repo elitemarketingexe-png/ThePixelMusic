@@ -37,3 +37,4 @@ markdown.xml
 .git-rewrite/
 *.log
 device_log_2min.txt
+pixelmusic_*.txt

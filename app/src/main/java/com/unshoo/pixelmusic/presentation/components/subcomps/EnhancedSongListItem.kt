@@ -34,12 +34,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,6 +68,9 @@ private data class EnhancedSongAnimationTarget(
 private fun lerpFloat(start: Float, stop: Float, fraction: Float): Float {
     return start + (stop - start) * fraction
 }
+
+private val DefaultSurfaceShape = RoundedCornerShape(22.dp)
+private val DefaultAlbumShape = RoundedCornerShape(10.dp)
 
 /**
  * Enhanced song list item with multi-selection support.
@@ -110,21 +115,25 @@ fun EnhancedSongListItem(
 
     val albumArtTargetSizePx = with(LocalDensity.current) { albumArtSize.roundToPx() }
     val isHighlighted = isCurrentSong && !isLoading
+    val isStaticState = performanceModeEnabled || (!isHighlighted && !isSelected)
 
     val highlightProgress: Float
     val selectionVisualProgress: Float
-    val selectionScaleProgress: Float
+    val selectionScaleProgressState: State<Float>
 
-    if (performanceModeEnabled) {
+    if (isStaticState) {
         highlightProgress = if (isHighlighted) 1f else 0f
         selectionVisualProgress = if (isSelected) 1f else 0f
-        selectionScaleProgress = if (isSelected) 1f else 0f
+        selectionScaleProgressState = rememberUpdatedState(if (isSelected) 1f else 0f)
     } else {
-        val transition = updateTransition(
-            targetState = EnhancedSongAnimationTarget(
+        val animationTarget = remember(isHighlighted, isSelected) {
+            EnhancedSongAnimationTarget(
                 isHighlighted = isHighlighted,
                 isSelected = isSelected
-            ),
+            )
+        }
+        val transition = updateTransition(
+            targetState = animationTarget,
             label = "EnhancedSongListItemTransition"
         )
         highlightProgress = transition.animateFloat(
@@ -139,7 +148,7 @@ fun EnhancedSongListItem(
         ) { state ->
             if (state.isSelected) 1f else 0f
         }.value
-        selectionScaleProgress = transition.animateFloat(
+        selectionScaleProgressState = transition.animateFloat(
             transitionSpec = {
                 spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -149,24 +158,29 @@ fun EnhancedSongListItem(
             label = "selectionScaleProgress"
         ) { state ->
             if (state.isSelected) 1f else 0f
-        }.value
+        }
     }
 
-    val animatedCornerRadius = lerpDp(22.dp, 50.dp, highlightProgress)
-    val animatedAlbumCornerRadius = lerpDp(10.dp, 50.dp, highlightProgress)
-    val selectionScale = lerpFloat(1f, 0.98f, selectionScaleProgress)
-    val selectionBorderWidth = lerpDp(0.dp, 2.5.dp, selectionVisualProgress)
+    val animatedCornerRadius = if (isStaticState && !isHighlighted) 22.dp else lerpDp(22.dp, 50.dp, highlightProgress)
+    val animatedAlbumCornerRadius = if (isStaticState && !isHighlighted) 10.dp else lerpDp(10.dp, 50.dp, highlightProgress)
+    val selectionBorderWidth = if (isStaticState && !isSelected) 0.dp else lerpDp(0.dp, 2.5.dp, selectionVisualProgress)
 
-    val surfaceShape = remember(animatedCornerRadius, customShape, isHighlighted) {
+    val surfaceShape = remember(animatedCornerRadius, customShape, isHighlighted, isStaticState) {
         if (customShape != null && !isHighlighted) {
             customShape
+        } else if (isStaticState && !isHighlighted) {
+            DefaultSurfaceShape
         } else {
             RoundedCornerShape(animatedCornerRadius)
         }
     }
 
-    val albumShape = remember(animatedAlbumCornerRadius) {
-        RoundedCornerShape(animatedAlbumCornerRadius)
+    val albumShape = remember(animatedAlbumCornerRadius, isStaticState, isHighlighted) {
+        if (isStaticState && !isHighlighted) {
+            DefaultAlbumShape
+        } else {
+            RoundedCornerShape(animatedAlbumCornerRadius)
+        }
     }
 
     val colors = MaterialTheme.colorScheme
@@ -272,7 +286,15 @@ fun EnhancedSongListItem(
         Surface(
             modifier = modifier
                 .fillMaxWidth()
-                .scale(selectionScale)
+                .graphicsLayer {
+                    val scale = if (isStaticState && !isSelected) {
+                        1f
+                    } else {
+                        lerpFloat(1f, 0.98f, selectionScaleProgressState.value)
+                    }
+                    scaleX = scale
+                    scaleY = scale
+                }
                 .clip(surfaceShape)
                 .then(
                     if (showSelectionDecoration) {
@@ -330,6 +352,7 @@ fun EnhancedSongListItem(
                             contentDescription = song.title,
                             shape = albumShape,
                             targetSize = Size(albumArtTargetSizePx, albumArtTargetSizePx),
+                            crossfadeDurationMillis = 0,
                             modifier = Modifier.fillMaxSize()
                         )
                         

@@ -125,12 +125,12 @@ private fun SongEntity.toSongInternal(artists: List<ArtistRef>): Song {
         discNumber = this.discNumber,
         dateAdded = this.dateAdded,
         year = this.year,
-        // Parse Telegram metadata from contentUriString
+        // Parse metadata from contentUriString efficiently
         telegramChatId = if (this.contentUriString.startsWith("telegram://")) {
-            this.contentUriString.removePrefix("telegram://").split("/").getOrNull(0)?.toLongOrNull()
+            this.contentUriString.removePrefix("telegram://").substringBefore('/').toLongOrNull()
         } else null,
         telegramFileId = if (this.contentUriString.startsWith("telegram://")) {
-            this.contentUriString.removePrefix("telegram://").split("/").getOrNull(1)?.toIntOrNull()
+            this.contentUriString.removePrefix("telegram://").substringAfter('/', "").takeIf { it.isNotEmpty() }?.toIntOrNull()
         } else null,
         neteaseId = if (this.contentUriString.startsWith("netease://")) {
             this.contentUriString.removePrefix("netease://").toLongOrNull()
@@ -167,18 +167,24 @@ fun SongEntity.toSong(): Song {
  * Parses the artists_json column back into a list of ArtistRef.
  */
 private fun parseArtistsJson(json: String?): List<ArtistRef> {
-    if (json.isNullOrBlank()) return emptyList()
+    if (json.isNullOrBlank() || json == "[]") return emptyList()
     return try {
         val arr = JSONArray(json)
-        (0 until arr.length()).map { i ->
+        val len = arr.length()
+        if (len == 0) return emptyList()
+        val result = ArrayList<ArtistRef>(len)
+        for (i in 0 until len) {
             val obj = arr.getJSONObject(i)
-            ArtistRef(
-                id = obj.getLong("id"),
-                name = obj.getString("name"),
-                isPrimary = obj.optBoolean("primary", false),
-                channelId = if (obj.has("channelId") && !obj.isNull("channelId")) obj.optString("channelId") else null
+            result.add(
+                ArtistRef(
+                    id = obj.getLong("id"),
+                    name = obj.getString("name"),
+                    isPrimary = obj.optBoolean("primary", false),
+                    channelId = if (obj.has("channelId") && !obj.isNull("channelId")) obj.optString("channelId") else null
+                )
             )
         }
+        result
     } catch (_: Exception) {
         emptyList()
     }

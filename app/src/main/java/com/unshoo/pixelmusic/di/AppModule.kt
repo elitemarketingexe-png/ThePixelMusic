@@ -168,7 +168,8 @@ object AppModule {
             PixelMusicDatabase.MIGRATION_42_43,
             PixelMusicDatabase.MIGRATION_43_44,
             PixelMusicDatabase.MIGRATION_44_45,
-            PixelMusicDatabase.MIGRATION_45_46
+            PixelMusicDatabase.MIGRATION_45_46,
+            PixelMusicDatabase.MIGRATION_46_47
         )
             .addCallback(PixelMusicDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)

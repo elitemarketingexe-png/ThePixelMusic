@@ -248,7 +248,9 @@ fun LibraryFavoritesTab(
                                     "fav_placeholder_$index"
                                 }
                             },
-                            contentType = { "song" }
+                            contentType = { index ->
+                                if (favoriteSongs.peek(index) != null) "song" else "placeholder"
+                            }
                         ) { index ->
                             val song = favoriteSongs[index]
                             if (song != null) {
@@ -441,7 +443,9 @@ fun LibrarySongsTabPaginated(
                                         "paged_song_$index"
                                     }
                                 },
-                                contentType = paginatedSongs.itemContentType { "song" }
+                                contentType = { index ->
+                                    if (paginatedSongs.peek(index) != null) "song" else "placeholder"
+                                }
                             ) { index ->
                                 val song = paginatedSongs[index]
                                 if (song != null) {

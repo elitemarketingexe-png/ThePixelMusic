@@ -312,7 +312,9 @@ fun LibrarySongsTab(
                                         "song_placeholder_$index"
                                     }
                                 },
-                                contentType = { "song" }
+                                contentType = { index ->
+                                    if (songs.peek(index) != null) "song" else "placeholder"
+                                }
                             ) { index ->
                                 val song = songs[index]
                                 

@@ -27,9 +27,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TelegramTopicEntity::class,
         AiCacheEntity::class,
         AiUsageEntity::class,
-        RelatedSongMap::class
+        RelatedSongMap::class,
+        LibraryMembershipEntity::class
     ],
-    version = 46,
+    version = 47,
     exportSchema = true
 )
 abstract class PixelMusicDatabase : RoomDatabase() {
@@ -747,6 +748,36 @@ abstract class PixelMusicDatabase : RoomDatabase() {
         val MIGRATION_45_46 = object : Migration(45, 46) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE songs ADD COLUMN is_disliked INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
+         * Adds `library_membership`, the append-only table that carries the "has been played, so it
+         * belongs in the library" signal out of `song_engagements`.
+         *
+         * Stops the InvalidationTracker feedback loop where recordPlay() on every track transition
+         * invalidated all 20 MusicDao queries observing song_engagements.
+         */
+        val MIGRATION_46_47 = object : Migration(46, 47) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `library_membership` (" +
+                        "`song_key` TEXT NOT NULL, " +
+                        "`first_played_timestamp` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`song_key`))"
+                )
+
+                // Backfill from existing engagement rows so nobody's library shrinks on upgrade.
+                db.execSQL(
+                    "INSERT OR IGNORE INTO library_membership (song_key, first_played_timestamp) " +
+                        "SELECT CASE " +
+                        "WHEN SUBSTR(song_id, 1, 8) = 'youtube_' " +
+                        "THEN 'youtube://' || SUBSTR(song_id, 9) " +
+                        "ELSE song_id END, " +
+                        "COALESCE(last_played_timestamp, 0) " +
+                        "FROM song_engagements " +
+                        "WHERE play_count > 0"
+                )
             }
         }
 

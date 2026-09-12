@@ -17,6 +17,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,6 +62,11 @@ class PlaybackStateHolder @Inject constructor(
         // screen is off and no slider is visible.
         private const val FOREGROUND_PROGRESS_TICK_MS = 250L
         private const val BACKGROUND_PROGRESS_TICK_MS = 1000L
+        /**
+         * Tick used while the screen is on but *nothing is observing* position - the user is
+         * on Library / Search / Settings, or the app is backgrounded with the display still lit.
+         */
+        private const val UNOBSERVED_PROGRESS_TICK_MS = 1000L
         /**
          * Threshold above which we skip per-item moveMediaItem calls and use
          * a single setMediaItems call instead. moveMediaItem triggers an IPC
@@ -594,7 +604,9 @@ class PlaybackStateHolder @Inject constructor(
     /*                               Progress Updates                             */
     /* -------------------------------------------------------------------------- */
     
-    private var progressJob: kotlinx.coroutines.Job? = null
+    private var progressJob: Job? = null
+    private var progressSubscriptionWatcherJob: Job? = null
+    private val progressPoke = Channel<Unit>(Channel.CONFLATED)
 
     /**
      * Reconciles duration reported by the player with the current song metadata duration.
@@ -651,6 +663,13 @@ class PlaybackStateHolder @Inject constructor(
 
     fun startProgressUpdates() {
         stopProgressUpdates()
+        progressSubscriptionWatcherJob = scope?.launch(Dispatchers.Main.immediate) {
+            _currentPosition.subscriptionCount
+                .map { it > 0 }
+                .distinctUntilChanged()
+                .filter { it }   // only the 0 -> >0 edge; losing a subscriber needs no refresh
+                .collect { progressPoke.trySend(Unit) }
+        }
         progressJob = scope?.launch(Dispatchers.Main) {
             while (true) {
                 val tickMs = currentProgressTickMs()
@@ -747,22 +766,24 @@ class PlaybackStateHolder @Inject constructor(
                 } catch (e: Exception) {
                     Timber.tag(TAG).e(e, "Error in progress update loop")
                 }
-                delay(tickMs)
+                // Interruptible wait: returns immediately when a UI surface starts observing position
+                withTimeoutOrNull(tickMs) { progressPoke.receive() }
             }
         }
     }
 
     private fun currentProgressTickMs(): Long {
-        return if (powerManager.isInteractive) {
-            FOREGROUND_PROGRESS_TICK_MS
-        } else {
-            BACKGROUND_PROGRESS_TICK_MS
-        }
+        if (!powerManager.isInteractive) return BACKGROUND_PROGRESS_TICK_MS
+        // If nothing is rendering the playback slider/position, poll at 1s to stop 4 Binder IPCs/sec
+        if (_currentPosition.subscriptionCount.value == 0) return UNOBSERVED_PROGRESS_TICK_MS
+        return FOREGROUND_PROGRESS_TICK_MS
     }
 
     fun stopProgressUpdates() {
         progressJob?.cancel()
         progressJob = null
+        progressSubscriptionWatcherJob?.cancel()
+        progressSubscriptionWatcherJob = null
     }
 
     /* -------------------------------------------------------------------------- */
