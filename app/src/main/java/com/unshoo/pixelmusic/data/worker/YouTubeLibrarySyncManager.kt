@@ -31,6 +31,7 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.absoluteValue
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 @Singleton
 class YouTubeLibrarySyncManager @Inject constructor(
@@ -381,13 +382,13 @@ class YouTubeLibrarySyncManager @Inject constructor(
     }
 
     private fun ytSongId(youtubeId: String): Long =
-        -(15_000_000_000_000L + youtubeId.hashCode().toLong().absoluteValue)
+        YouTubeIdUtils.toUnifiedYoutubeSongId(youtubeId)
 
     private fun ytAlbumId(name: String): Long =
-        -(16_000_000_000_000L + name.lowercase().hashCode().toLong().absoluteValue)
+        YouTubeIdUtils.toUnifiedYoutubeAlbumId(name)
 
     private fun ytArtistId(name: String): Long =
-        -(17_000_000_000_000L + name.lowercase().hashCode().toLong().absoluteValue)
+        YouTubeIdUtils.toUnifiedYoutubeArtistId(name)
 
     /**
      * Bug 1+8 fix: derives a stable Long ID from the YouTube channel ID string

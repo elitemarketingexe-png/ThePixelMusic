@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -161,7 +162,7 @@ fun QuickPicksAllScreen(
 
             // Songs
             if (!isLoading) {
-                items(songs, key = { it.id }) { song ->
+                itemsIndexed(songs, key = { index, song -> "${song.id}_$index" }) { _, song ->
                     EnhancedSongListItem(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         song = song,

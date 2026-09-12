@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import kotlin.math.absoluteValue
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 import unshoo.ianshulyadav.pixelmusic.innertube.models.WatchEndpoint
 import com.unshoo.pixelmusic.data.model.Song
@@ -507,7 +508,6 @@ object AutoQueueManager {
     }
 
     fun getDatabaseIdForYoutubeId(youtubeId: String): Long {
-        val youtubeSongIdOffset = 15_000_000_000_000L
-        return -(youtubeSongIdOffset + youtubeId.hashCode().toLong().absoluteValue)
+        return YouTubeIdUtils.toUnifiedYoutubeSongId(youtubeId)
     }
 }

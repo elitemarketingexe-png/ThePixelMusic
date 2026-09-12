@@ -13,6 +13,7 @@ import com.unshoo.pixelmusic.utils.normalizeMetadataTextOrEmpty
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.min
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 /**
  * PagingSource that loads songs from MediaStore based on a pre-filtered list of IDs.
@@ -61,7 +62,7 @@ class MediaStorePagingSource(
             val songs = fetchSongDetails(idsToLoad)
 
             // Sort songs to match the order of idsToLoad (because "IN" query doesn't guarantee order)
-            val songsMap = songs.associateBy { it.id.toLongOrNull() ?: (-(15_000_000_000_000L + kotlin.math.abs(it.id.hashCode().toLong()))) }
+            val songsMap = songs.associateBy { YouTubeIdUtils.safeSongIdToLong(it.id) }
             val orderedSongs = idsToLoad.mapNotNull { songsMap[it] }
 
             val nextKey = if (end < filteredIds.size) pageIndex + 1 else null

@@ -12,6 +12,7 @@ import com.unshoo.pixelmusic.utils.normalizeMetadataText
 import com.unshoo.pixelmusic.utils.normalizeMetadataTextOrEmpty
 import org.json.JSONArray
 import org.json.JSONObject
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 /** Integer constants for the `source_type` column — faster than LIKE checks on URI scheme. */
 object SourceType {
@@ -76,7 +77,7 @@ data class SongEntity(
     @ColumnInfo(name = "artist_id") val artistId: Long, // Primary artist ID for backward compatibility
     @ColumnInfo(name = "album_artist") val albumArtist: String? = null, // Album artist from metadata
     @ColumnInfo(name = "album_name") val albumName: String,
-    @ColumnInfo(name = "album_id") val albumId: Long, // index = true eliminado
+    @ColumnInfo(name = "album_id") val albumId: Long,
     @ColumnInfo(name = "content_uri_string") val contentUriString: String,
     @ColumnInfo(name = "album_art_uri_string") val albumArtUriString: String?,
     @ColumnInfo(name = "duration") val duration: Long,
@@ -230,12 +231,9 @@ fun List<SongEntity>.toSongs(): List<Song> {
     return this.map { it.toSong() }
 }
 
-// El modelo Song usa id como String, pero la entidad lo necesita como Long (de MediaStore)
-// El modelo Song no tiene filePath, así que no se puede mapear desde ahí directamente.
-// filePath y parentDirectoryPath se poblarán desde MediaStore en el SyncWorker.
 fun Song.toEntity(filePathFromMediaStore: String, parentDirFromMediaStore: String): SongEntity {
     return SongEntity(
-        id = this.id.toLongOrNull() ?: (-(15_000_000_000_000L + kotlin.math.abs(this.id.hashCode().toLong()))),
+        id = YouTubeIdUtils.safeSongIdToLong(this.id),
         title = this.title,
         artistName = this.artist,
         artistId = this.artistId,
@@ -272,11 +270,9 @@ data class SongSummary(
     val duration: Long
 )
 
-// Sobrecarga o alternativa si los paths no están disponibles o no son necesarios al convertir de Modelo a Entidad
-// (menos probable que se use si la entidad siempre requiere los paths)
 fun Song.toEntityWithoutPaths(): SongEntity {
     return SongEntity(
-        id = this.id.toLongOrNull() ?: (-(15_000_000_000_000L + kotlin.math.abs(this.id.hashCode().toLong()))),
+        id = YouTubeIdUtils.safeSongIdToLong(this.id),
         title = this.title,
         artistName = this.artist,
         artistId = this.artistId,

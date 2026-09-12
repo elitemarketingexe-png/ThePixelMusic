@@ -102,7 +102,6 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
     private var exoCacheWarmUpJob: kotlinx.coroutines.Job? = null
     private var botGuardWarmUpJob: kotlinx.coroutines.Job? = null
 
-    // AÑADE EL COMPANION OBJECT
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "pixelmusic_music_channel"
     }
@@ -308,31 +307,30 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
 
         imageLoader.get().memoryCache?.trimMemory(level)
 
-        if (
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE ||
-            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
-            level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-        ) {
+        val isRunning = level < ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+        val isUiHidden = level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+        val isBackground = level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+
+        // Tier 1: Light pressure or UI hidden
+        if (isUiHidden || (isRunning && level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE) || (isBackground && level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND)) {
             themeStateHolder.get().trimMemory(level)
         }
 
-        if (
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
-            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
-            level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-        ) {
+        // Tier 2: Moderate pressure
+        if ((isRunning && level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) || (isBackground && level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE)) {
             artistImageRepository.get().clearCache()
             telegramRepository.get().clearMemoryCache()
             MediaMetadataRetrieverPool.clear()
+        }
+
+        if (isUiHidden || isBackground) {
             startupScope.launch { BotGuardTokenGenerator.onAppBackgrounded() }
         }
 
         libraryStateHolder.get().trimMemory(level)
 
-        if (
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
-            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
-        ) {
+        // Tier 3: Critical pressure
+        if ((isRunning && level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) || (isBackground && level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE)) {
             imageLoader.get().memoryCache?.clear()
         }
     }

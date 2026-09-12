@@ -187,6 +187,8 @@ class MusicService : MediaLibraryService() {
 
     private var favoriteSongIds = emptySet<String>()
     private var mediaSession: MediaLibrarySession? = null
+    @Volatile
+    private var isServiceDestroyed = false
     private val controllerLastBrowsedParent = mutableMapOf<String, String>()
     // BUGFIX (lag — service was serialised with the UI): the previous
     // `Dispatchers.Main` made every coroutine this service spawned compete
@@ -2622,9 +2624,11 @@ class MusicService : MediaLibraryService() {
         )
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
+        if (isServiceDestroyed) null else mediaSession
 
     override fun onDestroy() {
+        isServiceDestroyed = true
         PlaybackActivityTracker.setPlaybackActive(false)
         telemetryManager.destroy()
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)

@@ -352,10 +352,15 @@ fun PlaylistDetailScreen(
         )
     }
 
+    var itemKeys by remember(songsInPlaylist) {
+        mutableStateOf(songsInPlaylist.indices.map { "${songsInPlaylist[it].id}_$it" })
+    }
+
     LaunchedEffect(songsInPlaylist) {
         if (currentPlaylist?.source == "YOUTUBE" && songsInPlaylist.size > 15) {
             kotlinx.coroutines.delay(120)
             localReorderableSongs = songsInPlaylist
+            itemKeys = songsInPlaylist.indices.map { "${songsInPlaylist[it].id}_$it" }
         }
     }
 
@@ -369,11 +374,14 @@ fun PlaylistDetailScreen(
     val reorderableState = rememberReorderableLazyListState(
         lazyListState = listState,
         onMove = { from, to ->
-            val fromPos = localReorderableSongs.indexOfFirst { it.id == from.key }.takeIf { it >= 0 } ?: from.index
-            val toPos = localReorderableSongs.indexOfFirst { it.id == to.key }.takeIf { it >= 0 } ?: to.index
+            val fromPos = itemKeys.indexOf(from.key).takeIf { it >= 0 } ?: from.index
+            val toPos = itemKeys.indexOf(to.key).takeIf { it >= 0 } ?: to.index
 
             if (fromPos != toPos && fromPos in localReorderableSongs.indices && toPos in localReorderableSongs.indices) {
                 localReorderableSongs = localReorderableSongs.toMutableList().apply {
+                    add(toPos, removeAt(fromPos))
+                }
+                itemKeys = itemKeys.toMutableList().apply {
                     add(toPos, removeAt(fromPos))
                 }
                 if (lastMovedFrom == null) {
@@ -862,12 +870,12 @@ fun PlaylistDetailScreen(
                         ) {
                             itemsIndexed(
                                 localReorderableSongs,
-                                key = { _, item -> item.id },
+                                key = { index, _ -> itemKeys.getOrNull(index) ?: "$index" },
                                 contentType = { _, _ -> "playlist_song" }
                             ) { index, song ->
                                 ReorderableItem(
                                     state = reorderableState,
-                                    key = song.id,
+                                    key = itemKeys.getOrNull(index) ?: "$index",
                                 ) { isDragging ->
                                     val scale by animateFloatAsState(
                                         if (isDragging) 1.05f else 1f,

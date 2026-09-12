@@ -7,7 +7,7 @@ import android.content.Context
 import android.media.MediaScannerConnection
 import android.os.Environment
 import android.os.Build
-import android.os.Trace // Import Trace
+import android.os.Trace
 import android.provider.MediaStore
 import android.util.Log
 import android.net.ConnectivityManager
@@ -34,7 +34,7 @@ import com.unshoo.pixelmusic.data.database.MusicDao
 import com.unshoo.pixelmusic.data.database.SongArtistCrossRef
 import com.unshoo.pixelmusic.data.database.SongEntity
 import com.unshoo.pixelmusic.data.database.SourceType
-import com.unshoo.pixelmusic.data.database.TelegramDao // Added
+import com.unshoo.pixelmusic.data.database.TelegramDao
 import com.unshoo.pixelmusic.data.database.TelegramSongEntity
 import com.unshoo.pixelmusic.data.database.FavoritesDao
 import com.unshoo.pixelmusic.data.database.FavoritesEntity
@@ -62,7 +62,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.absoluteValue // Added
+import kotlin.math.absoluteValue
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -1374,9 +1375,9 @@ constructor(
         private const val NETEASE_PARENT_DIRECTORY = "/Cloud/Netease"
         private const val NETEASE_GENRE = "Netease Cloud"
 
-        private const val YOUTUBE_SONG_ID_OFFSET = 15_000_000_000_000L
-        private const val YOUTUBE_ALBUM_ID_OFFSET = 16_000_000_000_000L
-        private const val YOUTUBE_ARTIST_ID_OFFSET = 17_000_000_000_000L
+        private const val YOUTUBE_SONG_ID_OFFSET = YouTubeIdUtils.YOUTUBE_SONG_ID_OFFSET
+        private const val YOUTUBE_ALBUM_ID_OFFSET = YouTubeIdUtils.YOUTUBE_ALBUM_ID_OFFSET
+        private const val YOUTUBE_ARTIST_ID_OFFSET = YouTubeIdUtils.YOUTUBE_ARTIST_ID_OFFSET
         private const val YOUTUBE_PARENT_DIRECTORY = "/Cloud/YouTube"
         private const val YOUTUBE_GENRE = "YouTube"
 
@@ -2220,17 +2221,14 @@ constructor(
         return if (parsed.isEmpty()) listOf("Unknown Artist") else parsed
     }
 
-    private fun toUnifiedYoutubeSongId(youtubeId: String): Long {
-        return -(YOUTUBE_SONG_ID_OFFSET + youtubeId.hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeSongId(youtubeId: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeSongId(youtubeId)
 
-    private fun toUnifiedYoutubeAlbumId(albumName: String): Long {
-        return -(YOUTUBE_ALBUM_ID_OFFSET + albumName.lowercase().hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeAlbumId(albumName: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeAlbumId(albumName)
 
-    private fun toUnifiedYoutubeArtistId(artistName: String): Long {
-        return -(YOUTUBE_ARTIST_ID_OFFSET + artistName.lowercase().hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeArtistId(artistName: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeArtistId(artistName)
 
     private fun parseDurationStringToMillis(durationStr: String): Long {
         if (durationStr.isBlank()) return 0L

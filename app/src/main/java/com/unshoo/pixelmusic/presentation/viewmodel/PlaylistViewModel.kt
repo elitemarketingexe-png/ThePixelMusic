@@ -58,6 +58,7 @@ import android.net.NetworkCapabilities
 import com.unshoo.pixelmusic.data.remote.youtube.DownloadHelper
 import com.unshoo.pixelmusic.data.database.SongEntity
 import com.unshoo.pixelmusic.data.database.AlbumEntity
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import com.unshoo.pixelmusic.data.database.ArtistEntity
 import com.unshoo.pixelmusic.data.database.SongArtistCrossRef
 import com.unshoo.pixelmusic.data.database.SourceType
@@ -1343,14 +1344,14 @@ class PlaylistViewModel @Inject constructor(
         songs.forEach { song ->
             if (song.id.startsWith("youtube_") || song.youtubeId != null) {
                 val yId = song.youtubeId ?: song.id.removePrefix("youtube_")
-                val songId = -(15_000_000_000_000L + yId.hashCode().toLong().absoluteValue)
+                val songId = toUnifiedYoutubeSongId(yId)
                 mappedIds.add(songId.toString())
 
                 // Check if already in DB
                 val existing = musicDao.getSongByIdOnce(songId)
                 if (existing == null) {
-                    val albumId = -(16_000_000_000_000L + "YouTube Music".lowercase().hashCode().toLong().absoluteValue)
-                    val artistId = -(17_000_000_000_000L + song.artist.lowercase().hashCode().toLong().absoluteValue)
+                    val albumId = toUnifiedYoutubeAlbumId("YouTube Music")
+                    val artistId = toUnifiedYoutubeArtistId(song.artist)
 
                     val artist = ArtistEntity(
                         id = artistId,
@@ -2143,17 +2144,14 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    private fun toUnifiedYoutubeSongId(youtubeId: String): Long {
-        return -(15_000_000_000_000L + youtubeId.hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeSongId(youtubeId: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeSongId(youtubeId)
 
-    private fun toUnifiedYoutubeAlbumId(albumName: String): Long {
-        return -(16_000_000_000_000L + albumName.lowercase().hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeAlbumId(albumName: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeAlbumId(albumName)
 
-    private fun toUnifiedYoutubeArtistId(artistName: String): Long {
-        return -(17_000_000_000_000L + artistName.lowercase().hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeArtistId(artistName: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeArtistId(artistName)
 
     private fun parseYoutubeArtistNames(artistStr: String): List<String> {
         if (artistStr.isBlank()) return listOf("Unknown Artist")

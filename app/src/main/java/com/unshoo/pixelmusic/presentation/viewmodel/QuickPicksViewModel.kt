@@ -541,9 +541,11 @@ class QuickPicksViewModel @Inject constructor(
         combinedCandidates.addAll(onlineSongs)
         combinedCandidates.addAll(localPopularSongs)
 
-        val deduplicated = combinedCandidates.distinctBy { song ->
-            song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
-        }
+        val deduplicated = combinedCandidates
+            .distinctBy { it.id }
+            .distinctBy { song ->
+                song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
+            }
 
         // Shuffle completely to make it dynamic on every view/refresh
         deduplicated.shuffled().take(QUICK_PICK_COUNT)
@@ -564,6 +566,7 @@ class QuickPicksViewModel @Inject constructor(
                 .map { it.toNativeSong() }
 
             (localSongs + downloadedYtSongs)
+                .distinctBy { it.id }
                 .distinctBy { song ->
                     song.youtubeId?.takeIf { it.isNotBlank() } ?: song.id
                 }

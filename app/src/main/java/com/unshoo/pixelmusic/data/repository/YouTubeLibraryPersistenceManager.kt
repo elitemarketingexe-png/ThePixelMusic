@@ -18,6 +18,7 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 @Singleton
 class YouTubeLibraryPersistenceManager @Inject constructor(
@@ -133,10 +134,8 @@ class YouTubeLibraryPersistenceManager @Inject constructor(
             // 2. Insert into favoritesDao
             val baseTimestamp = System.currentTimeMillis()
             val favoriteEntities = likedSongs.mapIndexedNotNull { index, song ->
-                val songIdStr = song.youtubeId ?: song.id.removePrefix("youtube_").takeIf { song.id.startsWith("youtube_") }
-                val numericId = song.id.toLongOrNull()
-                    ?: songIdStr?.let { -(15_000_000_000_000L + abs(it.hashCode().toLong())) }
-                    ?: return@mapIndexedNotNull null
+                val rawYt = song.youtubeId ?: song.id
+                val numericId = YouTubeIdUtils.safeSongIdToLong(rawYt)
 
                 FavoritesEntity(
                     songId = numericId,

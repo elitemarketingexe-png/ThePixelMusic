@@ -19,6 +19,7 @@ import okhttp3.OkHttpClient
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.absoluteValue
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 class SongDownloadWorker(
     private val appContext: Context,
@@ -107,7 +108,7 @@ class SongDownloadWorker(
                 ensureYoutubeSongInLibrary(updatedSong)
 
                 if (audioPath != null) {
-                    val mainId = -(15_000_000_000_000L + song.youtubeId.hashCode().toLong().absoluteValue)
+                    val mainId = toUnifiedYoutubeSongId(song.youtubeId)
                     // Adopted from PixelMusic: safely handle MediaStore URIs so the
                     // database doesn't crash when the download lands in content:// space.
                     val parentDir = if (audioPath.startsWith("content://")) {
@@ -151,17 +152,14 @@ class SongDownloadWorker(
         }
     }
 
-    private fun toUnifiedYoutubeSongId(youtubeId: String): Long {
-        return -(15_000_000_000_000L + youtubeId.hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeSongId(youtubeId: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeSongId(youtubeId)
 
-    private fun toUnifiedYoutubeAlbumId(albumName: String): Long {
-        return -(16_000_000_000_000L + albumName.lowercase().hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeAlbumId(albumName: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeAlbumId(albumName)
 
-    private fun toUnifiedYoutubeArtistId(artistName: String): Long {
-        return -(17_000_000_000_000L + artistName.lowercase().hashCode().toLong().absoluteValue)
-    }
+    private fun toUnifiedYoutubeArtistId(artistName: String): Long =
+        YouTubeIdUtils.toUnifiedYoutubeArtistId(artistName)
 
     private fun parseYoutubeArtistNames(artistStr: String): List<String> {
         if (artistStr.isBlank()) return listOf("Unknown Artist")

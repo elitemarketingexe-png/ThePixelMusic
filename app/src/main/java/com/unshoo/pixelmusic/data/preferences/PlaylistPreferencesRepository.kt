@@ -23,6 +23,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.absoluteValue
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import timber.log.Timber
 
 @Singleton
@@ -391,7 +392,7 @@ class PlaylistPreferencesRepository @Inject constructor(
                     musicDao.getSongByIdOnce(songIdLong)
                 } else if (songIdStr.startsWith("youtube_")) {
                     val yId = songIdStr.removePrefix("youtube_")
-                    val expectedLongId = -(15_000_000_000_000L + yId.hashCode().toLong().absoluteValue)
+                    val expectedLongId = YouTubeIdUtils.toUnifiedYoutubeSongId(yId)
                     musicDao.getSongByIdOnce(expectedLongId)
                 } else {
                     null
@@ -435,7 +436,7 @@ class PlaylistPreferencesRepository @Inject constructor(
         if (songId.startsWith("youtube_")) {
             val raw = songId.removePrefix("youtube_")
             variants.add(raw)
-            val expectedLongId = -(15_000_000_000_000L + raw.hashCode().toLong().absoluteValue)
+            val expectedLongId = YouTubeIdUtils.toUnifiedYoutubeSongId(raw)
             variants.add(expectedLongId.toString())
         } else {
             val longId = songId.toLongOrNull()
@@ -450,7 +451,7 @@ class PlaylistPreferencesRepository @Inject constructor(
                 }
             } else {
                 variants.add("youtube_$songId")
-                val expectedLongId = -(15_000_000_000_000L + songId.hashCode().toLong().absoluteValue)
+                val expectedLongId = YouTubeIdUtils.toUnifiedYoutubeSongId(songId)
                 variants.add(expectedLongId.toString())
             }
         }

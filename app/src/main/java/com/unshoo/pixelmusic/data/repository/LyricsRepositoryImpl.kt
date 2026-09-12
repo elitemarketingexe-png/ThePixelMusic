@@ -514,18 +514,14 @@ class LyricsRepositoryImpl @Inject constructor(
                         Log.d(TAG, "LRCLIB lyrics found - Synced: ${!bestMatch.syncedLyrics.isNullOrBlank()}, Plain: ${!bestMatch.plainLyrics.isNullOrBlank()}")
                         
                         // Save to database
-                        try {
-                            lyricsDao.insert(
-                                com.unshoo.pixelmusic.data.database.LyricsEntity(
-                                    songId = song.id.toLong(),
-                                    content = rawLyrics,
-                                    isSynced = !bestMatch.syncedLyrics.isNullOrBlank(),
-                                    source = "remote"
-                                )
+                        lyricsDao.insert(
+                            com.unshoo.pixelmusic.data.database.LyricsEntity(
+                                songId = com.unshoo.pixelmusic.utils.YouTubeIdUtils.safeSongIdToLong(song.id),
+                                content = rawLyrics,
+                                isSynced = !bestMatch.syncedLyrics.isNullOrBlank(),
+                                source = "remote"
                             )
-                        } catch (e: NumberFormatException) {
-                            Log.w(TAG, "Skipping database save for non-numeric song ID: ${song.id} (likely Telegram song). Lyrics will be cached in JSON.")
-                        }
+                        )
                         
                         return@withContext parsedLyrics
                     }
@@ -1210,18 +1206,14 @@ class LyricsRepositoryImpl @Inject constructor(
                     val best = results.first()
                     val rawLyricsToSave = best.rawLyrics
 
-                    try {
-                        lyricsDao.insert(
-                             com.unshoo.pixelmusic.data.database.LyricsEntity(
-                                 songId = song.id.toLong(),
-                                 content = rawLyricsToSave,
-                                 isSynced = !best.lyrics.synced.isNullOrEmpty(),
-                                 source = "remote"
-                             )
-                        )
-                    } catch (e: NumberFormatException) {
-                        Log.w(TAG, "Skipping DB update for non-numeric ID: ${song.id}")
-                    }
+                    lyricsDao.insert(
+                         com.unshoo.pixelmusic.data.database.LyricsEntity(
+                             songId = com.unshoo.pixelmusic.utils.YouTubeIdUtils.safeSongIdToLong(song.id),
+                             content = rawLyricsToSave,
+                             isSynced = !best.lyrics.synced.isNullOrEmpty(),
+                             source = "remote"
+                         )
+                    )
 
                     lyricsCache.put(cacheKey, best.lyrics)
                     saveLocalLyricsJson(song, best.lyrics)
@@ -1253,18 +1245,14 @@ class LyricsRepositoryImpl @Inject constructor(
                     return@withContext Result.failure(LyricsException("Parsed lyrics are empty"))
                 }
 
-                try {
-                    lyricsDao.insert(
-                        com.unshoo.pixelmusic.data.database.LyricsEntity(
-                            songId = song.id.toLong(),
-                            content = rawLyricsToSave,
-                            isSynced = !parsedLyrics.synced.isNullOrEmpty(),
-                            source = "remote"
-                        )
+                lyricsDao.insert(
+                    com.unshoo.pixelmusic.data.database.LyricsEntity(
+                        songId = com.unshoo.pixelmusic.utils.YouTubeIdUtils.safeSongIdToLong(song.id),
+                        content = rawLyricsToSave,
+                        isSynced = !parsedLyrics.synced.isNullOrEmpty(),
+                        source = "remote"
                     )
-                } catch (e: NumberFormatException) {
-                    Log.w(TAG, "Skipping DB update for non-numeric ID in fallback: ${song.id}")
-                }
+                )
 
                 lyricsCache.put(cacheKey, parsedLyrics)
                 saveLocalLyricsJson(song, parsedLyrics)
@@ -1548,7 +1536,7 @@ class LyricsRepositoryImpl @Inject constructor(
                                         try {
                                             lyricsDao.insert(
                                                  com.unshoo.pixelmusic.data.database.LyricsEntity(
-                                                     songId = song.id.toLong(),
+                                                     songId = com.unshoo.pixelmusic.utils.YouTubeIdUtils.safeSongIdToLong(song.id),
                                                      content = validated.sanitizedContent,
                                                      isSynced = validated.parsedLyrics.synced?.isNotEmpty() == true,
                                                      source = "local_file"

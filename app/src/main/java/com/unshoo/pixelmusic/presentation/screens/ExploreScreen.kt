@@ -842,7 +842,7 @@ fun YTItemCarousel(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(items = items, key = { it.id }) { item ->
+        itemsIndexed(items = items, key = { index, item -> "${item.id}_$index" }) { _, item ->
             when (item) {
                 is SongItem -> {
                     val songNative = item.toNativeSong()
@@ -1662,7 +1662,7 @@ fun SimilarArtistsCarousel(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(items = artists, key = { it.id }) { artist ->
+        itemsIndexed(items = artists, key = { index, artist -> "${artist.id}_$index" }) { _, artist ->
             ArtistCardItem(
                 artist = artist,
                 onClick = {

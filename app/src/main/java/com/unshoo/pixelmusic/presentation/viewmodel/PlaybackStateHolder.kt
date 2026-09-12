@@ -166,7 +166,11 @@ class PlaybackStateHolder @Inject constructor(
             val controller = mediaController
             if (controller != null) {
                 val (isPlaying, currentMediaId) = withContext(Dispatchers.Main) {
-                    controller.isPlaying to controller.currentMediaItem?.mediaId
+                    try {
+                        controller.isPlaying to controller.currentMediaItem?.mediaId
+                    } catch (_: IllegalStateException) {
+                        false to null
+                    }
                 }
                 if (!isPlaying && currentMediaId == snapshotMediaId && _currentPosition.value == 0L) {
                     _currentPosition.value = snapshotPositionMs
@@ -194,19 +198,27 @@ class PlaybackStateHolder @Inject constructor(
                 val controller = mediaController
                 if (controller != null) {
                     if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
-                        updated.copy(currentMediaItemIndex = controller.currentMediaItemIndex)
+                        try {
+                            updated.copy(currentMediaItemIndex = controller.currentMediaItemIndex)
+                        } catch (_: IllegalStateException) {
+                            updated
+                        }
                     } else {
                         // We are on a background thread. Asynchronously fetch on Main thread and update state flow.
                         scope.launch(Dispatchers.Main) {
                             val mainController = mediaController
                             if (mainController != null) {
-                                val index = mainController.currentMediaItemIndex
-                                _stablePlayerState.update { state ->
-                                    if (state.currentMediaItemIndex == -1) {
-                                        state.copy(currentMediaItemIndex = index)
-                                    } else {
-                                        state
+                                try {
+                                    val index = mainController.currentMediaItemIndex
+                                    _stablePlayerState.update { state ->
+                                        if (state.currentMediaItemIndex == -1) {
+                                            state.copy(currentMediaItemIndex = index)
+                                        } else {
+                                            state
+                                        }
                                     }
+                                } catch (_: IllegalStateException) {
+                                    // Controller released or in invalid state
                                 }
                             }
                         }
@@ -460,13 +472,21 @@ class PlaybackStateHolder @Inject constructor(
             remoteSeekUnlockJob?.cancel()
             castStateHolder.setRemotelySeeking(false)
             val targetPosition = position.coerceAtLeast(0L)
-            val currentMediaId = mediaController?.currentMediaItem?.mediaId
+            val currentMediaId = try {
+                mediaController?.currentMediaItem?.mediaId
+            } catch (_: IllegalStateException) {
+                null
+            }
             rememberPausedPositionOverride(currentMediaId, targetPosition)
             // Mark the seek before dispatching so the engine's HAL-reset heuristic does
             // not misinterpret the resulting STATE_BUFFERING as an audio HAL underflow and
             // rebuild the players (which would race with the in-flight seek command).
             dualPlayerEngine.notifyExternalSeekInitiated()
-            mediaController?.seekTo(targetPosition)
+            try {
+                mediaController?.seekTo(targetPosition)
+            } catch (e: IllegalStateException) {
+                Timber.w(e, "seekTo failed on released/invalid mediaController")
+            }
         }
     }
 

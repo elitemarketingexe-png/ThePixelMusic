@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 import timber.log.Timber
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 /**
  * Tracks listening statistics for songs.
@@ -738,7 +739,7 @@ class ListeningStatsTracker @Inject constructor(
             val numericId = songId.toLongOrNull() ?: run {
                 if (songId.startsWith("youtube_")) {
                     val ytId = songId.removePrefix("youtube_")
-                    -(15_000_000_000_000L + kotlin.math.abs(ytId.hashCode().toLong()))
+                    YouTubeIdUtils.toUnifiedYoutubeSongId(ytId)
                 } else null
             } ?: return
             val songEntity = musicDao.getSongByIdOnce(numericId) ?: return
