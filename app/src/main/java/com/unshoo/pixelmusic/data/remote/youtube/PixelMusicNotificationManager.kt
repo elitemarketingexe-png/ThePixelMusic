@@ -136,6 +136,11 @@ object PixelMusicNotificationManager {
         runCatching { notificationManager.cancel(GROUP_SUMMARY_ID) }
     }
 
+    fun cancelAllDownloadNotifications(context: Context) {
+        ensureInit(context)
+        runCatching { notificationManager.cancel(GROUP_SUMMARY_ID) }
+    }
+
     // ─────────────────────── Single-song download ──────────────────────────────
 
     /**

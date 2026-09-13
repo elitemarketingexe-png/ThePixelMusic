@@ -61,6 +61,7 @@ data class CloudDownloadsUiState(
     val totalCount: Int = 0,
     val selectedSongIds: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
+    val isDownloadsPaused: Boolean = false,
     val isLoading: Boolean = true
 )
 
@@ -75,6 +76,8 @@ class CloudDownloadsViewModel @Inject constructor(
     private val workManager = WorkManager.getInstance(context)
     private val appDatabase = AppDatabase.getInstance(context)
     private val selectedSongIdsFlow = MutableStateFlow<Set<String>>(emptySet())
+    private val isDownloadsPausedFlow = MutableStateFlow(false)
+    private var pausedActiveDownloads: List<ActiveDownloadDisplayItem> = emptyList()
 
     private val playlistWorksFlow = workManager.getWorkInfosByTagFlow(
         PlaylistDownloadWorker::class.java.name
@@ -90,8 +93,8 @@ class CloudDownloadsViewModel @Inject constructor(
         songWorksFlow,
         localSongsFlow,
         cloudDownloadsFlow,
-        selectedSongIdsFlow
-    ) { playlistWorks, songWorks, localSongs, cloudDownloads, selectedIds ->
+        combine(selectedSongIdsFlow, isDownloadsPausedFlow) { ids, paused -> ids to paused }
+    ) { playlistWorks, songWorks, localSongs, cloudDownloads, (selectedIds, isPaused) ->
         withContext(Dispatchers.IO) {
             val activeItems = ArrayList<ActiveDownloadDisplayItem>()
             val failed = ArrayList<OfflineDownload>()
@@ -280,6 +283,7 @@ class CloudDownloadsViewModel @Inject constructor(
                 totalCount = uniqueCompleted.size + activeRemainingSongs + failed.size,
                 selectedSongIds = validSelectedIds,
                 isSelectionMode = validSelectedIds.isNotEmpty(),
+                isDownloadsPaused = isPaused,
                 isLoading = false
             )
         }
@@ -443,6 +447,54 @@ class CloudDownloadsViewModel @Inject constructor(
 
     fun clearSelection() {
         selectedSongIdsFlow.value = emptySet()
+    }
+
+    fun cancelAllActiveDownloads() {
+        viewModelScope.launch(Dispatchers.IO) {
+            pausedActiveDownloads = emptyList()
+            isDownloadsPausedFlow.value = false
+            workManager.cancelAllWorkByTag(PlaylistDownloadWorker::class.java.name)
+            workManager.cancelAllWorkByTag(SongDownloadWorker::class.java.name)
+            uiState.value.activeDownloads.forEach { item ->
+                cancelActiveDownload(item)
+            }
+            PixelMusicNotificationManager.cancelAllDownloadNotifications(context)
+        }
+    }
+
+    fun togglePauseDownloads() {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (isDownloadsPausedFlow.value) {
+                // Resume downloads
+                isDownloadsPausedFlow.value = false
+                val toResume = pausedActiveDownloads.ifEmpty { uiState.value.activeDownloads }
+                pausedActiveDownloads = emptyList()
+                val downloadRepo = DownloadRepository(context)
+                for (item in toResume) {
+                    if (item.isPlaylist && !item.playlistId.isNullOrBlank()) {
+                        val pl = appDatabase.playlistRepository().getPlaylistById(item.playlistId)
+                        if (pl != null) {
+                            downloadRepo.downloadPlaylist(pl)
+                        }
+                    } else if (!item.sourceUri.isNullOrBlank()) {
+                        repository.retry(item.sourceUri)
+                    }
+                }
+            } else {
+                // Pause downloads
+                val currentActive = uiState.value.activeDownloads
+                pausedActiveDownloads = currentActive
+                isDownloadsPausedFlow.value = true
+                workManager.cancelAllWorkByTag(PlaylistDownloadWorker::class.java.name)
+                workManager.cancelAllWorkByTag(SongDownloadWorker::class.java.name)
+                currentActive.forEach { item ->
+                    if (item.isPlaylist && !item.playlistId.isNullOrBlank()) {
+                        workManager.cancelAllWorkByTag("playlist_dl_${item.playlistId}")
+                        PixelMusicNotificationManager.cancelPlaylistDownloadNotification(context, item.playlistId)
+                    }
+                }
+            }
+        }
     }
 
     fun cancelActiveDownload(item: ActiveDownloadDisplayItem) {

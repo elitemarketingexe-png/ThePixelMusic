@@ -504,34 +504,28 @@ class PlaybackStateHolder @Inject constructor(
         }
         val controller = mediaController ?: return
 
-        // BUG 4 FIX: Always navigate to the actual previously-played song from the
-        // history stack instead of using ExoPlayer's seekToPrevious() which respects
-        // shuffle order and can jump to completely unrelated tracks.
-        //
-        // History stack protocol:
-        //   - The last entry is the CURRENT song (added when it started playing).
-        //   - The second-to-last is the PREVIOUS song we want to return to.
-        //   - Pop the current song, then seek to the new last entry.
+        // If the song has been playing for more than 3 seconds, rewind to the beginning
+        if (controller.currentPosition > 3000L) {
+            controller.seekTo(0L)
+            return
+        }
+
+        // Always navigate to the actual previously-played song from the history stack
         if (playHistoryStack.size >= 2) {
-            // Remove the current song from the history tail
             playHistoryStack.removeLast()
             val targetMediaId = playHistoryStack.lastOrNull()
             if (targetMediaId != null) {
-                // Prefer the in-memory queue snapshot to avoid N IPC calls on large queues.
-                val targetIndex = if (currentQueueMediaIds != null) {
-                    // Pure in-memory list scan — zero IPC, zero main-thread blocking.
-                    val idx = currentQueueMediaIds.indexOf(targetMediaId)
-                    if (idx >= 0) idx else null
-                } else {
-                    // Fallback: scan the MediaController timeline via Binder IPC.
-                    (0 until controller.mediaItemCount)
-                        .firstOrNull { controller.getMediaItemAt(it).mediaId == targetMediaId }
-                }
+                // Find matching media item directly in controller timeline to avoid index desync
+                val targetIndex = (0 until controller.mediaItemCount)
+                    .firstOrNull { controller.getMediaItemAt(it).mediaId == targetMediaId }
+                    ?: (if (currentQueueMediaIds != null) {
+                        val idx = currentQueueMediaIds.indexOf(targetMediaId)
+                        if (idx >= 0 && idx < controller.mediaItemCount) idx else null
+                    } else null)
                 if (targetIndex != null) {
                     controller.seekTo(targetIndex, 0L)
                     return
                 }
-                // Song no longer in the queue (was removed) — fall through to seekToPrevious
             }
         }
         // Fallback when history is too short or target not found in queue
@@ -539,10 +533,7 @@ class PlaybackStateHolder @Inject constructor(
         if (prevIndex >= 0) {
             controller.seekTo(prevIndex, 0L)
         } else {
-            controller.sendCustomCommand(
-                androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS, android.os.Bundle.EMPTY),
-                android.os.Bundle.EMPTY
-            )
+            controller.seekTo(0L)
         }
     }
 
@@ -552,14 +543,20 @@ class PlaybackStateHolder @Inject constructor(
             castStateHolder.castPlayer?.next()
         } else {
             val controller = mediaController ?: return
-            val nextIndex = controller.currentMediaItemIndex + 1
-            if (nextIndex < controller.mediaItemCount) {
-                controller.seekTo(nextIndex, 0L)
+            if (controller.hasNextMediaItem()) {
+                controller.seekToNextMediaItem()
             } else {
-                controller.sendCustomCommand(
-                    androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT, android.os.Bundle.EMPTY),
-                    android.os.Bundle.EMPTY
-                )
+                val nextIndex = controller.currentMediaItemIndex + 1
+                if (nextIndex < controller.mediaItemCount) {
+                    controller.seekTo(nextIndex, 0L)
+                } else if (controller.repeatMode == Player.REPEAT_MODE_ALL && controller.mediaItemCount > 0) {
+                    controller.seekTo(0, 0L)
+                } else {
+                    controller.sendCustomCommand(
+                        androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT, android.os.Bundle.EMPTY),
+                        android.os.Bundle.EMPTY
+                    )
+                }
             }
         }
     }
