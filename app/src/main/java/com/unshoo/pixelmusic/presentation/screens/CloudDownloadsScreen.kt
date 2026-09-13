@@ -1,8 +1,13 @@
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class,
+    androidx.media3.common.util.UnstableApi::class
+)
 package com.unshoo.pixelmusic.presentation.screens
 
 import android.app.Activity
 import android.text.format.Formatter
-import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -59,6 +64,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,7 +76,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import com.unshoo.pixelmusic.ui.theme.PixelMusicStatusBarStyle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,11 +99,6 @@ import com.unshoo.pixelmusic.presentation.viewmodel.CloudDownloadsUiState
 import com.unshoo.pixelmusic.presentation.viewmodel.CloudDownloadsViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
 
-@OptIn(
-    UnstableApi::class,
-    ExperimentalMaterial3ExpressiveApi::class,
-    androidx.compose.material3.ExperimentalMaterial3Api::class
-)
 @Composable
 fun CloudDownloadsScreen(
     navController: NavController,
@@ -117,7 +122,16 @@ fun CloudDownloadsScreen(
     val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
     val bottomBarHeightDp = resolveNavBarOccupiedHeight(systemNavBarInset, navBarCompactMode)
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
+    PixelMusicStatusBarStyle(
+        color = if (uiState.isSelectionMode) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface
+    )
+
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopDownloadsBar(
                 isSelectionMode = uiState.isSelectionMode,
@@ -144,10 +158,11 @@ fun CloudDownloadsScreen(
                 },
                 onCloseSelection = {
                     viewModel.clearSelection()
-                }
+                },
+                scrollBehavior = scrollBehavior
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
         if (uiState.isLoading) {
             Box(
@@ -164,11 +179,9 @@ fun CloudDownloadsScreen(
         } else {
             LazyColumn(
                 state = lazyListState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = innerPadding.calculateTopPadding()),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    top = 12.dp,
+                    top = innerPadding.calculateTopPadding() + 8.dp,
                     bottom = bottomBarHeightDp + (if (stablePlayerState.currentSong != null) MiniPlayerHeight else 0.dp) + 32.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -393,46 +406,79 @@ private fun TopDownloadsBar(
     onDeleteSelected: () -> Unit,
     onPlaySelected: () -> Unit,
     onCloseSelection: () -> Unit,
+    scrollBehavior: TopAppBarScrollBehavior,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        tonalElevation = 2.dp,
-        modifier = modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            if (isSelectionMode) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+    TopAppBar(
+        modifier = modifier,
+        title = {
+            AnimatedContent(
+                targetState = isSelectionMode,
+                label = "TopDownloadsBarTitle"
+            ) { inSelection ->
+                if (inSelection) {
+                    Text(
+                        text = "$selectedCount selected",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.cloud_downloads_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        },
+        navigationIcon = {
+            AnimatedContent(
+                targetState = isSelectionMode,
+                label = "TopDownloadsBarNav"
+            ) { inSelection ->
+                if (inSelection) {
                     FilledIconButton(
                         onClick = onCloseSelection,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.cancel)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "$selectedCount selected",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                } else {
+                    FilledIconButton(
+                        onClick = onBack,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = stringResource(R.string.auth_cd_back)
+                        )
+                    }
                 }
-
+            }
+        },
+        actions = {
+            if (isSelectionMode) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onPlaySelected) {
                         Icon(
@@ -446,7 +492,8 @@ private fun TopDownloadsBar(
                             imageVector = if (allSelected) Icons.Rounded.Deselect else Icons.Rounded.SelectAll,
                             contentDescription = stringResource(
                                 if (allSelected) R.string.cloud_download_deselect_all else R.string.cloud_download_select_all
-                            )
+                            ),
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(onClick = onDeleteSelected) {
@@ -457,41 +504,26 @@ private fun TopDownloadsBar(
                         )
                     }
                 }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilledIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.auth_cd_back)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
+            } else if (hasCompleted) {
+                TextButton(
+                    onClick = onToggleSelectAll,
+                    modifier = Modifier.padding(end = 6.dp)
+                ) {
                     Text(
-                        text = stringResource(R.string.cloud_downloads_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = stringResource(R.string.cloud_download_select_all),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-
-                if (hasCompleted) {
-                    TextButton(onClick = onToggleSelectAll) {
-                        Text(
-                            text = stringResource(R.string.cloud_download_select_all),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
             }
-        }
-    }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = if (isSelectionMode) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface,
+            scrolledContainerColor = if (isSelectionMode) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer
+        ),
+        scrollBehavior = scrollBehavior
+    )
 }
 
 @Composable
@@ -548,7 +580,7 @@ private fun StorageSummaryCard(
                             uiState.totalCount
                         ),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -573,7 +605,7 @@ private fun StorageSummaryCard(
             if (uiState.activeDownloads.isNotEmpty() || uiState.isDownloadsPaused) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -869,7 +901,7 @@ private fun FailedDownloadCard(
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
         modifier = modifier.fillMaxWidth()
     ) {
