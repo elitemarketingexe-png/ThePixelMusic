@@ -541,7 +541,10 @@ fun SongPickerPagingList(
                 ) {
                     items(
                         count = pagedSongs.itemCount,
-                        key = { index -> pagedSongs.peek(index)?.id ?: "song_picker_paged_$index" },
+                        key = { index ->
+                            val songId = pagedSongs.peek(index)?.id
+                            if (songId != null) "${songId}_$index" else "song_picker_paged_$index"
+                        },
                         contentType = pagedSongs.itemContentType { "song_picker_song" }
                     ) { index ->
                         val song = pagedSongs[index]

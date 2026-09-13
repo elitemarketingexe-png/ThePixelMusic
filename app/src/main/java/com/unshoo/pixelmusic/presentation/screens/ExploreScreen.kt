@@ -608,7 +608,7 @@ fun ExploreScreen(
                                     contentPadding = PaddingValues(horizontal = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    items(items = uiState.recentMixes, key = { playlist -> "recent_mix_${playlist.id}" }) { playlist ->
+                                    itemsIndexed(items = uiState.recentMixes, key = { index, playlist -> "recent_mix_${playlist.id}_$index" }) { _, playlist ->
                                         RecentMixCardItem(
                                             playlist = playlist,
                                             playerViewModel = playerViewModel,
@@ -638,7 +638,7 @@ fun ExploreScreen(
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    items(items = fromYourLibraryAlbums, key = { album -> "library_album_${album.browseId}" }) { album ->
+                                    itemsIndexed(items = fromYourLibraryAlbums, key = { index, album -> "library_album_${album.browseId}_$index" }) { _, album ->
                                         LibraryAlbumCard(
                                             album = album,
                                             onClick = {
@@ -646,7 +646,7 @@ fun ExploreScreen(
                                             }
                                         )
                                     }
-                                    items(items = uiState.libraryPlaylists, key = { playlist -> "library_playlist_${playlist.id}" }) { playlist ->
+                                    itemsIndexed(items = uiState.libraryPlaylists, key = { index, playlist -> "library_playlist_${playlist.id}_$index" }) { _, playlist ->
                                         LibraryPlaylistCard(
                                             playlist = playlist,
                                             playerViewModel = playerViewModel,
@@ -728,7 +728,7 @@ fun ExploreScreen(
                                     contentPadding = PaddingValues(horizontal = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    items(items = uiState.recentMixes, key = { playlist -> "smart_mix_${playlist.id}" }) { playlist ->
+                                    itemsIndexed(items = uiState.recentMixes, key = { index, playlist -> "smart_mix_${playlist.id}_$index" }) { _, playlist ->
                                         RecentMixCardItem(
                                             playlist = playlist,
                                             playerViewModel = playerViewModel,

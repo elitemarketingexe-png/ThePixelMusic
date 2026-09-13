@@ -95,6 +95,11 @@ fun CrashReportDialog(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Text(
+                            text = "version: ${crashLog.displayVersion} commit:#${crashLog.displayCommitId}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         
                         Spacer(modifier = Modifier.height(8.dp))
                         

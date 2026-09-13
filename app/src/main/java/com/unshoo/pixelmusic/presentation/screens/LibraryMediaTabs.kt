@@ -362,7 +362,10 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index -> albums.peek(index)?.id ?: "album_placeholder_$index" },
+                                    key = { index ->
+                                        val albumId = albums.peek(index)?.id
+                                        if (albumId != null) "${albumId}_$index" else "album_placeholder_$index"
+                                    },
                                     contentType = { "album_list_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -436,7 +439,10 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index -> albums.peek(index)?.id ?: "album_grid_placeholder_$index" },
+                                    key = { index ->
+                                        val albumId = albums.peek(index)?.id
+                                        if (albumId != null) "${albumId}_$index" else "album_grid_placeholder_$index"
+                                    },
                                     contentType = { "album_grid_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -657,7 +663,10 @@ fun LibraryArtistsTab(
                         ) {
                             items(
                                 count = artists.itemCount,
-                                key = { index -> artists.peek(index)?.id ?: "artist_placeholder_$index" },
+                                key = { index ->
+                                    val artistId = artists.peek(index)?.id
+                                    if (artistId != null) "${artistId}_$index" else "artist_placeholder_$index"
+                                },
                                 contentType = { "artist" }
                             ) { index ->
                                 val artist = artists[index]

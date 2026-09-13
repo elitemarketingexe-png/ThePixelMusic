@@ -307,11 +307,8 @@ fun LibrarySongsTab(
                             items(
                                 count = songs.itemCount,
                                 key = { index ->
-                                    if (index in 0 until songs.itemCount) {
-                                        songs.peek(index)?.id ?: "song_placeholder_$index"
-                                    } else {
-                                        "song_placeholder_$index"
-                                    }
+                                    val songId = songs.peek(index)?.id
+                                    if (songId != null) "${songId}_$index" else "song_placeholder_$index"
                                 },
                                 contentType = { index ->
                                     if (songs.peek(index) != null) "song" else "placeholder"

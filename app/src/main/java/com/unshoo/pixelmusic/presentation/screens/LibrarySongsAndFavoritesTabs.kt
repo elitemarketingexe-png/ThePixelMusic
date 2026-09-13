@@ -243,11 +243,8 @@ fun LibraryFavoritesTab(
                         items(
                             count = favoriteSongs.itemCount,
                             key = { index ->
-                                if (index in 0 until favoriteSongs.itemCount) {
-                                    favoriteSongs.peek(index)?.id ?: "fav_placeholder_$index"
-                                } else {
-                                    "fav_placeholder_$index"
-                                }
+                                val songId = favoriteSongs.peek(index)?.id
+                                if (songId != null) "${songId}_$index" else "fav_placeholder_$index"
                             },
                             contentType = { index ->
                                 if (favoriteSongs.peek(index) != null) "song" else "placeholder"
@@ -438,11 +435,8 @@ fun LibrarySongsTabPaginated(
                             items(
                                 count = paginatedSongs.itemCount,
                                 key = { index ->
-                                    if (index in 0 until paginatedSongs.itemCount) {
-                                        paginatedSongs.peek(index)?.id ?: "paged_song_$index"
-                                    } else {
-                                        "paged_song_$index"
-                                    }
+                                    val songId = paginatedSongs.peek(index)?.id
+                                    if (songId != null) "${songId}_$index" else "paged_song_$index"
                                 },
                                 contentType = { index ->
                                     if (paginatedSongs.peek(index) != null) "song" else "placeholder"

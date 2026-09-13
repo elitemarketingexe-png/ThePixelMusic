@@ -8,6 +8,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.unshoo.pixelmusic.BuildConfig
+
 /**
  * Data class representing a saved crash log entry.
  */
@@ -15,8 +17,24 @@ data class CrashLogData(
     val timestamp: Long,
     val formattedDate: String,
     val exceptionMessage: String,
-    val stackTrace: String
+    val stackTrace: String,
+    val appVersion: String = "",
+    val commitId: String = ""
 ) {
+    val displayVersion: String
+        get() = when {
+            appVersion.isBlank() -> "Unknown"
+            appVersion.startsWith("v", ignoreCase = true) -> appVersion
+            else -> "v$appVersion"
+        }
+
+    val displayCommitId: String
+        get() = when {
+            commitId.isBlank() -> "Unknown"
+            commitId.startsWith("#") -> commitId.removePrefix("#")
+            else -> commitId
+        }
+
     /**
      * Returns the full crash log formatted for display or sharing.
      */
@@ -24,6 +42,7 @@ data class CrashLogData(
         return buildString {
             appendLine("=== PixelMusic Crash Report ===")
             appendLine("Date: $formattedDate")
+            appendLine("version: $displayVersion commit:#$displayCommitId")
             appendLine("Exception: $exceptionMessage")
             appendLine()
             appendLine("Stack Trace:")
@@ -43,6 +62,8 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
     private const val KEY_TIMESTAMP = "crash_timestamp"
     private const val KEY_EXCEPTION_MESSAGE = "crash_exception_message"
     private const val KEY_STACK_TRACE = "crash_stack_trace"
+    private const val KEY_APP_VERSION = "crash_app_version"
+    private const val KEY_COMMIT_ID = "crash_commit_id"
     private const val MAX_STACK_TRACE_CHARS = 16_000
 
     private lateinit var appContext: Context
@@ -83,6 +104,8 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             getStackTraceString(throwable).take(MAX_STACK_TRACE_CHARS)
         }
         val exceptionMessage = throwable.message ?: throwable.javaClass.simpleName
+        val appVersion = BuildConfig.VERSION_NAME
+        val commitId = BuildConfig.GIT_COMMIT_HASH
 
         // Use commit() instead of apply() to ensure data is written synchronously
         // before the process terminates
@@ -91,6 +114,8 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             putLong(KEY_TIMESTAMP, timestamp)
             putString(KEY_EXCEPTION_MESSAGE, exceptionMessage)
             putString(KEY_STACK_TRACE, stackTrace)
+            putString(KEY_APP_VERSION, appVersion)
+            putString(KEY_COMMIT_ID, commitId)
             commit() // Synchronous write - ensures data is saved before process dies
         }
     }
@@ -130,6 +155,8 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         val timestamp = prefs.getLong(KEY_TIMESTAMP, 0)
         val exceptionMessage = prefs.getString(KEY_EXCEPTION_MESSAGE, "Unknown error") ?: "Unknown error"
         val stackTrace = prefs.getString(KEY_STACK_TRACE, "") ?: ""
+        val appVersion = prefs.getString(KEY_APP_VERSION, null) ?: BuildConfig.VERSION_NAME
+        val commitId = prefs.getString(KEY_COMMIT_ID, null) ?: BuildConfig.GIT_COMMIT_HASH
 
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(timestamp))
@@ -138,7 +165,9 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             timestamp = timestamp,
             formattedDate = formattedDate,
             exceptionMessage = exceptionMessage,
-            stackTrace = stackTrace
+            stackTrace = stackTrace,
+            appVersion = appVersion,
+            commitId = commitId
         )
     }
 
