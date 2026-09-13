@@ -501,8 +501,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -528,8 +528,8 @@ interface MusicDao {
             source_type = 0
             OR is_favorite = 1
             OR (file_path IS NOT NULL AND file_path != '')
-            OR CAST(id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(id AS TEXT))
@@ -791,7 +791,7 @@ interface MusicDao {
                     OR is_favorite = 1
                     OR (file_path IS NOT NULL AND file_path != '')
                     OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(id AS TEXT))
-                    OR content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+                    OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(content_uri_string, 'youtube://', 'youtube_'))
                     -- PERF: reads append-only library_membership via covering PK index probes instead of
                     -- song_engagements, stopping InvalidationTracker feedback loop on every track play
                     OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(id AS TEXT))
@@ -847,8 +847,8 @@ interface MusicDao {
             source_type = 0
             OR is_favorite = 1
             OR (file_path IS NOT NULL AND file_path != '')
-            OR CAST(id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(id AS TEXT))
@@ -1054,8 +1054,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1095,8 +1095,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1127,8 +1127,8 @@ interface MusicDao {
             source_type = 0
             OR is_favorite = 1
             OR (file_path IS NOT NULL AND file_path != '')
-            OR CAST(id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(id AS TEXT))
@@ -1164,8 +1164,8 @@ interface MusicDao {
             source_type = 0
             OR is_favorite = 1
             OR (file_path IS NOT NULL AND file_path != '')
-            OR CAST(id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(id AS TEXT))
@@ -1264,8 +1264,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1327,8 +1327,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1403,8 +1403,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1529,8 +1529,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1626,8 +1626,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1656,8 +1656,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1733,8 +1733,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1795,8 +1795,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1826,8 +1826,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1891,8 +1891,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1918,8 +1918,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
@@ -1953,8 +1953,8 @@ interface MusicDao {
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
-            OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
-            OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
+            OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
             -- PERF: reads append-only library_membership via covering PK index probes instead of
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))

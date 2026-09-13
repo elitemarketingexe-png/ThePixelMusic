@@ -1098,11 +1098,7 @@ fun LibraryScreen(
                                             tabCount = tabTitles.size,
                                             compactMode = isCompactNavigation
                                         )
-                                        if (Math.abs(targetPage - pagerState.currentPage) > 1) {
-                                            pagerState.scrollToPage(targetPage)
-                                        } else {
-                                            pagerState.animateScrollToPage(targetPage)
-                                        }
+                                        pagerState.scrollToPage(targetPage)
                                     }
                                 }
                             ) {
@@ -1241,11 +1237,6 @@ fun LibraryScreen(
                                 }
                             }
                         }
-                        val allSongsLazyPagingItems = libraryViewModel.songsPagingFlow.collectAsLazyPagingItems()
-                        val albumsLazyPagingItems = libraryViewModel.albumsPagingFlow.collectAsLazyPagingItems()
-                        val artistsLazyPagingItems = libraryViewModel.artistsPagingFlow.collectAsLazyPagingItems()
-                        val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
-                        val isLibraryLoading by libraryViewModel.isLoadingLibrary.collectAsStateWithLifecycle()
                         val hasCurrentSong by remember(playerViewModel) {
                             playerViewModel.stablePlayerState
                                 .map { state -> state.currentSong != null && state.currentSong != Song.emptySong() }
@@ -1363,7 +1354,11 @@ fun LibraryScreen(
                                         onSelectAll = {
                                             when (tabTitles.getOrNull(currentTabIndex)?.toLibraryTabIdOrNull()) {
                                                 LibraryTabId.LIKED -> {
-                                                    multiSelectionState.selectAll(favoritePagingItems.itemSnapshotList.items.filterNotNull())
+                                                    scope.launch {
+                                                        val songsToSelect =
+                                                            playerViewModel.getFavoriteSongsForCurrentSelection()
+                                                        multiSelectionState.selectAll(songsToSelect)
+                                                    }
                                                 }
                                                 LibraryTabId.FOLDERS -> {
                                                     val songsToSelect =
@@ -1637,7 +1632,7 @@ fun LibraryScreen(
                                     .fillMaxSize()
                                     .padding(top = 8.dp),
                                 pageSpacing = 0.dp,
-                                beyondViewportPageCount = 1, // Pre-load adjacent tabs to reduce lag when switching
+                                beyondViewportPageCount = 0, // Isolate composition to active tab to eliminate memory/layout pressure
                                 key = { it }
                             ) { page ->
                                 val tabIndex = resolveTabIndex(
@@ -1650,6 +1645,8 @@ fun LibraryScreen(
                                 // spinner or latch.
                                 when (tabTitles.getOrNull(tabIndex)?.toLibraryTabIdOrNull()) {
                                     LibraryTabId.SONGS -> {
+                                        val allSongsLazyPagingItems = libraryViewModel.songsPagingFlow.collectAsLazyPagingItems()
+                                        val isLibraryLoading by libraryViewModel.isLoadingLibrary.collectAsStateWithLifecycle()
                                         val songsTabSlice by remember(playerViewModel) {
                                             playerViewModel.playerUiState
                                                 .map { uiState ->
@@ -1686,6 +1683,7 @@ fun LibraryScreen(
                                         )
                                     }
                                     LibraryTabId.ALBUMS -> {
+                                        val albumsLazyPagingItems = libraryViewModel.albumsPagingFlow.collectAsLazyPagingItems()
                                         val albumsTabSlice by remember(playerViewModel) {
                                             playerViewModel.playerUiState
                                                 .map { uiState ->
@@ -1729,6 +1727,7 @@ fun LibraryScreen(
                                     }
 
                                     LibraryTabId.ARTISTS -> {
+                                        val artistsLazyPagingItems = libraryViewModel.artistsPagingFlow.collectAsLazyPagingItems()
                                         val artistsTabSlice by remember(playerViewModel) {
                                             playerViewModel.playerUiState
                                                 .map { uiState ->
@@ -1780,6 +1779,7 @@ fun LibraryScreen(
                                     }
 
                                     LibraryTabId.LIKED -> {
+                                        val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
                                         val favoritesTabSlice by remember(playerViewModel) {
                                             playerViewModel.playerUiState
                                                 .map { uiState ->
@@ -2402,11 +2402,7 @@ fun LibraryScreen(
                         tabCount = tabTitles.size,
                         compactMode = isCompactNavigation
                     )
-                    if (Math.abs(targetPage - pagerState.currentPage) > 1) {
-                        pagerState.scrollToPage(targetPage)
-                    } else {
-                        pagerState.animateScrollToPage(targetPage)
-                    }
+                    pagerState.scrollToPage(targetPage)
                 }
                 showTabSwitcherSheet = false
             },
@@ -3709,14 +3705,15 @@ fun LibraryFoldersTab(
                 return@LaunchedEffect
             }
 
-            snapshotFlow {
-                val visibleItems = listState.layoutInfo.visibleItemsInfo
-                if (visibleItems.isEmpty()) {
-                    false
-                } else {
-                    currentSongListIndex in visibleItems.first().index..visibleItems.last().index
+            snapshotFlow { listState.firstVisibleItemIndex }
+                .map {
+                    val visibleItems = listState.layoutInfo.visibleItemsInfo
+                    if (visibleItems.isEmpty()) {
+                        false
+                    } else {
+                        currentSongListIndex in visibleItems.first().index..visibleItems.last().index
+                    }
                 }
-            }
                 .distinctUntilChanged()
                 .collect { isVisible ->
                     visibilityCallback(!isVisible)

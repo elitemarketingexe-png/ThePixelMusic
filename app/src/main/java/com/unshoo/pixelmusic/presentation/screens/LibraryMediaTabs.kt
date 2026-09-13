@@ -153,11 +153,11 @@ fun LibraryAlbumsTab(
     // Reduced prefetchCount from 10 to 4 to lower memory/IO pressure.
     LaunchedEffect(albums, gridState, listState, isListView) {
         if (isListView) {
-            snapshotFlow { listState.layoutInfo }
+            snapshotFlow { listState.firstVisibleItemIndex }
                 .debounce(150)
                 .distinctUntilChanged()
-                .collect { layoutInfo ->
-                    val visibleItemsInfo = layoutInfo.visibleItemsInfo
+                .collect {
+                    val visibleItemsInfo = listState.layoutInfo.visibleItemsInfo
                     if (visibleItemsInfo.isNotEmpty() && albums.itemCount > 0) {
                         val lastVisibleItemIndex = visibleItemsInfo.last().index
                         val totalItemsCount = albums.itemCount
@@ -186,11 +186,11 @@ fun LibraryAlbumsTab(
                     }
                 }
         } else {
-            snapshotFlow { gridState.layoutInfo }
+            snapshotFlow { gridState.firstVisibleItemIndex }
                 .debounce(150)
                 .distinctUntilChanged()
-                .collect { layoutInfo ->
-                    val visibleItemsInfo = layoutInfo.visibleItemsInfo
+                .collect {
+                    val visibleItemsInfo = gridState.layoutInfo.visibleItemsInfo
                     if (visibleItemsInfo.isNotEmpty() && albums.itemCount > 0) {
                         val lastVisibleItemIndex = visibleItemsInfo.last().index
                         val totalItemsCount = albums.itemCount

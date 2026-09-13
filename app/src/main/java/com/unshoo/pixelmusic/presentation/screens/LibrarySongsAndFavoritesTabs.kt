@@ -176,14 +176,15 @@ fun LibraryFavoritesTab(
              return@LaunchedEffect
         }
 
-        snapshotFlow {
-            val visibleItems = listState.layoutInfo.visibleItemsInfo
-            if (visibleItems.isEmpty()) {
-                false
-            } else {
-                currentSongListIndex in visibleItems.first().index..visibleItems.last().index
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .map {
+                val visibleItems = listState.layoutInfo.visibleItemsInfo
+                if (visibleItems.isEmpty()) {
+                    false
+                } else {
+                    currentSongListIndex in visibleItems.first().index..visibleItems.last().index
+                }
             }
-        }
             .distinctUntilChanged()
             .collect { isVisible ->
                 visibilityCallback(!isVisible)

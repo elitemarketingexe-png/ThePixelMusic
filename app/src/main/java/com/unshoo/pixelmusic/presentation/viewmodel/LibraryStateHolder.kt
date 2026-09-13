@@ -215,21 +215,19 @@ class LibraryStateHolder @Inject constructor(
         Timber.tag("LibraryStateHolder").d("startObservingLibraryData called.")
         needsReloadAfterTrim = false
 
-        songsJob = scope?.launch {
+        songsJob = scope?.launch(Dispatchers.Default) {
             _isLoadingLibrary.value = true
             musicRepository.getAudioFiles().conflate().collect { songs ->
-                val immutableSongs = withContext(Dispatchers.Default) { songs.toImmutableList() }
-                val songsMap = withContext(Dispatchers.Default) { songs.associateBy { it.id } }
+                val immutableSongs = songs.toImmutableList()
+                val songsMap = songs.associateBy { it.id }
 
                 _allSongs.value = immutableSongs
                 _allSongsById.value = songsMap
-
-                sortSongs(_currentSongSortOption.value, persist = false)
                 _isLoadingLibrary.value = false
             }
         }
 
-        albumsJob = scope?.launch {
+        albumsJob = scope?.launch(Dispatchers.Default) {
             _isLoadingCategories.value = true
             @OptIn(ExperimentalCoroutinesApi::class)
             combine(
@@ -240,36 +238,30 @@ class LibraryStateHolder @Inject constructor(
             }.flatMapLatest { (filter, minTracks) ->
                 musicRepository.getAlbums(filter, minTracks)
             }.conflate().collect { albums ->
-                val sortedAlbums = withContext(Dispatchers.Default) {
-                    sortAlbumsList(albums, _currentAlbumSortOption.value).toImmutableList()
-                }
+                val sortedAlbums = sortAlbumsList(albums, _currentAlbumSortOption.value).toImmutableList()
                 _albums.value = sortedAlbums
                 _isLoadingCategories.value = false
             }
         }
 
-        artistsJob = scope?.launch {
+        artistsJob = scope?.launch(Dispatchers.Default) {
             _isLoadingCategories.value = true
             @OptIn(ExperimentalCoroutinesApi::class)
             effectiveStorageFilter.flatMapLatest { filter ->
                 musicRepository.getArtists(filter)
             }.conflate().collect { artists ->
-                val sortedArtists = withContext(Dispatchers.Default) {
-                    sortArtistsList(artists, _currentArtistSortOption.value).toImmutableList()
-                }
+                val sortedArtists = sortArtistsList(artists, _currentArtistSortOption.value).toImmutableList()
                 _artists.value = sortedArtists
                 _isLoadingCategories.value = false
             }
         }
 
-        foldersJob = scope?.launch {
+        foldersJob = scope?.launch(Dispatchers.Default) {
             @OptIn(ExperimentalCoroutinesApi::class)
             effectiveStorageFilter.flatMapLatest { filter ->
                 musicRepository.getMusicFolders(filter)
             }.conflate().collect { folders ->
-                val sortedFolders = withContext(Dispatchers.Default) {
-                    sortFoldersList(folders, _currentFolderSortOption.value).toImmutableList()
-                }
+                val sortedFolders = sortFoldersList(folders, _currentFolderSortOption.value).toImmutableList()
                 _musicFolders.value = sortedFolders
             }
         }
