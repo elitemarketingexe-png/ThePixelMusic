@@ -133,6 +133,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -2156,6 +2157,18 @@ class PlayerViewModel @Inject constructor(
         connectivityStateHolder.refreshLocalConnectionInfo(refreshBluetoothDevices)
     }
 
+    /**
+     * Suspends until the UI has committed its first frame AND initial onboarding/setup
+     * is completed. This prevents non-critical background jobs (sort calculations, tab
+     * migrations, Cast discovery) from competing with first-install setup screens.
+     */
+    private suspend fun awaitMainAppReady() {
+        AppReadinessSignal.awaitReady()
+        if (!userPreferencesRepository.initialSetupDoneFlow.first()) {
+            userPreferencesRepository.initialSetupDoneFlow.filter { it }.first()
+        }
+    }
+
     init {
         Log.i("PlayerViewModel", "init started.")
 
@@ -2166,26 +2179,12 @@ class PlayerViewModel @Inject constructor(
             castStateHolder.setRemotePlaybackActive(true)
         }
 
-        // BUGFIX (lag — DataStore / Room / network all on main): every
-        // viewModelScope.launch below used to start the moment this
-        // ViewModel was constructed (i.e. on the main thread), each one
-        // hitting DataStore or Room synchronously. That's pure main-thread
-        // I/O before the first frame. We now suspend on AppReadinessSignal
-        // (raised by MainActivity after contentVisible = true) and run on
-        // Dispatchers.IO so the UI thread is free to draw.
-
+        // Consolidated one-time migrations: run sequentially off the main thread
+        // only after the main app is ready, avoiding multiple concurrent coroutine launches.
         viewModelScope.launch(Dispatchers.IO) {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             userPreferencesRepository.migrateTabOrder()
-        }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            AppReadinessSignal.awaitReady()
             userPreferencesRepository.ensureLibrarySortDefaults()
-        }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            AppReadinessSignal.awaitReady()
             val legacyFavoriteIds = userPreferencesRepository.favoriteSongIdsFlow.first()
             if (legacyFavoriteIds.isNotEmpty()) {
                 val roomFavoriteIds = musicRepository.getFavoriteSongIdsOnce()
@@ -2199,7 +2198,7 @@ class PlayerViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             userPreferencesRepository.isFoldersPlaylistViewFlow.collect { isPlaylistView ->
                 folderNavigationStateHolder.setFoldersPlaylistViewState(
                     isPlaylistView = isPlaylistView,
@@ -2208,9 +2207,9 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        // PERF: deferred — foldersSourceFlow reads DataStore; not needed for first frame.
+        // PERF: deferred — foldersSourceFlow reads DataStore; not needed for first frame or during onboarding.
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             userPreferencesRepository.foldersSourceFlow.collect { preferredSource ->
                 val resolved = resolveFolderSourceState(preferredSource)
                 if (resolved.source != preferredSource) {
@@ -2231,9 +2230,9 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        // PERF: deferred — both flows read DataStore; not needed for first frame.
+        // PERF: deferred — both flows read DataStore; not needed for first frame or during onboarding.
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             combine(
                 userPreferencesRepository.folderBackGestureNavigationFlow,
                 userPreferencesRepository.isAlbumsListViewFlow,
@@ -2249,9 +2248,9 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        // PERF: deferred — blockedDirectoriesFlow reads DataStore; not needed for first frame.
+        // PERF: deferred — blockedDirectoriesFlow reads DataStore; not needed for first frame or during onboarding.
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             userPreferencesRepository.blockedDirectoriesFlow
                 .distinctUntilChanged()
                 .collect { blocked ->
@@ -2267,9 +2266,9 @@ class PlayerViewModel @Inject constructor(
                 }
         }
 
-        // PERF: deferred — both flows ultimately read DataStore; not needed for first frame.
+        // PERF: deferred — both flows ultimately read DataStore; not needed for first frame or during onboarding.
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             combine(libraryTabsFlow, lastLibraryTabIndexFlow) { tabs, index ->
                 tabs.getOrNull(index)?.toLibraryTabIdOrNull() ?: LibraryTabId.SONGS
             }.collect { tabId ->
@@ -2278,9 +2277,9 @@ class PlayerViewModel @Inject constructor(
         }
 
         // PERF: deferred — 5 DataStore .first() reads plus sort re-application;
-        // not needed for first frame (library tab shows skeletons while loading anyway).
+        // not needed for first frame or during onboarding.
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             val initialSongSort = resolveSortOption(
                 userPreferencesRepository.songsSortOptionFlow.first(),
                 SortOption.SONGS,
@@ -2316,8 +2315,6 @@ class PlayerViewModel @Inject constructor(
                     currentFavoriteSortOption = initialLikedSort
                 )
             }
-            // Also update the dedicated flow for favorites to ensure consistency
-            // _currentFavoriteSortOptionStateFlow.value = initialLikedSort // Delegated to LibraryStateHolder
 
             sortSongs(initialSongSort, persist = false)
             sortAlbums(initialAlbumSort, persist = false)
@@ -2327,14 +2324,11 @@ class PlayerViewModel @Inject constructor(
         }
 
         // PERF: deferred — 2 DataStore .first() reads for shuffle state;
-        // shuffle icon shows default briefly, then snaps to saved value.
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             val isPersistent = userPreferencesRepository.persistentShuffleEnabledFlow.first()
             if (isPersistent) {
-                // If persistent shuffle is on, read the last used shuffle state (On/Off)
                 val savedShuffle = userPreferencesRepository.isShuffleOnFlow.first()
-                // Update the UI state so the shuffle button reflects the saved setting immediately
                 playbackStateHolder.updateStablePlayerState { it.copy(isShuffleEnabled = savedShuffle) }
             }
         }
@@ -2361,9 +2355,9 @@ class PlayerViewModel @Inject constructor(
         startMediaControllerHealthMonitor()
 
 
-        // Start Cast discovery (deferred until after first frame)
+        // Start Cast discovery (deferred until after setup and main app readiness)
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             castStateHolder.startDiscovery()
         }
 
@@ -2503,9 +2497,9 @@ class PlayerViewModel @Inject constructor(
                 _playerUiState.update { it.copy(currentStorageFilter = filter) }
             }
         }
-        // PERF: deferred — DataStore read; not needed for first frame.
+        // PERF: deferred — DataStore read; not needed for first frame or during onboarding.
         viewModelScope.launch {
-            AppReadinessSignal.awaitReady()
+            awaitMainAppReady()
             userPreferencesRepository.hideLocalMediaFlow.collect { hide ->
                 _playerUiState.update { it.copy(hideLocalMedia = hide) }
             }

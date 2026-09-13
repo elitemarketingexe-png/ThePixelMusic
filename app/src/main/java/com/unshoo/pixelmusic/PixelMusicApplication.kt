@@ -31,6 +31,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -188,6 +190,16 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         // coroutine launches simultaneously on startup forces the CPU governor to
         // scale all cores to max frequency, causing thermal dissipation (device heat).
         warmUpScope.launch {
+            val userPrefs = userPreferencesRepository.get()
+            val isSetupDone = runCatching { userPrefs.initialSetupDoneFlow.first() }.getOrDefault(false)
+            if (!isSetupDone) {
+                Timber.d("PixelMusicApplication: First install detected. Deferring heavy background warm-ups until setup completes.")
+                // Wait for the user to complete the initial setup screen
+                userPrefs.initialSetupDoneFlow.filter { it }.first()
+                Timber.d("PixelMusicApplication: Initial setup completed! Commencing delayed warmups.")
+                delay(1500L)
+            }
+
             // Stage 1 (Immediate): Pre-warm ExoCache lazy SimpleCache index and DNS resolution off the main thread
             try {
                 exoCache.get().cache

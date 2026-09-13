@@ -9,8 +9,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,8 +22,6 @@ import androidx.compose.ui.unit.dp
 import com.unshoo.pixelmusic.utils.shapes.RoundedStarShape
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Stable
 data class IconConfig(
@@ -62,17 +58,15 @@ fun PermissionIconCollage(
         val iconTrdColor = MaterialTheme.colorScheme.tertiary
         val iconSndColor = MaterialTheme.colorScheme.secondary
 
-        val iconConfigs by produceState(initialValue = emptyList(), iconsToShow, boxMaxHeight) {
-            value = withContext(Dispatchers.Default) {
-                val min = minOf(200.dp, height)
-                listOf(
-                    IconConfig(size = min * 0.8f, color = iconSndColor, align = Alignment.Center, rot = -15f, shape = RoundedCornerShape(20.dp), offsetX = 0.dp, offsetY = 0.dp),
-                    IconConfig(size = min * 0.4f, color = iconNrColor, align = Alignment.TopStart, rot = 15f, shape = CircleShape, offsetX = (300.dp * 0.05f), offsetY = (boxMaxHeight * 0.05f)),
-                    IconConfig(size = min * 0.4f, color = iconHighlightColor, align = Alignment.BottomEnd, rot = 5f, shape = CircleShape, offsetX = -(300.dp * 0.05f), offsetY = -(boxMaxHeight * 0.05f)),
-                    IconConfig(size = min * 0.5f, color = iconNrSdColor, align = Alignment.TopEnd, rot = -20f, shape = RoundedCornerShape(20.dp), offsetX = -(300.dp * 0.1f), offsetY = (boxMaxHeight * 0.1f)),
-                    IconConfig(size = min * 0.35f, color = iconTrdColor, align = Alignment.BottomStart, rot = 10f, shape = RoundedStarShape(sides = 8, curve = 0.1), offsetX = (300.dp * 0.1f), offsetY = -(boxMaxHeight * 0.1f))
-                )
-            }
+        val min = minOf(200.dp, height)
+        val iconConfigs = remember(min, boxMaxHeight, iconSndColor, iconNrColor, iconHighlightColor, iconNrSdColor, iconTrdColor) {
+            listOf(
+                IconConfig(size = min * 0.8f, color = iconSndColor, align = Alignment.Center, rot = -15f, shape = RoundedCornerShape(20.dp), offsetX = 0.dp, offsetY = 0.dp),
+                IconConfig(size = min * 0.4f, color = iconNrColor, align = Alignment.TopStart, rot = 15f, shape = CircleShape, offsetX = (300.dp * 0.05f), offsetY = (boxMaxHeight * 0.05f)),
+                IconConfig(size = min * 0.4f, color = iconHighlightColor, align = Alignment.BottomEnd, rot = 5f, shape = CircleShape, offsetX = -(300.dp * 0.05f), offsetY = -(boxMaxHeight * 0.05f)),
+                IconConfig(size = min * 0.5f, color = iconNrSdColor, align = Alignment.TopEnd, rot = -20f, shape = RoundedCornerShape(20.dp), offsetX = -(300.dp * 0.1f), offsetY = (boxMaxHeight * 0.1f)),
+                IconConfig(size = min * 0.35f, color = iconTrdColor, align = Alignment.BottomStart, rot = 10f, shape = RoundedStarShape(sides = 8, curve = 0.1), offsetX = (300.dp * 0.1f), offsetY = -(boxMaxHeight * 0.1f))
+            )
         }
 
         if (iconConfigs.isNotEmpty()) {
