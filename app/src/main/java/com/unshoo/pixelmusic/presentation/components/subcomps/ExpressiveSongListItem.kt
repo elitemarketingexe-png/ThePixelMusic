@@ -59,6 +59,7 @@ fun ExpressiveSongListItem(
                 model = song.albumArtUriString,
                 contentDescription = stringResource(R.string.presentation_batch_g_list_cd_album_art_for, song.title),
                 targetSize = SmartImageListTargetSize,
+                isThumbnail = true,
                 modifier = Modifier
                     .size(56.dp)
                     .clip(AbsoluteSmoothCornerShape(12.dp, 60)),

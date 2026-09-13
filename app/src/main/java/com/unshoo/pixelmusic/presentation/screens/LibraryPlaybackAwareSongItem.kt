@@ -23,7 +23,7 @@ internal data class LibrarySongPlaybackUiState(
 )
 
 /**
- * OPTIMIZED (adopted from PixelMusic): each row self-observes [PlayerViewModel.stablePlayerState]
+ * OPTIMIZED: each row self-observes [PlayerViewModel.stablePlayerState]
  * through a per-row derived flow (`remember(song.id, playerViewModel)`) instead of receiving
  * `currentSongId`/`isPlaying` from the parent list.
  *

@@ -1647,7 +1647,7 @@ fun LibraryScreen(
                                 )
                                 // Rendered immediately — the tab composables show in-place
                                 // skeletons while loading, so page switches never wait on a
-                                // spinner or latch (matches upstream PixelPlayerOSS).
+                                // spinner or latch.
                                 when (tabTitles.getOrNull(tabIndex)?.toLibraryTabIdOrNull()) {
                                     LibraryTabId.SONGS -> {
                                         val songsTabSlice by remember(playerViewModel) {

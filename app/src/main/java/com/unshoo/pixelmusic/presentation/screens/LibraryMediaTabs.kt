@@ -227,7 +227,7 @@ fun LibraryAlbumsTab(
         isLoading || refreshState is LoadState.Loading
     )
 
-    // Upstream PixelPlayerOSS pattern: plain when-branching (no Crossfade).
+    // Plain when-branching (no Crossfade) for instant response.
     // Crossfade double-composed the skeleton + content trees on every state swap,
     // which caused jank in the image grid and a visible 220ms fade on load.
     val pageTarget = when {

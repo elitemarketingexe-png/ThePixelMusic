@@ -95,6 +95,7 @@ fun SmartImage(
     alpha: Float = 1f,
     placeholderModel: Any? = null,
     placeHolderBackgroundColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    isThumbnail: Boolean = false,
     onState: ((AsyncImagePainter.State) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -119,9 +120,18 @@ fun SmartImage(
 
     val density = LocalDensity.current.density
     val clippedModifier = modifier.clip(shape)
-    val requestTargetSize = remember(targetSize, effectiveQuality) {
-        val baseSize = safeAlbumArtTargetSize(targetSize)
-        val maxSize = effectiveQuality.maxSize
+    val requestTargetSize = remember(targetSize, effectiveQuality, isThumbnail) {
+        val effectiveTargetSize = if (isThumbnail && targetSize == DefaultSmartImageSize) {
+            SmartImageListTargetSize
+        } else {
+            targetSize
+        }
+        val baseSize = safeAlbumArtTargetSize(effectiveTargetSize)
+        val maxSize = if (isThumbnail) {
+            256
+        } else {
+            effectiveQuality.maxSize
+        }
         val rawW = (baseSize.width as? coil.size.Dimension.Pixels)?.px
         val rawH = (baseSize.height as? coil.size.Dimension.Pixels)?.px
         val limit = if (maxSize > 0) maxSize else MaxSafeAlbumArtDimensionPx
@@ -154,11 +164,18 @@ fun SmartImage(
         return
     }
 
-    // OPTIMIZED: Pre-compiled regex patterns (avoid compiling Regex on every composition)
-    // These were previously created inside remember{} on each SmartImage call - now static.
-    val memoryCacheKey = remember(model, requestTargetSize) {
+    // Size-qualified memory cache key so thumbnail and full-size bitmaps don't collide or evict each other
+    val memoryCacheKey = remember(model, requestTargetSize, isThumbnail) {
         if (model is String) {
-            MemoryCache.Key(model)
+            val w = (requestTargetSize.width as? coil.size.Dimension.Pixels)?.px ?: 0
+            val h = (requestTargetSize.height as? coil.size.Dimension.Pixels)?.px ?: 0
+            if (isThumbnail) {
+                MemoryCache.Key("${model}_thumb_${w}x${h}")
+            } else if (w > 0 && h > 0) {
+                MemoryCache.Key("${model}_${w}x${h}")
+            } else {
+                MemoryCache.Key(model)
+            }
         } else {
             null
         }
@@ -172,12 +189,16 @@ fun SmartImage(
         useMemoryCache,
         allowHardware,
         requestTargetSize,
-        memoryCacheKey
+        memoryCacheKey,
+        isThumbnail
     ) {
         val optimizedModel = if (model is String && (model.contains("googleusercontent.com") || model.contains("ggpht.com"))) {
-            val widthPx = (requestTargetSize.width as? coil.size.Dimension.Pixels)?.px ?: 512
-            val heightPx = (requestTargetSize.height as? coil.size.Dimension.Pixels)?.px ?: 512
-            val sizeStr = if (widthPx >= 400 || heightPx >= 400) {
+            val widthPx = (requestTargetSize.width as? coil.size.Dimension.Pixels)?.px ?: (if (isThumbnail) 128 else 512)
+            val heightPx = (requestTargetSize.height as? coil.size.Dimension.Pixels)?.px ?: (if (isThumbnail) 128 else 512)
+            val sizeStr = if (isThumbnail) {
+                val thumbDim = maxOf(widthPx, heightPx).coerceIn(96, 256)
+                "=w$thumbDim-h$thumbDim-c-rj"
+            } else if (widthPx >= 400 || heightPx >= 400) {
                 "=w1024-h1024-l90-rj"
             } else {
                 "=w$widthPx-h$heightPx-c-rj"
@@ -195,7 +216,11 @@ fun SmartImage(
             val match = Regex("/vi(?:_webp)?/([^/]+)/").find(model)
             if (match != null) {
                 val videoId = match.groupValues[1]
-                "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                if (isThumbnail) {
+                    "https://i.ytimg.com/vi/$videoId/mqdefault.jpg"
+                } else {
+                    "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                }
             } else {
                 model
             }

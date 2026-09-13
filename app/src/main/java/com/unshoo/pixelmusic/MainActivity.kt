@@ -647,7 +647,7 @@ class MainActivity : ComponentActivity() {
         val navController = rememberNavController()
         // Note: initial-sync feedback is handled inside LibraryScreen itself
         // (in-place skeletons + LibraryInlineSyncIndicator + LibrarySyncOverlay for
-        // the empty first-run case) — matching upstream PixelPlayerOSS. No blocking
+        // the empty first-run case). No blocking
         // full-screen overlay here, so the app UI is interactive during first sync.
         
         // isMediaControllerReady used below for playlist navigation gate

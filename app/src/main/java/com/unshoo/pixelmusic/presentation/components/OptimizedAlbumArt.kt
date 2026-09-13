@@ -231,14 +231,13 @@ internal fun albumArtMemoryCacheKey(model: Any?, targetSize: Size): String? {
         else -> null
     } ?: return null
 
-    if (targetSize == Size.ORIGINAL) return baseKey
-
-    val width = (targetSize.width as? Dimension.Pixels)?.px
-    val height = (targetSize.height as? Dimension.Pixels)?.px
+    val safeSize = safeAlbumArtTargetSize(targetSize)
+    val width = (safeSize.width as? Dimension.Pixels)?.px
+    val height = (safeSize.height as? Dimension.Pixels)?.px
     return if (width != null && height != null) {
         "${baseKey}_${width}x${height}"
     } else {
-        "${baseKey}_${targetSize.width}x${targetSize.height}"
+        "${baseKey}_${safeSize.width}x${safeSize.height}"
     }
 }
 

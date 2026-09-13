@@ -356,6 +356,7 @@ fun EnhancedSongListItem(
                                 albumArtTargetSizePx.coerceIn(48, 160)
                             ),
                             crossfadeDurationMillis = 0,
+                            isThumbnail = true,
                             modifier = Modifier.fillMaxSize()
                         )
                         

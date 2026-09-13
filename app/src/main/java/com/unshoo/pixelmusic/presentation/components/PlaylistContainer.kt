@@ -128,7 +128,7 @@ fun PlaylistContainer(
     playlistSelectionStateHolder: PlaylistSelectionStateHolder? = null
 ) {
 
-    // Upstream PixelPlayerOSS pattern: plain conditionals — no Crossfade.
+    // Plain conditionals — no Crossfade.
     // Crossfade double-composed the loading + content trees on every transition,
     // causing jank when switching to the Playlists tab.
     Column(modifier = Modifier.fillMaxSize()) {

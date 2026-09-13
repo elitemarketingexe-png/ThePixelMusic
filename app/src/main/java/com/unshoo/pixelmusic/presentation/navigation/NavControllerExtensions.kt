@@ -4,11 +4,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavOptionsBuilder
 
-// Lifecycle gate, aligned 1:1 with PixelPlayer's NavControllerExtensions.
+// Lifecycle gate for navigation controller extensions.
 //
-// Two behaviors were intentionally removed from the previous fork version:
+// Two behaviors were intentionally refined:
 //
-// 1. `lifecycle == null -> true`. Upstream returns false when there is no current
+// 1. `lifecycle == null -> false`. Returns false when there is no current
 //    back stack entry; navigating with a null entry (during graph setup races) is
 //    exactly the case the gate exists to catch.
 //
