@@ -251,4 +251,30 @@
     <string name="player_menu_add_to_playlist">Add to Playlist</string>
     <string name="cd_player_more_options">More options</string>
     <string name="cd_player_theme">Change theme</string>
+
+    <!-- Cloud Offline Downloads -->
+    <string name="cloud_downloads_title">Downloads</string>
+    <string name="cloud_downloads_settings_subtitle">Manage offline tracks and storage</string>
+    <string name="cloud_downloads_storage_used">Offline storage used</string>
+    <string name="cloud_downloads_storage_summary">%1$d completed · %2$d total</string>
+    <string name="cloud_downloads_active_section">Queued and downloading</string>
+    <string name="cloud_downloads_failed_section">Failed</string>
+    <string name="cloud_downloads_completed_section">Completed</string>
+    <string name="cloud_downloads_section_count">%1$s · %2$d</string>
+    <string name="cloud_downloads_unknown_track">Unknown track</string>
+    <string name="cloud_downloads_downloaded_size">Downloaded · %1$s</string>
+    <string name="cloud_downloads_failed_fallback">Download failed</string>
+    <string name="cloud_downloads_empty_title">No offline downloads</string>
+    <string name="cloud_downloads_empty_subtitle">Tracks you download will appear here.</string>
+    <string name="cloud_download_retry">Retry</string>
+    <string name="cloud_remove_download">Remove</string>
+    <string name="cloud_download_queued">Queued</string>
+    <string name="cloud_downloading">Downloading…</string>
+    <string name="cloud_download_progress">%1$d%%</string>
+    <string name="cloud_download_select_all">Select all</string>
+    <string name="cloud_download_deselect_all">Deselect all</string>
+    <string name="cloud_download_delete_selected">Delete selected</string>
+    <string name="cloud_download_play_selected">Play selected</string>
+    <string name="cloud_download_play_all">Play all</string>
+    <string name="cloud_download_shuffle_all">Shuffle all</string>
 </resources>

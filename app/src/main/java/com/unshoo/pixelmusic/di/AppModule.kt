@@ -26,6 +26,7 @@ import com.unshoo.pixelmusic.data.database.AiCacheDao
 import com.unshoo.pixelmusic.data.database.AiUsageDao
 import com.unshoo.pixelmusic.data.database.LocalPlaylistDao
 import com.unshoo.pixelmusic.data.database.MusicDao
+import com.unshoo.pixelmusic.data.database.OfflineTrackDao
 import com.unshoo.pixelmusic.data.database.PixelMusicDatabase
 import com.unshoo.pixelmusic.data.database.SearchHistoryDao
 import com.unshoo.pixelmusic.data.database.TransitionDao
@@ -169,7 +170,8 @@ object AppModule {
             PixelMusicDatabase.MIGRATION_43_44,
             PixelMusicDatabase.MIGRATION_44_45,
             PixelMusicDatabase.MIGRATION_45_46,
-            PixelMusicDatabase.MIGRATION_46_47
+            PixelMusicDatabase.MIGRATION_46_47,
+            PixelMusicDatabase.MIGRATION_47_48
         )
             .addCallback(PixelMusicDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
@@ -247,6 +249,12 @@ object AppModule {
     @Provides
     fun provideAiUsageDao(database: PixelMusicDatabase): AiUsageDao {
         return database.aiUsageDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideOfflineTrackDao(database: PixelMusicDatabase): OfflineTrackDao {
+        return database.offlineTrackDao()
     }
 
     @Provides

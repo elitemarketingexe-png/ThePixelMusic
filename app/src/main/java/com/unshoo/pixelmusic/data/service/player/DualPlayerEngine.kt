@@ -583,6 +583,55 @@ class DualPlayerEngine @Inject constructor(
         }
     }
 
+    fun resolveLocalDiskFile(uriString: String): Uri? {
+        // 1. Check in-memory local file cache with disk validation
+        localFilePathCache[uriString]?.let { path ->
+            if (path.startsWith("content://")) {
+                return Uri.parse(path)
+            }
+            val file = java.io.File(path)
+            if (file.isFile && file.length() > 0L) {
+                return Uri.fromFile(file)
+            }
+        }
+
+        // 2. Check YouTube downloads folder directly on disk
+        if (uriString.startsWith("youtube://")) {
+            val videoId = uriString.removePrefix("youtube://")
+            if (videoId.isNotBlank()) {
+                val audioDir = java.io.File(context.filesDir, "audio_files")
+                val diskFile = java.io.File(audioDir, "$videoId.webm")
+                if (diskFile.isFile && diskFile.length() > 0L) {
+                    val path = diskFile.absolutePath
+                    localFilePathCache[uriString] = path
+                    return Uri.fromFile(diskFile)
+                }
+            }
+        }
+
+        // 3. Check cloud downloads directory by SHA-256 ID
+        if (uriString.startsWith("youtube://") || uriString.startsWith("navidrome://") || uriString.startsWith("jellyfin://")) {
+            val cloudDir = java.io.File(context.filesDir, "cloud_downloads")
+            if (cloudDir.isDirectory) {
+                try {
+                    val downloadId = java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(uriString.toByteArray(Charsets.UTF_8))
+                        .joinToString("") { "%02x".format(it) }
+                    val match = cloudDir.listFiles()?.firstOrNull { file ->
+                        file.isFile && file.length() > 0L && file.name.startsWith(downloadId) &&
+                            !file.name.endsWith(".part") && !file.name.endsWith(".jpg") && !file.name.endsWith(".lrc")
+                    }
+                    if (match != null) {
+                        localFilePathCache[uriString] = match.absolutePath
+                        return Uri.fromFile(match)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        return null
+    }
+
     private fun applyAudioOffloadToActivePlayers() {
         if (::playerA.isInitialized) applyAudioOffload(playerA)
         if (::playerB.isInitialized) applyAudioOffload(playerB)
@@ -923,13 +972,9 @@ class DualPlayerEngine @Inject constructor(
                 // MediaSession/UI binder path and freeze the miniplayer when song cards are tapped.
                 if (scheme == "telegram" || scheme == "gdrive" || scheme == "youtube") {
                     val originalUri = uri.toString()
-                    val localPath = localFilePathCache[originalUri]
-                    if (localPath != null) {
-                        val isLocalFile = !localPath.startsWith("content://") && java.io.File(localPath).exists()
-                        val isContentUri = localPath.startsWith("content://")
-                        if (isLocalFile || isContentUri) {
-                            return dataSpec.buildUpon().setUri(Uri.parse(localPath)).build()
-                        }
+                    val diskUri = resolveLocalDiskFile(originalUri)
+                    if (diskUri != null) {
+                        return dataSpec.buildUpon().setUri(diskUri).build()
                     }
 
                     activePlaybackResolvedUris[originalUri]?.let { locked ->
@@ -1284,6 +1329,11 @@ class DualPlayerEngine @Inject constructor(
 
     private suspend fun resolveYoutubeUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
         try {
+            val localDiskUri = resolveLocalDiskFile(uriString)
+            if (localDiskUri != null) {
+                return@withContext localDiskUri
+            }
+
             val youtubeId = uriString.substringAfter("youtube://")
             val youtubeSong = com.unshoo.pixelmusic.data.model.youtube.Song(youtubeId = youtubeId)
 

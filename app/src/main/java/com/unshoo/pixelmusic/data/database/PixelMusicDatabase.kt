@@ -28,9 +28,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AiCacheEntity::class,
         AiUsageEntity::class,
         RelatedSongMap::class,
-        LibraryMembershipEntity::class
+        LibraryMembershipEntity::class,
+        OfflineTrackEntity::class
     ],
-    version = 47,
+    version = 48,
     exportSchema = true
 )
 abstract class PixelMusicDatabase : RoomDatabase() {
@@ -46,6 +47,7 @@ abstract class PixelMusicDatabase : RoomDatabase() {
     abstract fun localPlaylistDao(): LocalPlaylistDao
     abstract fun aiCacheDao(): AiCacheDao
     abstract fun aiUsageDao(): AiUsageDao
+    abstract fun offlineTrackDao(): OfflineTrackDao
 
     companion object {
         // Gap-bridging no-op migrations for missing version ranges.
@@ -778,6 +780,35 @@ abstract class PixelMusicDatabase : RoomDatabase() {
                         "FROM song_engagements " +
                         "WHERE play_count > 0"
                 )
+            }
+        }
+
+        val MIGRATION_47_48 = object : Migration(47, 48) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `offline_tracks` (
+                        `download_id` TEXT NOT NULL,
+                        `attempt_id` TEXT NOT NULL,
+                        `song_id` TEXT NOT NULL,
+                        `source_uri` TEXT NOT NULL,
+                        `provider` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `mime_type` TEXT,
+                        `local_path` TEXT,
+                        `state` TEXT NOT NULL,
+                        `bytes_downloaded` INTEGER NOT NULL DEFAULT 0,
+                        `total_bytes` INTEGER,
+                        `created_at` INTEGER NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        `error_message` TEXT,
+                        PRIMARY KEY(`download_id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_offline_tracks_source_uri` ON `offline_tracks`(`source_uri`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_offline_tracks_song_id` ON `offline_tracks`(`song_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_offline_tracks_state` ON `offline_tracks`(`state`)")
             }
         }
 

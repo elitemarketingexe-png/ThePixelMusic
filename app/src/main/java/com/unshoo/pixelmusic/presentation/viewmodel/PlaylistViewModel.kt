@@ -42,6 +42,7 @@ import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.os.Build
 import android.provider.MediaStore
+import coil.imageLoader
 import com.unshoo.pixelmusic.data.preferences.TelegramTopicDisplayMode
 import com.unshoo.pixelmusic.data.ai.AiPlaylistGenerator
 import com.unshoo.pixelmusic.R
@@ -914,7 +915,7 @@ class PlaylistViewModel @Inject constructor(
             try {
                 val originalBitmap: android.graphics.Bitmap? = when {
                     uri.scheme == "http" || uri.scheme == "https" -> {
-                        val loader = coil.ImageLoader(context)
+                        val loader = context.imageLoader
                         val request = coil.request.ImageRequest.Builder(context)
                             .data(uri)
                             .allowHardware(false)

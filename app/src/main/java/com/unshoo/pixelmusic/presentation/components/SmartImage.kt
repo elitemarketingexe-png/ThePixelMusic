@@ -117,23 +117,15 @@ fun SmartImage(
 
     val density = LocalDensity.current.density
     val clippedModifier = modifier.clip(shape)
-    val requestTargetSize = remember(targetSize, effectiveQuality, density) {
+    val requestTargetSize = remember(targetSize, effectiveQuality) {
         val baseSize = safeAlbumArtTargetSize(targetSize)
         val maxSize = effectiveQuality.maxSize
         val rawW = (baseSize.width as? coil.size.Dimension.Pixels)?.px
         val rawH = (baseSize.height as? coil.size.Dimension.Pixels)?.px
-        val scaledW = if (rawW != null) (rawW * density).toInt() else maxSize
-        val scaledH = if (rawH != null) (rawH * density).toInt() else maxSize
-        if (maxSize > 0) {
-            val clampedW = if (scaledW > maxSize) maxSize else scaledW
-            val clampedH = if (scaledH > maxSize) maxSize else scaledH
-            Size(clampedW, clampedH)
-        } else {
-            val limit = MaxSafeAlbumArtDimensionPx
-            val clampedW = if (scaledW > limit) limit else scaledW
-            val clampedH = if (scaledH > limit) limit else scaledH
-            Size(clampedW, clampedH)
-        }
+        val limit = if (maxSize > 0) maxSize else MaxSafeAlbumArtDimensionPx
+        val finalW = if (rawW != null) rawW.coerceIn(1, limit) else limit
+        val finalH = if (rawH != null) rawH.coerceIn(1, limit) else limit
+        Size(finalW, finalH)
     }
 
     // Handle direct models (Bitmap, Vector, etc) early to avoid ImageRequest overhead

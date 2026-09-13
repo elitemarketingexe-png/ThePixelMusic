@@ -755,6 +755,10 @@ class MusicRepositoryImpl @Inject constructor(
             try {
                 val downloaded = com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context).songRepository().getDownloadedSongs()
                 val matching = downloaded.filter { ySong ->
+                    val path = ySong.audioFilePath
+                    val existsOnDisk = path?.startsWith("content://") == true ||
+                        (path != null && java.io.File(path).let { it.isFile && it.length() > 0L })
+                    if (!existsOnDisk) return@filter false
                     if (titleOnly) {
                         ySong.title.contains(query, ignoreCase = true)
                     } else {

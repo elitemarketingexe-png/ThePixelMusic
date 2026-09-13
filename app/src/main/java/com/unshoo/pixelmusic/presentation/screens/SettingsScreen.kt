@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.AlertDialog
@@ -224,7 +225,7 @@ fun SettingsScreen(
                         it != SettingsCategory.LASTFM
                     }
 
-                    val totalItems = mainCategories.size + 3 // Device + Accounts + About
+                    val totalItems = mainCategories.size + 4 // Device + Accounts + Downloads + About
                     fun shapeFor(index: Int) =
                         when {
                             totalItems == 1 -> RoundedCornerShape(24.dp)
@@ -276,6 +277,21 @@ fun SettingsScreen(
                         colors = getAccountsColors(isDark),
                         onClick = {
                             navController.navigateSafely(Screen.Accounts.route)
+                        },
+                        shape = shapeFor(itemIndex)
+                    )
+                    if (itemIndex < totalItems - 1) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                    itemIndex++
+
+                    ExpressiveNavigationItem(
+                        title = stringResource(R.string.cloud_downloads_title),
+                        subtitle = stringResource(R.string.cloud_downloads_settings_subtitle),
+                        icon = Icons.Rounded.Download,
+                        colors = getDownloadsColors(isDark),
+                        onClick = {
+                            navController.navigateSafely(Screen.CloudDownloads.route)
                         },
                         shape = shapeFor(itemIndex)
                     )
@@ -636,6 +652,14 @@ private fun getAccountsColors(isDark: Boolean): Pair<Color, Color> {
         Color(0xFF37474F) to Color(0xFFBBD9E8)
     } else {
         Color(0xFFD6EAF5) to Color(0xFF103548)
+    }
+}
+
+private fun getDownloadsColors(isDark: Boolean): Pair<Color, Color> {
+    return if (isDark) {
+        Color(0xFF2E4D40) to Color(0xFFA8DFC5)
+    } else {
+        Color(0xFFD0EEDF) to Color(0xFF0E3827)
     }
 }
 

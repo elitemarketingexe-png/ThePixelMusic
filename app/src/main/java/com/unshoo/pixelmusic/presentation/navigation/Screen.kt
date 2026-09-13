@@ -61,5 +61,6 @@ sealed class Screen(val route: String) {
     object Equalizer : Screen("equalizer")
     object DeviceCapabilities : Screen("device_capabilities")
     object YoutubeAuth : Screen("youtube_auth")
+    object CloudDownloads : Screen("cloud_downloads")
 
 }

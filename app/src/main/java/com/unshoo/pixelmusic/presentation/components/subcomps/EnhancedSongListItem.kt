@@ -351,7 +351,10 @@ fun EnhancedSongListItem(
                             model = song.albumArtUriString,
                             contentDescription = song.title,
                             shape = albumShape,
-                            targetSize = Size(albumArtTargetSizePx, albumArtTargetSizePx),
+                            targetSize = Size(
+                                albumArtTargetSizePx.coerceIn(48, 160),
+                                albumArtTargetSizePx.coerceIn(48, 160)
+                            ),
                             crossfadeDurationMillis = 0,
                             modifier = Modifier.fillMaxSize()
                         )

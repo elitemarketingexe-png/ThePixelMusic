@@ -31,7 +31,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -434,7 +433,7 @@ fun UnifiedPlayerSheetV2(
         sheetMotionController = sheetMotionController,
         animationDurationMs = ANIMATION_DURATION_MS,
         onSwipeEdgeChanged = { playerViewModel.updatePredictiveBackSwipeEdge(it) },
-        registrationKey = Pair(currentBackStackEntry?.id, canHandlePlayerBack)
+        registrationKey = currentBackStackEntry?.id
     )
 
     val sheetOverlayState = rememberSheetOverlayState(
@@ -623,23 +622,10 @@ fun UnifiedPlayerSheetV2(
                                 color = playerAreaBackground,
                                 shape = sheetInteractionState.playerShadowShape
                             )
-                            .clip(sheetInteractionState.playerShadowShape)
-                            .layout { measurable, constraints ->
-                                val targetContentHeightPx = containerHeight.roundToPx()
-                                val placeable = measurable.measure(
-                                    constraints.copy(
-                                        minHeight = targetContentHeightPx,
-                                        maxHeight = targetContentHeightPx
-                                    )
-                                )
-                                layout(constraints.maxWidth, constraints.maxHeight) {
-                                    placeable.placeRelative(0, 0)
-                                }
+                            .clipToBounds()
+                            .semantics {
+                                contentDescription = playerSheetSemanticsDescription
                             }
-                            .miniPlayerDismissHorizontalGesture(
-                                enabled = currentSheetContentState == PlayerSheetState.COLLAPSED,
-                                handler = miniDismissGestureHandler
-                            )
                             .playerSheetVerticalDragGesture(
                                 enabled = sheetInteractionState.canDragSheet,
                                 handler = sheetInteractionState.sheetVerticalDragGestureHandler
@@ -650,9 +636,6 @@ fun UnifiedPlayerSheetV2(
                                 indication = null
                             ) {
                                 playerViewModel.togglePlayerSheetState()
-                            }
-                            .semantics {
-                                contentDescription = playerSheetSemanticsDescription
                             }
                     ) {
                         UnifiedPlayerMiniAndFullLayers(

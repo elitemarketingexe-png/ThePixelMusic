@@ -214,11 +214,9 @@ object DownloadHelper {
                     }
                 }
 
-                // Copy/rename to final output destination
-                tempFile.copyTo(outputFile, overwrite = true)
+                // Finished downloading audio file successfully
                 cleanupTempFile()
 
-                enforceStorageLimit(context, keepFile = outputFile)
                 return@withContext outputFile.absolutePath
 
             } catch (e: CancellationException) {
@@ -239,29 +237,12 @@ object DownloadHelper {
     }
 
     private suspend fun enforceStorageLimit(context: Context, keepFile: File? = null) = withContext(Dispatchers.IO) {
-        val limitMb = runCatching {
-            context.dataStore.data.first()[intPreferencesKey("storage_limit_mb")] ?: 1536
-        }.getOrDefault(1536).coerceIn(0, 10240)
-        if (limitMb <= 0) return@withContext
-
+        // User downloaded songs and thumbnails are permanent offline media and must NOT be silently deleted.
+        // Only clean up dangling temporary files (.tmp / .part) here.
         val audioDir = PixelMusicHelper.getDownloadDirectory(context, Constants.Downloads.AUDIO_FILES_FOLDER)
-        val imageDir = PixelMusicHelper.getDownloadDirectory(context, Constants.Downloads.THUMBNAILS_FOLDER)
-        val limitBytes = limitMb.toLong() * 1024L * 1024L
-
-        fun allCacheFiles(): List<File> = listOf(audioDir, imageDir)
-            .flatMap { dir -> dir.listFiles()?.filter { it.isFile } ?: emptyList() }
-
-        var files = allCacheFiles()
-        var totalBytes = files.sumOf { it.length() }
-        if (totalBytes <= limitBytes) return@withContext
-
-        files.sortedBy { it.lastModified().takeIf { ts -> ts > 0L } ?: Long.MIN_VALUE }
-            .forEach { file ->
-                if (totalBytes <= limitBytes) return@forEach
-                if (keepFile != null && file.absolutePath == keepFile.absolutePath) return@forEach
-                val size = file.length()
-                if (file.delete()) totalBytes -= size
-            }
+        audioDir.listFiles()?.filter { it.name.endsWith(".tmp") || it.name.contains(".part") }?.forEach { temp ->
+            try { temp.delete() } catch (_: Exception) {}
+        }
     }
 
     suspend fun copyToPublicDownload(context: Context, sourceFilePath: String, songTitle: String, artistName: String): File? {
