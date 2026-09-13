@@ -917,11 +917,11 @@ class PlaybackStateHolder @Inject constructor(
                         }
 
                         val shuffledQueue = withContext(Dispatchers.Default) {
-                            QueueUtils.buildAnchoredShuffleQueueSuspending(cappedSongs, safeCurrentIndex)
+                            QueueUtils.buildAnchoredShuffleQueueSuspending(cappedSongs, safeCurrentIndex, startAtZero = true)
                         }
 
-                        // Apply shuffled queue atomically and smoothly
-                        applyNewQueueToPlayer(shuffledQueue, safeCurrentIndex)
+                        // Apply shuffled queue atomically and smoothly with current song at 0 and all other songs following
+                        applyNewQueueToPlayer(shuffledQueue, targetIndex = 0)
 
                         withContext(Dispatchers.Main) {
                             player.shuffleModeEnabled = true

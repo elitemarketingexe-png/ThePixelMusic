@@ -215,7 +215,7 @@ class LibraryStateHolder @Inject constructor(
         Timber.tag("LibraryStateHolder").d("startObservingLibraryData called.")
         needsReloadAfterTrim = false
 
-        songsJob = scope?.launch(Dispatchers.Default) {
+        songsJob = scope?.launch(Dispatchers.IO) {
             _isLoadingLibrary.value = true
             musicRepository.getAudioFiles().conflate().collect { songs ->
                 val immutableSongs = songs.toImmutableList()
@@ -227,7 +227,8 @@ class LibraryStateHolder @Inject constructor(
             }
         }
 
-        albumsJob = scope?.launch(Dispatchers.Default) {
+        albumsJob = scope?.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(100L) // Stagger by 100ms so initial cold start song load has exclusive IO priority
             _isLoadingCategories.value = true
             @OptIn(ExperimentalCoroutinesApi::class)
             combine(
@@ -244,7 +245,8 @@ class LibraryStateHolder @Inject constructor(
             }
         }
 
-        artistsJob = scope?.launch(Dispatchers.Default) {
+        artistsJob = scope?.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(180L) // Stagger by 180ms
             _isLoadingCategories.value = true
             @OptIn(ExperimentalCoroutinesApi::class)
             effectiveStorageFilter.flatMapLatest { filter ->
@@ -256,7 +258,8 @@ class LibraryStateHolder @Inject constructor(
             }
         }
 
-        foldersJob = scope?.launch(Dispatchers.Default) {
+        foldersJob = scope?.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(260L) // Stagger by 260ms
             @OptIn(ExperimentalCoroutinesApi::class)
             effectiveStorageFilter.flatMapLatest { filter ->
                 musicRepository.getMusicFolders(filter)

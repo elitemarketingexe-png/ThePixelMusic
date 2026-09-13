@@ -73,6 +73,12 @@ interface EngagementDao {
     """)
     suspend fun deleteOrphanedLibraryMembership()
 
+    @Query("SELECT song_key FROM library_membership")
+    suspend fun getAllLibraryMembershipKeys(): List<String>
+
+    @Query("DELETE FROM library_membership WHERE song_key = :songKey")
+    suspend fun deleteLibraryMembershipByKey(songKey: String)
+
     /**
      * Records a play and marks library membership in one transaction.
      */

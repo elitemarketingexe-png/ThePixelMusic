@@ -29,7 +29,10 @@ import javax.inject.Inject
 
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.database.AlbumEntity
+import com.unshoo.pixelmusic.data.database.EngagementDao
+import com.unshoo.pixelmusic.data.database.LibraryMembershipEntity
 import com.unshoo.pixelmusic.data.database.toEntity
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import kotlin.math.absoluteValue
 
 data class AlbumDetailUiState(
@@ -45,6 +48,7 @@ class AlbumDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val engagementDao: EngagementDao,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -93,10 +97,11 @@ class AlbumDetailViewModel @Inject constructor(
             val isCurrentlyLiked = _uiState.value.isLiked
             val newLikedState = !isCurrentlyLiked
 
-            val albumId = albumIdString.toLongOrNull()
-            val browseId = albumId?.let {
-                SearchStateHolder.albumIdMap[it] ?: AlbumIdMapper.getBrowseId(context, it)
-            } ?: albumIdString
+            val albumId = albumIdString.toLongOrNull() ?: album.id
+            val browseId = SearchStateHolder.albumIdMap[album.id]
+                ?: AlbumIdMapper.getBrowseId(context, album.id)
+                ?: (if (albumIdString.toLongOrNull() == null) albumIdString else null)
+                ?: albumIdString
 
             // 1. Update local preferences
             userPreferencesRepository.setLikedAlbum(browseId, newLikedState)
@@ -110,12 +115,30 @@ class AlbumDetailViewModel @Inject constructor(
 
             // 3. Update local database cache
             withContext(Dispatchers.IO) {
+                AlbumIdMapper.putMapping(context, album.id, browseId)
+                val primaryArtistId = YouTubeIdUtils.toUnifiedYoutubeArtistId(album.artist)
+                val albumEntity = album.toEntity(artistIdForAlbum = primaryArtistId)
+                musicRepository.insertAlbums(listOf(albumEntity))
+
+                val albumKey = "album_${album.id}"
                 if (newLikedState) {
-                    AlbumIdMapper.putMapping(context, album.id, browseId)
-                    val albumEntity = album.toEntity(artistIdForAlbum = album.artist.lowercase().hashCode().toLong().absoluteValue)
-                    musicRepository.insertAlbums(listOf(albumEntity))
+                    engagementDao.insertLibraryMembership(
+                        LibraryMembershipEntity(songKey = albumKey, firstPlayedTimestamp = System.currentTimeMillis())
+                    )
+                    val currentSongs = _uiState.value.songs
+                    if (currentSongs.isNotEmpty()) {
+                        val memberships = mutableListOf<LibraryMembershipEntity>()
+                        currentSongs.forEach { s ->
+                            val ytId = s.youtubeId ?: if (s.id.startsWith("youtube_")) s.id.removePrefix("youtube_") else null
+                            if (ytId != null) {
+                                memberships.add(LibraryMembershipEntity(songKey = "youtube://$ytId", firstPlayedTimestamp = System.currentTimeMillis()))
+                                memberships.add(LibraryMembershipEntity(songKey = s.id, firstPlayedTimestamp = System.currentTimeMillis()))
+                            }
+                        }
+                        engagementDao.insertLibraryMemberships(memberships)
+                    }
                 } else {
-                    musicRepository.deleteAlbumById(album.id)
+                    engagementDao.deleteLibraryMembershipByKey(albumKey)
                 }
             }
         }
@@ -189,20 +212,75 @@ class AlbumDetailViewModel @Inject constructor(
                 }
                 result.onSuccess { albumPage ->
                     val albumItem = albumPage.album
+                    val albumTitle = albumItem.title
+                    val unifiedAlbumId = YouTubeIdUtils.toUnifiedYoutubeAlbumId(albumTitle)
+                    val artistName = albumItem.artists?.joinToString { it.name } ?: ""
+                    val primaryArtistName = albumItem.artists?.firstOrNull()?.name ?: artistName
+                    val primaryArtistId = YouTubeIdUtils.toUnifiedYoutubeArtistId(primaryArtistName)
+                    val albumYear = albumItem.year ?: 0
+                    val albumArt = albumItem.thumbnail
+
+                    AlbumIdMapper.putMapping(context, unifiedAlbumId, albumItem.browseId)
+
                     val albumModel = Album(
-                        id = albumItem.browseId.hashCode().toLong(),
-                        title = albumItem.title,
-                        artist = albumItem.artists?.joinToString { it.name } ?: "",
-                        year = albumItem.year ?: 0,
+                        id = unifiedAlbumId,
+                        title = albumTitle,
+                        artist = artistName,
+                        year = albumYear,
                         dateAdded = System.currentTimeMillis(),
-                        albumArtUriString = albumItem.thumbnail,
+                        albumArtUriString = albumArt,
                         songCount = albumPage.songs.size,
-                        albumArtist = albumItem.artists?.joinToString { it.name }
+                        albumArtist = artistName
                     )
-                    val songsModels = albumPage.songs.map { it.toNativeSong() }
-                    
-                    // Cache the online songs in local DB
+
+                    // Map all songs with permanent album metadata and 1-indexed track numbers
+                    val songsModels = albumPage.songs.mapIndexed { index, songItem ->
+                        val nativeSong = songItem.toNativeSong()
+                        nativeSong.copy(
+                            album = albumTitle,
+                            albumId = unifiedAlbumId,
+                            albumBrowseId = albumItem.browseId,
+                            albumArtist = artistName,
+                            trackNumber = index + 1,
+                            year = albumYear
+                        )
+                    }
+
+                    // 1. Permanently store AlbumEntity
+                    val albumEntity = AlbumEntity(
+                        id = unifiedAlbumId,
+                        title = albumTitle,
+                        artistName = primaryArtistName,
+                        artistId = primaryArtistId,
+                        albumArtist = artistName,
+                        albumArtUriString = albumArt,
+                        songCount = songsModels.size,
+                        dateAdded = System.currentTimeMillis(),
+                        year = albumYear
+                    )
+                    musicRepository.insertAlbums(listOf(albumEntity))
+
+                    // 2. Permanently store enriched songs
                     musicRepository.insertYoutubeSongs(songsModels)
+
+                    // 3. Mark songs and album in library_membership
+                    withContext(Dispatchers.IO) {
+                        val memberships = mutableListOf<LibraryMembershipEntity>()
+                        memberships.add(
+                            LibraryMembershipEntity(
+                                songKey = "album_$unifiedAlbumId",
+                                firstPlayedTimestamp = System.currentTimeMillis()
+                            )
+                        )
+                        songsModels.forEach { s ->
+                            val ytId = s.youtubeId ?: if (s.id.startsWith("youtube_")) s.id.removePrefix("youtube_") else null
+                            if (ytId != null) {
+                                memberships.add(LibraryMembershipEntity(songKey = "youtube://$ytId", firstPlayedTimestamp = System.currentTimeMillis()))
+                                memberships.add(LibraryMembershipEntity(songKey = s.id, firstPlayedTimestamp = System.currentTimeMillis()))
+                            }
+                        }
+                        engagementDao.insertLibraryMemberships(memberships)
+                    }
 
                     _uiState.value = AlbumDetailUiState(
                         album = albumModel,

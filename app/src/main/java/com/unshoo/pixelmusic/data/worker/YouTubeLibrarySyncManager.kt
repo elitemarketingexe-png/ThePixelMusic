@@ -33,11 +33,15 @@ import javax.inject.Singleton
 import kotlin.math.absoluteValue
 import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
+import com.unshoo.pixelmusic.data.database.EngagementDao
+import com.unshoo.pixelmusic.data.database.LibraryMembershipEntity
+
 @Singleton
 class YouTubeLibrarySyncManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicDao: MusicDao,
     private val favoritesDao: FavoritesDao,
+    private val engagementDao: EngagementDao,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val playbackStatsRepository: PlaybackStatsRepository,
@@ -172,9 +176,11 @@ class YouTubeLibrarySyncManager @Inject constructor(
 
         if (allAlbumItems.isEmpty()) return
 
+        val memberships = mutableListOf<LibraryMembershipEntity>()
         val entities = allAlbumItems.mapNotNull { item ->
-            val id = item.browseId.hashCode().toLong()
+            val id = YouTubeIdUtils.toUnifiedYoutubeAlbumId(item.title)
             com.unshoo.pixelmusic.presentation.viewmodel.AlbumIdMapper.putMapping(context, id, item.browseId)
+            memberships.add(LibraryMembershipEntity(songKey = "album_$id", firstPlayedTimestamp = System.currentTimeMillis()))
             val primaryArtistName = item.artists?.firstOrNull()?.name ?: "Unknown Artist"
             val primaryArtistId = ytArtistId(primaryArtistName)
             AlbumEntity(
@@ -189,6 +195,7 @@ class YouTubeLibrarySyncManager @Inject constructor(
             )
         }
         musicDao.insertAlbums(entities)
+        engagementDao.insertLibraryMemberships(memberships)
         val browseIds = existingLikedAlbumIds + allAlbumItems.map { it.browseId }.toSet()
         userPreferencesRepository.setLikedAlbumIds(browseIds)
     }

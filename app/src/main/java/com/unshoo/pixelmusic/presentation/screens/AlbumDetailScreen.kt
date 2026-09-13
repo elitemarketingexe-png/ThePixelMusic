@@ -506,7 +506,7 @@ fun AlbumDetailScreen(
                             },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
-                                    playerViewModel.playSongsShuffled(songs, album.title)
+                                    playerViewModel.playSongsShuffled(songs, album.title, startAtZero = true)
                                 }
                             },
                             actions = {
@@ -545,7 +545,7 @@ fun AlbumDetailScreen(
                             },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
-                                    playerViewModel.playSongsShuffled(songs, album.title)
+                                    playerViewModel.playSongsShuffled(songs, album.title, startAtZero = true)
                                 }
                             },
                             actions = {

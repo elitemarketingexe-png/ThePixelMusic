@@ -5563,11 +5563,12 @@ class PlayerViewModel @Inject constructor(
 
             // If shuffle is persistent and currently ON, we shuffle the new songs immediately
             val finalSongsToPlay = if (isPersistent && isShuffleOn) {
-                // Shuffle the list but make sure the song you clicked stays at its current index or starts first
+                // Shuffle the list but ensure the chosen song starts first at index 0 and all other songs follow
                 withContext(Dispatchers.Default) {
                     QueueUtils.buildAnchoredShuffleQueueSuspending(
                         validSongs,
-                        validSongs.indexOfFirst { it.id == validStartSong.id }.coerceAtLeast(0)
+                        validSongs.indexOfFirst { it.id == validStartSong.id }.coerceAtLeast(0),
+                        startAtZero = true
                     )
                 }
             } else {
@@ -5589,7 +5590,7 @@ class PlayerViewModel @Inject constructor(
         songsToPlay: List<Song>, 
         queueName: String = "None", 
         playlistId: String? = null,
-        startAtZero: Boolean = false
+        startAtZero: Boolean = true
     ) {
         cancelPendingFullQueuePlayback()
         val cappedSongs = if (songsToPlay.size > 500) {

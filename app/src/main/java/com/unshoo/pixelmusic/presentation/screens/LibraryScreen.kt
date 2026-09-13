@@ -415,10 +415,10 @@ private data class LibraryScreenPlayerProjection(
     val isAlbumsListView: Boolean = false,
     val isSdCardAvailable: Boolean = false,
     val musicFolders: ImmutableList<MusicFolder> = persistentListOf(),
-    val isLoadingLibraryCategories: Boolean = true,
+    val isLoadingLibraryCategories: Boolean = false,
     val isGeneratingAiMetadata: Boolean = false,
     val isSyncingLibrary: Boolean = false,
-    val isLoadingInitialSongs: Boolean = true,
+    val isLoadingInitialSongs: Boolean = false,
     val hideLocalMedia: Boolean = false
 )
 
@@ -1098,7 +1098,9 @@ fun LibraryScreen(
                                             tabCount = tabTitles.size,
                                             compactMode = isCompactNavigation
                                         )
-                                        pagerState.scrollToPage(targetPage)
+                                        if (pagerState.currentPage != targetPage) {
+                                            pagerState.animateScrollToPage(targetPage)
+                                        }
                                     }
                                 }
                             ) {
@@ -1145,7 +1147,7 @@ fun LibraryScreen(
             ) { songCount, albums, artists ->
                 songCount == 0 && albums.isEmpty() && artists.isEmpty()
             }.distinctUntilChanged()
-        }.collectAsStateWithLifecycle(initialValue = true)
+        }.collectAsStateWithLifecycle(initialValue = false)
 
         Box(
             modifier = Modifier
@@ -1632,7 +1634,7 @@ fun LibraryScreen(
                                     .fillMaxSize()
                                     .padding(top = 8.dp),
                                 pageSpacing = 0.dp,
-                                beyondViewportPageCount = 0, // Isolate composition to active tab to eliminate memory/layout pressure
+                                beyondViewportPageCount = 1, // Pre-compose adjacent tabs for 120 FPS high-performance swipe transitions
                                 key = { it }
                             ) { page ->
                                 val tabIndex = resolveTabIndex(
@@ -2402,7 +2404,9 @@ fun LibraryScreen(
                         tabCount = tabTitles.size,
                         compactMode = isCompactNavigation
                     )
-                    pagerState.scrollToPage(targetPage)
+                    if (pagerState.currentPage != targetPage) {
+                        pagerState.animateScrollToPage(targetPage)
+                    }
                 }
                 showTabSwitcherSheet = false
             },

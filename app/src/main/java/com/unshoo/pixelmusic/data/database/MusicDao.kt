@@ -1270,6 +1270,7 @@ interface MusicDao {
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
             OR EXISTS (SELECT 1 FROM library_membership lm2 WHERE lm2.song_key = songs.content_uri_string)
+            OR EXISTS (SELECT 1 FROM library_membership lm3 WHERE lm3.song_key = 'album_' || CAST(albums.id AS TEXT))
             OR (
                 songs.artist_id IN (SELECT id FROM artists WHERE channel_id IS NOT NULL AND channel_id != '')
                 AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
@@ -1299,7 +1300,7 @@ interface MusicDao {
             albums.album_art_uri_string,
             albums.date_added,
             albums.year
-        HAVING COUNT(songs.id) >= :minTracks
+        HAVING COUNT(songs.id) >= :minTracks OR EXISTS (SELECT 1 FROM library_membership lm4 WHERE lm4.song_key = 'album_' || CAST(albums.id AS TEXT))
         ORDER BY albums.title ASC
     """)
     fun getAlbums(
@@ -1333,6 +1334,7 @@ interface MusicDao {
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
             OR EXISTS (SELECT 1 FROM library_membership lm2 WHERE lm2.song_key = songs.content_uri_string)
+            OR EXISTS (SELECT 1 FROM library_membership lm3 WHERE lm3.song_key = 'album_' || CAST(albums.id AS TEXT))
             OR (
                 songs.artist_id IN (SELECT id FROM artists WHERE channel_id IS NOT NULL AND channel_id != '')
                 AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
@@ -1362,7 +1364,7 @@ interface MusicDao {
             albums.album_art_uri_string,
             albums.date_added,
             albums.year
-        HAVING COUNT(songs.id) >= :minTracks
+        HAVING COUNT(songs.id) >= :minTracks OR EXISTS (SELECT 1 FROM library_membership lm4 WHERE lm4.song_key = 'album_' || CAST(albums.id AS TEXT))
         ORDER BY
             CASE WHEN :sortOrder = 'album_title_az' THEN albums.title END COLLATE NOCASE ASC,
             CASE WHEN :sortOrder = 'album_title_za' THEN albums.title END COLLATE NOCASE DESC,
@@ -1409,6 +1411,7 @@ interface MusicDao {
             -- song_engagements, stopping InvalidationTracker feedback loop on every track play
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
             OR EXISTS (SELECT 1 FROM library_membership lm2 WHERE lm2.song_key = songs.content_uri_string)
+            OR EXISTS (SELECT 1 FROM library_membership lm3 WHERE lm3.song_key = 'album_' || CAST(albums.id AS TEXT))
             OR (
                 songs.artist_id IN (SELECT id FROM artists WHERE channel_id IS NOT NULL AND channel_id != '')
                 AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
@@ -1438,7 +1441,7 @@ interface MusicDao {
             albums.album_art_uri_string,
             albums.date_added,
             albums.year
-        HAVING COUNT(songs.id) >= :minTracks
+        HAVING COUNT(songs.id) >= :minTracks OR EXISTS (SELECT 1 FROM library_membership lm4 WHERE lm4.song_key = 'album_' || CAST(albums.id AS TEXT))
         ORDER BY
             CASE WHEN :sortOrder = 'album_title_az' THEN albums.title END COLLATE NOCASE ASC,
             CASE WHEN :sortOrder = 'album_title_za' THEN albums.title END COLLATE NOCASE DESC,
@@ -2059,8 +2062,18 @@ interface MusicDao {
     @Query("SELECT DISTINCT album_art_uri_string FROM songs WHERE album_art_uri_string IS NOT NULL")
     fun getAllUniqueAlbumArtUrisFromSongs(): Flow<List<String>>
 
-    @Query("DELETE FROM albums WHERE NOT EXISTS (SELECT 1 FROM songs WHERE songs.album_id = albums.id)")
+    @Query("""
+        DELETE FROM albums 
+        WHERE NOT EXISTS (SELECT 1 FROM songs WHERE songs.album_id = albums.id)
+          AND NOT EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = 'album_' || CAST(albums.id AS TEXT))
+    """)
     suspend fun deleteOrphanedAlbums()
+
+    @Query("SELECT id FROM songs WHERE album_name IS NOT NULL AND album_name != '' AND album_name != 'YouTube Music' AND album_name != 'YouTube'")
+    suspend fun getSongsWithValidAlbumIds(): List<Long>
+
+    @Query("SELECT * FROM albums")
+    suspend fun getAllAlbumsList(): List<AlbumEntity>
 
     @Query("""
         DELETE FROM artists 

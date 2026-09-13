@@ -86,12 +86,38 @@ class PlaylistsModuleHandler @Inject constructor(
             readFileAsBase64(uri)?.let { coverImages[playlist.id] = it }
         }
 
+        val likedAlbumIds = userPreferencesRepository.likedAlbumIdsFlow.first()
+        val allAlbums = musicDao.getAllAlbumsList()
+        val likedAlbums = if (likedAlbumIds.isNotEmpty()) {
+            allAlbums.filter { album ->
+                val browseId = com.unshoo.pixelmusic.presentation.viewmodel.AlbumIdMapper.getBrowseId(context, album.id)
+                browseId in likedAlbumIds || album.id.toString() in likedAlbumIds
+            }.map { album ->
+                LikedAlbumBackupEntry(
+                    id = album.id,
+                    title = album.title,
+                    artistName = album.artistName,
+                    artistId = album.artistId,
+                    albumArtUriString = album.albumArtUriString,
+                    songCount = album.songCount,
+                    dateAdded = album.dateAdded,
+                    year = album.year,
+                    albumArtist = album.albumArtist,
+                    browseId = com.unshoo.pixelmusic.presentation.viewmodel.AlbumIdMapper.getBrowseId(context, album.id)
+                )
+            }
+        } else {
+            emptyList()
+        }
+
         val payload = PlaylistsBackupPayload(
             playlists = filteredPlaylists,
             playlistSongOrderModes = playlistPreferencesRepository.playlistSongOrderModesFlow.first(),
             playlistsSortOption = playlistPreferencesRepository.playlistsSortOptionFlow.first(),
             songMetadata = songMetadata.ifEmpty { null },
-            coverImages = coverImages.ifEmpty { null }
+            coverImages = coverImages.ifEmpty { null },
+            likedAlbums = likedAlbums.ifEmpty { null },
+            likedAlbumIds = likedAlbumIds.ifEmpty { null }
         )
         gson.toJson(payload)
     }
@@ -101,7 +127,8 @@ class PlaylistsModuleHandler @Inject constructor(
             .count { it.source in LOCAL_SOURCES }
         val orderModes = playlistPreferencesRepository.playlistSongOrderModesFlow.first()
         val sortOption = playlistPreferencesRepository.playlistsSortOptionFlow.first()
-        playlists + orderModes.size + if (sortOption.isNotBlank()) 1 else 0
+        val likedCount = userPreferencesRepository.likedAlbumIdsFlow.first().size
+        playlists + orderModes.size + (if (sortOption.isNotBlank()) 1 else 0) + likedCount
     }
 
     override suspend fun snapshot(): String = withContext(Dispatchers.IO) {
@@ -269,6 +296,34 @@ class PlaylistsModuleHandler @Inject constructor(
         playlistPreferencesRepository.setPlaylistsSortOption(
             parsed.playlistsSortOption ?: SortOption.PlaylistNameAZ.storageKey
         )
+
+        // Restore liked albums if present
+        val backupLikedAlbums = parsed.likedAlbums
+        val backupLikedAlbumIds = parsed.likedAlbumIds
+        if (!backupLikedAlbums.isNullOrEmpty()) {
+            val albumEntities = backupLikedAlbums.map { entry ->
+                entry.browseId?.let { bId ->
+                    com.unshoo.pixelmusic.presentation.viewmodel.AlbumIdMapper.putMapping(context, entry.id, bId)
+                }
+                com.unshoo.pixelmusic.data.database.AlbumEntity(
+                    id = entry.id,
+                    title = entry.title,
+                    artistName = entry.artistName,
+                    artistId = entry.artistId,
+                    albumArtUriString = entry.albumArtUriString,
+                    songCount = entry.songCount,
+                    dateAdded = entry.dateAdded,
+                    year = entry.year,
+                    albumArtist = entry.albumArtist
+                )
+            }
+            musicDao.insertAlbums(albumEntities)
+        }
+        if (!backupLikedAlbumIds.isNullOrEmpty()) {
+            val existingLiked = userPreferencesRepository.likedAlbumIdsFlow.first()
+            userPreferencesRepository.setLikedAlbumIds(existingLiked + backupLikedAlbumIds)
+        }
+
         userPreferencesRepository.clearLegacyUserPlaylists()
     }
 
@@ -504,6 +559,19 @@ class PlaylistsModuleHandler @Inject constructor(
         val sourceType: Int? = null
     )
 
+    data class LikedAlbumBackupEntry(
+        val id: Long,
+        val title: String,
+        val artistName: String,
+        val artistId: Long,
+        val albumArtUriString: String?,
+        val songCount: Int,
+        val dateAdded: Long,
+        val year: Int,
+        val albumArtist: String? = null,
+        val browseId: String? = null
+    )
+
     private data class PlaylistsBackupPayload(
         val playlists: List<Playlist>? = null,
         val playlistSongOrderModes: Map<String, String>? = null,
@@ -511,7 +579,9 @@ class PlaylistsModuleHandler @Inject constructor(
         /** Song metadata for cross-device matching. Key = songId from backup. Null in legacy/snapshot payloads. */
         val songMetadata: Map<String, SongMetadataEntry>? = null,
         /** Base64-encoded cover images. Key = playlist ID. Null if no custom covers. */
-        val coverImages: Map<String, String>? = null
+        val coverImages: Map<String, String>? = null,
+        val likedAlbums: List<LikedAlbumBackupEntry>? = null,
+        val likedAlbumIds: Set<String>? = null
     )
 
     companion object {

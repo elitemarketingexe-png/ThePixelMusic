@@ -38,6 +38,7 @@ import com.unshoo.pixelmusic.data.database.TelegramDao
 import com.unshoo.pixelmusic.data.database.TelegramSongEntity
 import com.unshoo.pixelmusic.data.database.FavoritesDao
 import com.unshoo.pixelmusic.data.database.FavoritesEntity
+import com.unshoo.pixelmusic.data.database.EngagementDao
 import com.unshoo.pixelmusic.data.database.resolveAlbumArtUri
 import com.unshoo.pixelmusic.data.database.serializeArtistRefs
 import com.unshoo.pixelmusic.data.model.ArtistRef
@@ -95,6 +96,7 @@ constructor(
         private val playlistPreferencesRepository: PlaylistPreferencesRepository,
         private val youtubeDatastoreRepository: com.unshoo.pixelmusic.data.remote.youtube.DatastoreRepository,
         private val favoritesDao: FavoritesDao,
+        private val engagementDao: EngagementDao,
         private val telegramRepository: com.unshoo.pixelmusic.data.telegram.TelegramRepository,
         private val persistenceManager: YouTubeLibraryPersistenceManager
 ) : CoroutineWorker(appContext, workerParams) {
@@ -1958,6 +1960,14 @@ constructor(
             remoteLikedSongsList.forEach { allUniqueSongs[it.youtubeId] = it }
 
             val localFavorites = favoritesDao.getFavoriteSongIdsOnce().toSet()
+            val existingSongsMap = if (existingUnifiedYoutubeIds.isNotEmpty()) {
+                musicDao.getSongsByIdsListSimple(existingUnifiedYoutubeIds).associateBy { it.id }
+            } else {
+                emptyMap()
+            }
+            val libraryMembershipKeys = engagementDao.getAllLibraryMembershipKeys().toSet()
+            val likedAlbumIds = userPreferencesRepository.likedAlbumIdsFlow.first()
+            val songsWithValidAlbums = musicDao.getSongsWithValidAlbumIds().toSet()
 
             val songsToInsert = ArrayList<SongEntity>(allUniqueSongs.size)
             val artistsToInsert = LinkedHashMap<Long, ArtistEntity>()
@@ -1966,8 +1976,9 @@ constructor(
 
             allUniqueSongs.values.forEach { ySong ->
                 val songId = toUnifiedYoutubeSongId(ySong.youtubeId)
+                val existingSong = existingSongsMap[songId]
                 val artistNames = parseYoutubeArtistNames(ySong.artist)
-                val primaryArtistName = artistNames.firstOrNull() ?: "Unknown Artist"
+                val primaryArtistName = artistNames.firstOrNull() ?: existingSong?.artistName ?: "Unknown Artist"
                 val primaryArtistId = toUnifiedYoutubeArtistId(primaryArtistName)
 
                 artistNames.forEachIndexed { index, artistName ->
@@ -1990,8 +2001,26 @@ constructor(
                     )
                 }
 
-                val albumName = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
-                val albumId = toUnifiedYoutubeAlbumId(albumName)
+                // Preserve valid album metadata if ySong doesn't have an album or only has fallback
+                val rawAlbumName = ySong.album?.takeIf { it.isNotBlank() && it != "YouTube Music" && it != "YouTube" }
+                val albumName = rawAlbumName
+                    ?: existingSong?.albumName?.takeIf { it.isNotBlank() && it != "YouTube Music" && it != "YouTube" }
+                    ?: ySong.album?.takeIf { it.isNotBlank() }
+                    ?: "YouTube Music"
+
+                val albumId = if (rawAlbumName != null) {
+                    toUnifiedYoutubeAlbumId(rawAlbumName)
+                } else if (existingSong != null && existingSong.albumId != 0L && existingSong.albumName.isNotBlank() && existingSong.albumName != "YouTube Music" && existingSong.albumName != "YouTube") {
+                    existingSong.albumId
+                } else {
+                    toUnifiedYoutubeAlbumId(albumName)
+                }
+
+                val albumBrowseId = ySong.albumBrowseId ?: existingSong?.albumBrowseId
+                val albumArtist = existingSong?.albumArtist
+                val trackNumber = if (existingSong != null && existingSong.trackNumber > 0) existingSong.trackNumber else 0
+                val year = if (existingSong != null && existingSong.year > 0) existingSong.year else 0
+
                 albumsToInsert.putIfAbsent(
                     albumId,
                     AlbumEntity(
@@ -2000,9 +2029,9 @@ constructor(
                         artistName = primaryArtistName,
                         artistId = primaryArtistId,
                         songCount = 0,
-                        dateAdded = System.currentTimeMillis(),
-                        year = 0,
-                        albumArtUriString = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(ySong.thumbnailPath ?: ySong.thumbnailHref)
+                        dateAdded = existingSong?.dateAdded ?: System.currentTimeMillis(),
+                        year = year,
+                        albumArtUriString = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(ySong.thumbnailPath ?: ySong.thumbnailHref ?: existingSong?.albumArtUriString)
                     )
                 )
 
@@ -2015,40 +2044,42 @@ constructor(
                     )
                 }
 
-                val durationMs = parseDurationStringToMillis(ySong.duration)
+                val durationMs = parseDurationStringToMillis(ySong.duration).takeIf { it > 0L } ?: (existingSong?.duration ?: 0L)
 
                 songsToInsert.add(
                     SongEntity(
                         id = songId,
-                        title = ySong.title,
-                        artistName = ySong.artist.ifBlank { primaryArtistName },
+                        title = ySong.title.ifBlank { existingSong?.title ?: "" },
+                        artistName = ySong.artist.ifBlank { existingSong?.artistName ?: primaryArtistName },
                         artistId = primaryArtistId,
-                        albumArtist = null,
+                        albumArtist = albumArtist,
                         albumName = albumName,
                         albumId = albumId,
                         contentUriString = "youtube://${ySong.youtubeId}",
-                        albumArtUriString = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(ySong.thumbnailPath ?: ySong.thumbnailHref),
+                        albumArtUriString = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(ySong.thumbnailPath ?: ySong.thumbnailHref ?: existingSong?.albumArtUriString),
                         duration = durationMs,
-                        genre = ySong.genre?.takeIf { it.isNotBlank() } ?: YOUTUBE_GENRE,
-                        filePath = ySong.audioFilePath ?: "",
+                        genre = ySong.genre?.takeIf { it.isNotBlank() } ?: existingSong?.genre?.takeIf { it.isNotBlank() } ?: YOUTUBE_GENRE,
+                        filePath = ySong.audioFilePath ?: existingSong?.filePath ?: "",
                         parentDirectoryPath = if (!ySong.audioFilePath.isNullOrBlank()) {
                             java.io.File(ySong.audioFilePath).parent ?: YOUTUBE_PARENT_DIRECTORY
+                        } else if (!existingSong?.filePath.isNullOrBlank()) {
+                            existingSong.filePath.let { java.io.File(it).parent } ?: YOUTUBE_PARENT_DIRECTORY
                         } else {
                             YOUTUBE_PARENT_DIRECTORY
                         },
-                        isFavorite = songId in localFavorites,
-                        lyrics = null,
-                        trackNumber = 0,
-                        year = 0,
-                        dateAdded = System.currentTimeMillis(),
+                        isFavorite = songId in localFavorites || existingSong?.isFavorite == true,
+                        lyrics = existingSong?.lyrics,
+                        trackNumber = trackNumber,
+                        year = year,
+                        dateAdded = existingSong?.dateAdded ?: System.currentTimeMillis(),
                         mimeType = "audio/opus",
-                        bitrate = null,
-                        sampleRate = null,
+                        bitrate = existingSong?.bitrate,
+                        sampleRate = existingSong?.sampleRate,
                         telegramChatId = null,
                         telegramFileId = null,
                         artistsJson = serializeArtistRefs(youtubeArtistRefs),
                         sourceType = SourceType.YOUTUBE,
-                        albumBrowseId = ySong.albumBrowseId
+                        albumBrowseId = albumBrowseId
                     )
                 )
             }
@@ -2059,8 +2090,19 @@ constructor(
             }
 
             val currentUnifiedSongIds = songsToInsert.map { it.id }.toSet()
-            val deletedUnifiedSongIds = existingUnifiedYoutubeIds.filter { 
-                it !in currentUnifiedSongIds && it !in localPlaylistSongIds 
+            val deletedUnifiedSongIds = existingUnifiedYoutubeIds.filter { songId ->
+                val existing = existingSongsMap[songId]
+                val isProtected = songId in currentUnifiedSongIds ||
+                    songId in localPlaylistSongIds ||
+                    songId in localFavorites ||
+                    songId in songsWithValidAlbums ||
+                    existing?.isFavorite == true ||
+                    (existing != null && existing.albumName.isNotBlank() && existing.albumName != "YouTube Music" && existing.albumName != "YouTube") ||
+                    (existing?.albumBrowseId != null && existing.albumBrowseId in likedAlbumIds) ||
+                    songId.toString() in libraryMembershipKeys ||
+                    (existing != null && existing.contentUriString in libraryMembershipKeys) ||
+                    ("youtube_" + (existing?.contentUriString?.removePrefix("youtube://") ?: "")) in libraryMembershipKeys
+                !isProtected
             }
 
             musicDao.incrementalSyncMusicData(
