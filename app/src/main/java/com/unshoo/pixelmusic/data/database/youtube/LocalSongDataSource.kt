@@ -88,6 +88,7 @@ interface LocalSongDataSource {
     @Query("UPDATE songs SET isPermanentlyDownloaded = 1, downloadTimestamp = :timestamp WHERE youtubeId = :songId")
     suspend fun markAsPermanentlyDownloaded(songId: String, timestamp: Long = System.currentTimeMillis())
 
+
     @Query("UPDATE songs SET genre = :genre WHERE youtubeId = :songId")
     suspend fun updateGenre(songId: String, genre: String)
 
@@ -96,4 +97,7 @@ interface LocalSongDataSource {
 
     @Query("SELECT * FROM songs WHERE genre IS NULL OR genre = ''")
     suspend fun getSongsWithoutGenre(): List<Song>
+
+    @Query("UPDATE songs SET album = :album, albumBrowseId = :albumBrowseId WHERE youtubeId = :songId")
+    suspend fun updateAlbum(songId: String, album: String?, albumBrowseId: String?)
 }

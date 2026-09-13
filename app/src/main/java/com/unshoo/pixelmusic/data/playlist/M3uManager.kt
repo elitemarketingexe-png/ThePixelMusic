@@ -1,4 +1,4 @@
-﻿package com.unshoo.pixelmusic.data.playlist
+package com.unshoo.pixelmusic.data.playlist
 
 import android.content.Context
 import android.net.Uri
@@ -89,8 +89,8 @@ class M3uManager @Inject constructor(
 
         // 2. Try Player API
         return try {
-            val jsonString = YoutubeRequestHelper.getPlayerInfo(youtubeId)
-            val ySong = YoutubeHelper.extractSongInfo(jsonString).toNativeSong()
+            val songInfo = com.unshoo.pixelmusic.data.remote.youtube.SongDataSource().getSongInfo(youtubeId)
+            val ySong = songInfo.toNativeSong()
             ySong.copy(
                 title = if (fallbackTitle != "YouTube Song" && fallbackTitle.isNotBlank()) fallbackTitle else ySong.title,
                 artist = if (fallbackArtist != "Unknown Artist" && fallbackArtist.isNotBlank()) fallbackArtist else ySong.artist,

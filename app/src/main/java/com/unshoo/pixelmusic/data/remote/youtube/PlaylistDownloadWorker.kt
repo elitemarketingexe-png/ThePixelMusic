@@ -1,12 +1,15 @@
 package com.unshoo.pixelmusic.data.remote.youtube
 
 import android.content.Context
+import android.os.ParcelFileDescriptor
 import java.io.File
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.kyant.taglib.Picture
+import com.kyant.taglib.TagLib
 import com.unshoo.pixelmusic.data.database.youtube.AppDatabase
 import com.unshoo.pixelmusic.data.model.youtube.Song
 import com.unshoo.pixelmusic.data.model.youtube.PlaylistSongCrossRef
@@ -24,6 +27,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.android.EntryPointAccessors
 import kotlin.math.absoluteValue
+import timber.log.Timber
 import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 
 class PlaylistDownloadWorker(
@@ -54,17 +58,14 @@ class PlaylistDownloadWorker(
             val playlist = playlistRepository.getPlaylistById(playlistId)
                 ?: return@withContext Result.failure()
 
-            try {
-                val totalSongs = playlist.songs.size
-                // Was a plain `var Int` incremented with `++downloadedSongs` from inside
-                // concurrent `async` blocks running under a shared semaphore. Dispatchers.IO
-                // is backed by a multi-thread pool, so concurrent non-atomic increments from
-                // different songs could race and lose updates, leaving the progress
-                // notification/UI stuck below the real count. AtomicInteger makes the
-                // increment safe across threads.
-                val processedSongs = AtomicInteger(0)
-                val succeededSongs = AtomicInteger(0)
+            val totalSongs = playlist.songs.size
+            if (totalSongs == 0) return@withContext Result.success()
 
+            val processedSongs = AtomicInteger(0)
+            val succeededSongs = AtomicInteger(0)
+            val semaphore = Semaphore(Constants.Downloads.MAX_CONCURRENT_DOWNLOADS)
+
+            try {
                 PixelMusicNotificationManager.showPlaylistDownloadProgress(
                     appContext,
                     playlist,
@@ -73,7 +74,6 @@ class PlaylistDownloadWorker(
                 )
                 setProgress(workDataOf(PROGRESS_CURRENT to 0, PROGRESS_TOTAL to totalSongs))
 
-                val semaphore = Semaphore(Constants.Downloads.MAX_CONCURRENT_DOWNLOADS)
                 val playlistImage =
                     DownloadHelper.downloadImage(
                         appContext,
@@ -115,9 +115,21 @@ class PlaylistDownloadWorker(
                                 val updatedSong = song.copy(
                                     thumbnailPath = thumbnailPath?.path,
                                     audioFilePath = audioPath,
+                                    album = fullSong?.album ?: song.album,
+                                    albumBrowseId = fullSong?.albumBrowseId ?: song.albumBrowseId,
                                 )
 
                                 localSongRepository.create(updatedSong)
+
+                                if (audioPath != null) {
+                                    embedAudioMetadata(
+                                        audioPath = audioPath,
+                                        title = updatedSong.title,
+                                        artist = updatedSong.artist,
+                                        album = updatedSong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music",
+                                        thumbnailFile = thumbnailPath
+                                    )
+                                }
 
                                 ensureYoutubeSongInLibrary(updatedSong)
 
@@ -143,53 +155,88 @@ class PlaylistDownloadWorker(
                                     processed,
                                     totalSongs
                                 )
-                                setProgress(workDataOf(PROGRESS_CURRENT to processed, PROGRESS_TOTAL to totalSongs))
+                                setProgress(
+                                    workDataOf(
+                                        PROGRESS_CURRENT to processed,
+                                        PROGRESS_TOTAL to totalSongs
+                                    )
+                                )
 
-                            } catch (e: CancellationException) {
-                                PixelMusicHelper.printd("Song download canceled ${song.title}")
-                                throw e
+                            } catch (_: CancellationException) {
+                                PixelMusicHelper.printd("Playlist song download canceled ${song.title}")
                             } catch (e: Exception) {
-                                PixelMusicHelper.printe(
-                                    message = "Error downloading song: ${song.title}",
-                                    exception = e
-                                )
-                                val processed = processedSongs.incrementAndGet()
-                                PixelMusicNotificationManager.showPlaylistDownloadProgress(
-                                    appContext,
-                                    playlist,
-                                    processed,
-                                    totalSongs
-                                )
-                                setProgress(workDataOf(PROGRESS_CURRENT to processed, PROGRESS_TOTAL to totalSongs))
+                                PixelMusicHelper.printd("Playlist song download failed: ${e.message}")
+                                e.printStackTrace()
                             }
                         }
                     }
                 }.awaitAll()
 
-                if (succeededSongs.get() == totalSongs) {
-                    PixelMusicNotificationManager.showPlaylistDownloadSuccess(appContext, playlist)
+                if (succeededSongs.get() > 0) {
+                    PixelMusicNotificationManager.showPlaylistDownloadSuccess(
+                        appContext,
+                        playlist
+                    )
                     PixelMusicHelper.printd("Playlist download complete")
                     Result.success()
                 } else {
-                    // At least one song failed to download: don't claim full success, but the
-                    // songs that did succeed are already saved, so this isn't a total failure
-                    // either. Result.failure() (no automatic retry configured) with an accurate
-                    // notification best reflects a partially-completed playlist download.
                     PixelMusicNotificationManager.showPlaylistDownloadFailure(appContext, playlist)
-                    PixelMusicHelper.printd(
-                        "Playlist download finished with failures: ${succeededSongs.get()}/$totalSongs"
-                    )
+                    PixelMusicHelper.printd("Playlist download finished with failures")
                     Result.failure()
                 }
-            } catch (e: CancellationException) {
+            } catch (_: CancellationException) {
                 PixelMusicNotificationManager.showPlaylistDownloadCanceled(appContext, playlist)
                 PixelMusicHelper.printd("Playlist download canceled ${playlist.info.title}")
                 Result.failure()
             } catch (e: Exception) {
+                PixelMusicHelper.printd("Playlist download failed: ${e.message}")
+                e.printStackTrace()
                 PixelMusicNotificationManager.showPlaylistDownloadFailure(appContext, playlist)
-                PixelMusicHelper.printe(message = e.toString(), exception = e)
                 Result.failure()
             }
+        }
+    }
+
+    private fun embedAudioMetadata(
+        audioPath: String,
+        title: String,
+        artist: String,
+        album: String,
+        thumbnailFile: File?
+    ) {
+        try {
+            val pfd = if (audioPath.startsWith("content://")) {
+                appContext.contentResolver.openFileDescriptor(android.net.Uri.parse(audioPath), "rw")
+            } else {
+                val f = File(audioPath)
+                if (!f.exists()) return
+                ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_WRITE)
+            } ?: return
+
+            pfd.use { fd ->
+                val metadata = TagLib.getMetadata(fd.dup().detachFd(), readPictures = false)
+                val propertyMap = HashMap(metadata?.propertyMap ?: emptyMap())
+                if (title.isNotBlank()) propertyMap["TITLE"] = arrayOf(title)
+                if (artist.isNotBlank()) propertyMap["ARTIST"] = arrayOf(artist)
+                if (album.isNotBlank()) propertyMap["ALBUM"] = arrayOf(album)
+
+                TagLib.savePropertyMap(fd.dup().detachFd(), propertyMap)
+
+                if (thumbnailFile != null && thumbnailFile.exists()) {
+                    val bytes = thumbnailFile.readBytes()
+                    if (bytes.isNotEmpty()) {
+                        val pic = Picture(
+                            data = bytes,
+                            description = "Front Cover",
+                            pictureType = "Front Cover",
+                            mimeType = "image/jpeg"
+                        )
+                        TagLib.savePictures(fd.dup().detachFd(), arrayOf(pic))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.tag("PlaylistDownloadWorker").w(e, "Failed to embed TagLib metadata for %s", audioPath)
         }
     }
 
@@ -214,8 +261,8 @@ class PlaylistDownloadWorker(
 
     private suspend fun ensureYoutubeSongInLibrary(song: Song) {
         val songId = toUnifiedYoutubeSongId(song.youtubeId)
-        val title = song.title.takeIf { it.isNotBlank() } ?: "YouTube Video"
-        val artist = song.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist"
+        val title = song.title.ifBlank { "Downloaded Song" }
+        val artist = song.artist.ifBlank { "Unknown Artist" }
         val artistNames = parseYoutubeArtistNames(artist)
         val primaryArtistName = artistNames.firstOrNull() ?: "Unknown Artist"
         val primaryArtistId = toUnifiedYoutubeArtistId(primaryArtistName)
@@ -238,8 +285,8 @@ class PlaylistDownloadWorker(
             )
         }
 
-        val albumId = toUnifiedYoutubeAlbumId("YouTube Music")
-        val albumName = "YouTube Music"
+        val albumName = song.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
+        val albumId = toUnifiedYoutubeAlbumId(albumName)
         val albumToInsert = com.unshoo.pixelmusic.data.database.AlbumEntity(
             id = albumId,
             title = albumName,
@@ -306,8 +353,15 @@ class PlaylistDownloadWorker(
             telegramChatId = null,
             telegramFileId = null,
             artistsJson = artistsJson,
-            sourceType = com.unshoo.pixelmusic.data.database.SourceType.YOUTUBE
+            sourceType = com.unshoo.pixelmusic.data.database.SourceType.YOUTUBE,
+            albumBrowseId = song.albumBrowseId
         )
+
+        val existing = musicDao.getSongByIdOnce(songId)
+        if (existing != null && existing.albumName == "YouTube Music" && albumName != "YouTube Music") {
+            musicDao.insertAlbumsIgnoreConflicts(listOf(albumToInsert))
+            musicDao.updateSongAlbum(songId, albumName, albumId, song.albumBrowseId)
+        }
 
         musicDao.incrementalSyncMusicData(
             songs = listOf(songEntity),

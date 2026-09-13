@@ -47,13 +47,7 @@ data class RelatedPage(
                             id = it.navigationEndpoint?.browseEndpoint?.browseId,
                         )
                     } ?: return null,
-                album =
-                    renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let {
-                        Album(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
-                        )
-                    },
+                album = PageHelper.extractAlbum(renderer),
                 duration = null,
                 thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                 explicit =

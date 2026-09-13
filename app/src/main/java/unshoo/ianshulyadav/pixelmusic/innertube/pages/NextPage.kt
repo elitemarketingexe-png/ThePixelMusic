@@ -48,8 +48,8 @@ object NextPage {
                         id = it.navigationEndpoint?.browseEndpoint?.browseId,
                     )
                 } ?: return null,
-            album =
-                longByLineRuns
+            album = PageHelper.extractAlbumFromRuns(renderer.longBylineText?.runs)
+                ?: longByLineRuns
                     .getOrNull(1)
                     ?.firstOrNull()
                     ?.takeIf {
@@ -57,7 +57,7 @@ object NextPage {
                     }?.let {
                         Album(
                             name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                            id = it.navigationEndpoint?.browseEndpoint?.browseId,
                         )
                     },
             duration =

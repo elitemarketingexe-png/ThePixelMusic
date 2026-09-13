@@ -1637,6 +1637,16 @@ object YouTube {
             }
     }
 
+    suspend fun song(videoId: String): Result<SongItem> = runCatching {
+        val queueItem = queue(listOf(videoId)).getOrNull()?.firstOrNull { it.id == videoId }
+        if (queueItem != null) return@runCatching queueItem
+
+        val nextResult = next(WatchEndpoint(videoId = videoId), followAutomixPreview = false).getOrThrow()
+        nextResult.items.firstOrNull { it.id == videoId }
+            ?: nextResult.items.firstOrNull()
+            ?: throw NoSuchElementException("Song not found for videoId $videoId")
+    }
+
     suspend fun transcript(videoId: String): Result<String> = runCatching {
         val response = innerTube.getTranscript(WEB, videoId).body<GetTranscriptResponse>()
         response.actions?.firstOrNull()?.updateEngagementPanelAction?.content?.transcriptRenderer?.body?.transcriptBodyRenderer?.cueGroups?.joinToString(separator = "\n") { group ->

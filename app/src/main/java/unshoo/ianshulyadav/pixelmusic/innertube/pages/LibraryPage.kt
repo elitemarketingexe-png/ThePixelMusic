@@ -108,14 +108,7 @@ data class LibraryPage(
                                 id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null
                             )
                         } ?: emptyList(),
-                    album = renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()
-                        ?.let {
-                            Album(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId
-                                    ?: return null
-                            )
-                        },
+                    album = PageHelper.extractAlbum(renderer),
                     duration = renderer.fixedColumns?.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text?.parseTime(),
                     thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
                         ?: return null,

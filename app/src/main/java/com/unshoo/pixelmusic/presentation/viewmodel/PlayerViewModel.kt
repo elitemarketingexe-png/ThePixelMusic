@@ -3714,7 +3714,24 @@ class PlayerViewModel @Inject constructor(
                 val songId = -(15_000_000_000_000L + yId.hashCode().toLong().let { if (it < 0) -it else it })
                 
                 val existing = musicDao.getSongByIdOnce(songId)
-                if (existing == null) {
+                if (existing != null) {
+                    val newAlbumName = song.album.takeIf { it.isNotBlank() && it != "YouTube Music" }
+                    if (newAlbumName != null && existing.albumName == "YouTube Music") {
+                        val albumId = -(16_000_000_000_000L + newAlbumName.lowercase().hashCode().toLong().let { if (it < 0) -it else it })
+                        val albumEntity = AlbumEntity(
+                            id = albumId,
+                            title = newAlbumName,
+                            artistName = song.artist,
+                            artistId = existing.artistId,
+                            songCount = 1,
+                            dateAdded = System.currentTimeMillis(),
+                            year = 0,
+                            albumArtUriString = song.albumArtUriString ?: existing.albumArtUriString
+                        )
+                        musicDao.insertAlbumsIgnoreConflicts(listOf(albumEntity))
+                        musicDao.updateSongAlbum(songId, newAlbumName, albumId, song.albumBrowseId)
+                    }
+                } else {
                     val albumName = song.album.ifBlank { "YouTube Music" }
                     val albumId = -(16_000_000_000_000L + albumName.lowercase().hashCode().toLong().let { if (it < 0) -it else it })
                     val artistId = -(17_000_000_000_000L + song.artist.lowercase().hashCode().toLong().let { if (it < 0) -it else it })
@@ -3775,7 +3792,8 @@ class PlayerViewModel @Inject constructor(
                         telegramChatId = null,
                         telegramFileId = null,
                         artistsJson = serializeArtistRefs(artistRefs),
-                        sourceType = SourceType.YOUTUBE
+                        sourceType = SourceType.YOUTUBE,
+                        albumBrowseId = song.albumBrowseId
                     )
                     songsToInsert.add(entity)
                     

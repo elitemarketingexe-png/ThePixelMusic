@@ -46,6 +46,8 @@ fun SongItem.toYoutubeSong(): com.unshoo.pixelmusic.data.model.youtube.Song {
         youtubeId = id,
         title = title,
         artist = artistName,
+        album = album?.name,
+        albumBrowseId = album?.id,
         duration = durationString,
         thumbnailHref = upgradeThumbnailUrlToHighQuality(thumbnail) ?: ""
     )
@@ -67,7 +69,7 @@ fun SongItem.toNativeSong(): Song {
     val artistName = artistNames.joinToString(", ")
     val primaryArtistId = artistRefs.firstOrNull()?.id ?: 0L
     val songId = "youtube_$id"
-    val albumName = album?.name ?: "YouTube Music"
+    val albumName = album?.name?.takeIf { it.isNotBlank() } ?: "YouTube Music"
     val albumId = -(16_000_000_000_000L + kotlin.math.abs(albumName.lowercase().hashCode().toLong()))
     
     return Song(
@@ -121,7 +123,7 @@ fun com.unshoo.pixelmusic.data.model.youtube.Song.toNativeSong(): Song {
     val artistName = artistNames.joinToString(", ")
     val primaryArtistId = artistRefs.firstOrNull()?.id ?: 0L
     val songId = "youtube_$youtubeId"
-    val albumName = "YouTube Music"
+    val albumName = album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
     val albumId = -(16_000_000_000_000L + kotlin.math.abs(albumName.lowercase().hashCode().toLong()))
     
     return Song(
@@ -155,7 +157,8 @@ fun com.unshoo.pixelmusic.data.model.youtube.Song.toNativeSong(): Song {
         qqMusicMid = null,
         navidromeId = null,
         jellyfinId = null,
-        youtubeId = youtubeId
+        youtubeId = youtubeId,
+        albumBrowseId = albumBrowseId
     )
 }
 

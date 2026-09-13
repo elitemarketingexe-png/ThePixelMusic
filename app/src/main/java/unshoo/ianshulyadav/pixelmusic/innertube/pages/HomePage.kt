@@ -135,15 +135,7 @@ data class HomePage(
                             id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,
                             title = renderer.title.runs?.firstOrNull()?.text ?: return null,
                             artists = artists,
-                            album = albumRuns.firstOrNull { run ->
-                                run.navigationEndpoint?.browseEndpoint?.browseId?.startsWith("MPREb_") == true
-                            }?.let { run ->
-                                val endpoint = run.navigationEndpoint?.browseEndpoint ?: return null
-                                Album(
-                                    name = run.text,
-                                    id = endpoint.browseId
-                                )
-                            },
+                            album = PageHelper.extractAlbum(renderer),
                             duration = null,
                             thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                             explicit = renderer.subtitleBadges?.any {

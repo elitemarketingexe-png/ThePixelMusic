@@ -125,6 +125,9 @@ interface MusicDao {
     @Query("SELECT * FROM songs WHERE source_type = :type")
     suspend fun getSongsBySourceType(type: Int): List<SongEntity>
 
+    @Query("UPDATE songs SET album_name = :albumName, album_id = :albumId, album_browse_id = :albumBrowseId WHERE id = :songId")
+    suspend fun updateSongAlbum(songId: Long, albumName: String, albumId: Long, albumBrowseId: String?)
+
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAlbumsIgnoreConflicts(albums: List<AlbumEntity>): List<Long>

@@ -344,7 +344,8 @@ class CloudDownloadsViewModel @Inject constructor(
 
         val primaryArtistName = ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist"
         val primaryArtistId = YouTubeIdUtils.toUnifiedYoutubeArtistId(primaryArtistName)
-        val albumId = YouTubeIdUtils.toUnifiedYoutubeAlbumId("YouTube Music")
+        val albumName = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
+        val albumId = YouTubeIdUtils.toUnifiedYoutubeAlbumId(albumName)
         val durationMs = parseDurationMillis(ySong.duration)
         val artworkPath = ySong.thumbnailPath?.takeIf { File(it).exists() }
             ?: file.parentFile?.resolve("${ySong.youtubeId}.jpg")?.takeIf { it.exists() }?.absolutePath
@@ -362,7 +363,7 @@ class CloudDownloadsViewModel @Inject constructor(
                     isPrimary = true
                 )
             ),
-            album = "YouTube Music",
+            album = albumName,
             albumId = albumId,
             albumArtist = null,
             path = file.absolutePath,
@@ -380,7 +381,8 @@ class CloudDownloadsViewModel @Inject constructor(
             mimeType = "audio/webm",
             bitrate = null,
             sampleRate = null,
-            youtubeId = ySong.youtubeId
+            youtubeId = ySong.youtubeId,
+            albumBrowseId = ySong.albumBrowseId
         )
     }
 

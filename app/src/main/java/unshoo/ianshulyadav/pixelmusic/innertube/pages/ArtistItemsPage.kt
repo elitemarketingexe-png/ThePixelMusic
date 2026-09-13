@@ -41,12 +41,7 @@ data class ArtistItemsPage(
                         id = it.navigationEndpoint?.browseEndpoint?.browseId
                     )
                 } ?: return null,
-                album = renderer.flexColumns.getOrNull(3)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let {
-                    Album(
-                        name = it.text,
-                        id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null
-                    )
-                },
+                album = PageHelper.extractAlbum(renderer),
                 duration = renderer.fixedColumns?.firstOrNull()
                     ?.musicResponsiveListItemFlexColumnRenderer?.text
                     ?.runs?.firstOrNull()
@@ -84,7 +79,7 @@ data class ArtistItemsPage(
                             id = it.navigationEndpoint?.browseEndpoint?.browseId
                         )
                     } ?: return null,
-                    album = null,
+                    album = PageHelper.extractAlbum(renderer),
                     duration = null,
                     thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                     endpoint = renderer.navigationEndpoint.watchEndpoint

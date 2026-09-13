@@ -32,12 +32,16 @@ data class Song(
     val downloadTimestamp: Long = 0L,
     /** Genre fetched from YouTube Music API. Null = not yet fetched. */
     val genre: String? = null,
+    val album: String? = null,
+    val albumBrowseId: String? = null,
 ) {
     val mediaItem: MediaItem
         get() {
             val extras = Bundle()
             extras.putString(Constants.ExoPlayer.SongMetadata.DURATION, duration)
             extras.putString(Constants.ExoPlayer.SongMetadata.UID, UUID.randomUUID().toString())
+            album?.let { extras.putString("album", it) }
+            albumBrowseId?.let { extras.putString("albumBrowseId", it) }
 
             return MediaItem.Builder()
                 .setUri(youtubeUrl)
@@ -46,6 +50,7 @@ data class Song(
                     MediaMetadata.Builder()
                         .setTitle(title)
                         .setArtist(artist)
+                        .setAlbumTitle(album)
                         .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
                         .setArtworkUri(upgradeThumbnailUrlToHighQuality(thumbnailPath ?: thumbnailHref).orEmpty().toUri())
                         .setExtras(extras)

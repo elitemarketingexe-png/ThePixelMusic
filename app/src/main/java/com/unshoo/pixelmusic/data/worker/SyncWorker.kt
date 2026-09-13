@@ -1990,8 +1990,8 @@ constructor(
                     )
                 }
 
-                val albumId = toUnifiedYoutubeAlbumId("YouTube Music")
-                val albumName = "YouTube Music"
+                val albumName = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
+                val albumId = toUnifiedYoutubeAlbumId(albumName)
                 albumsToInsert.putIfAbsent(
                     albumId,
                     AlbumEntity(
@@ -2047,7 +2047,8 @@ constructor(
                         telegramChatId = null,
                         telegramFileId = null,
                         artistsJson = serializeArtistRefs(youtubeArtistRefs),
-                        sourceType = SourceType.YOUTUBE
+                        sourceType = SourceType.YOUTUBE,
+                        albumBrowseId = ySong.albumBrowseId
                     )
                 )
             }

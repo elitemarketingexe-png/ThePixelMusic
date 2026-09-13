@@ -392,6 +392,7 @@ class PlaylistViewModel @Inject constructor(
                                 val downloaded = com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context).songRepository().getDownloadedSongs()
                                 downloaded.map { ySong ->
                                     val primaryArtistId = toUnifiedYoutubeArtistId(ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist")
+                                    val songAlbum = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
                                     Song(
                                         id = "youtube_${ySong.youtubeId}",
                                         title = ySong.title,
@@ -404,8 +405,8 @@ class PlaylistViewModel @Inject constructor(
                                                 isPrimary = true
                                             )
                                         ),
-                                        album = "YouTube Music",
-                                        albumId = toUnifiedYoutubeAlbumId("YouTube Music"),
+                                        album = songAlbum,
+                                        albumId = toUnifiedYoutubeAlbumId(songAlbum),
                                         albumArtist = null,
                                         path = ySong.audioFilePath ?: "",
                                         contentUriString = "youtube://${ySong.youtubeId}",
@@ -422,7 +423,8 @@ class PlaylistViewModel @Inject constructor(
                                         mimeType = "audio/opus",
                                         bitrate = null,
                                         sampleRate = null,
-                                        youtubeId = ySong.youtubeId
+                                        youtubeId = ySong.youtubeId,
+                                        albumBrowseId = ySong.albumBrowseId
                                     )
                                 }
                             } else {
@@ -1350,8 +1352,26 @@ class PlaylistViewModel @Inject constructor(
 
                 // Check if already in DB
                 val existing = musicDao.getSongByIdOnce(songId)
-                if (existing == null) {
-                    val albumId = toUnifiedYoutubeAlbumId("YouTube Music")
+                if (existing != null) {
+                    val newAlbumName = song.album.takeIf { it.isNotBlank() && it != "YouTube Music" }
+                    if (newAlbumName != null && existing.albumName == "YouTube Music") {
+                        val albumId = toUnifiedYoutubeAlbumId(newAlbumName)
+                        val album = AlbumEntity(
+                            id = albumId,
+                            title = newAlbumName,
+                            artistName = song.artist,
+                            artistId = existing.artistId,
+                            songCount = 1,
+                            dateAdded = System.currentTimeMillis(),
+                            year = 0,
+                            albumArtUriString = song.albumArtUriString ?: existing.albumArtUriString
+                        )
+                        musicDao.insertAlbumsIgnoreConflicts(listOf(album))
+                        musicDao.updateSongAlbum(songId, newAlbumName, albumId, song.albumBrowseId)
+                    }
+                } else {
+                    val albumName = song.album.takeIf { it.isNotBlank() } ?: "YouTube Music"
+                    val albumId = toUnifiedYoutubeAlbumId(albumName)
                     val artistId = toUnifiedYoutubeArtistId(song.artist)
 
                     val artist = ArtistEntity(
@@ -1364,7 +1384,7 @@ class PlaylistViewModel @Inject constructor(
 
                     val album = AlbumEntity(
                         id = albumId,
-                        title = "YouTube Music",
+                        title = albumName,
                         artistName = song.artist,
                         artistId = artistId,
                         songCount = 1,
@@ -1388,7 +1408,7 @@ class PlaylistViewModel @Inject constructor(
                         artistName = song.artist,
                         artistId = artistId,
                         albumArtist = null,
-                        albumName = "YouTube Music",
+                        albumName = albumName,
                         albumId = albumId,
                         contentUriString = "youtube://$yId",
                         albumArtUriString = song.albumArtUriString,
@@ -1408,7 +1428,8 @@ class PlaylistViewModel @Inject constructor(
                         telegramChatId = null,
                         telegramFileId = null,
                         artistsJson = serializeArtistRefs(youtubeArtistRefs),
-                        sourceType = SourceType.YOUTUBE
+                        sourceType = SourceType.YOUTUBE,
+                        albumBrowseId = song.albumBrowseId
                     )
                     songsToInsert.add(entity)
                     crossRefsToInsert.add(
@@ -2228,34 +2249,37 @@ class PlaylistViewModel @Inject constructor(
                             
                             val rawYtId = song.youtubeId ?: song.id.removePrefix("youtube_")
                             val songId = toUnifiedYoutubeSongId(rawYtId)
+                            val songAlbum = song.album.takeIf { it.isNotBlank() } ?: "YouTube Music"
+                            val albumId = toUnifiedYoutubeAlbumId(songAlbum)
                             SongEntity(
-                                id = songId,
-                                title = song.title,
-                                artistName = song.artist,
-                                artistId = primaryArtistId,
-                                albumArtist = null,
-                                albumName = "YouTube Music",
-                                albumId = toUnifiedYoutubeAlbumId("YouTube Music"),
-                                contentUriString = "youtube://$rawYtId",
-                                albumArtUriString = song.albumArtUriString,
-                                duration = song.duration,
-                                genre = "YouTube Music",
-                                filePath = "",
-                                parentDirectoryPath = "youtube://",
-                                isFavorite = false,
-                                lyrics = null,
-                                trackNumber = 0,
-                                year = 0,
-                                dateAdded = System.currentTimeMillis(),
-                                mimeType = "audio/opus",
-                                bitrate = null,
-                                sampleRate = null,
-                                telegramChatId = null,
-                                telegramFileId = null,
-                                artistsJson = artistsJson,
-                                sourceType = SourceType.YOUTUBE
-                            )
-                        }
+                                    id = songId,
+                                    title = song.title,
+                                    artistName = song.artist,
+                                    artistId = primaryArtistId,
+                                    albumArtist = null,
+                                    albumName = songAlbum,
+                                    albumId = albumId,
+                                    contentUriString = "youtube://$rawYtId",
+                                    albumArtUriString = song.albumArtUriString,
+                                    duration = song.duration,
+                                    genre = "YouTube Music",
+                                    filePath = "",
+                                    parentDirectoryPath = "youtube://",
+                                    isFavorite = false,
+                                    lyrics = null,
+                                    trackNumber = 0,
+                                    year = 0,
+                                    dateAdded = System.currentTimeMillis(),
+                                    mimeType = "audio/opus",
+                                    bitrate = null,
+                                    sampleRate = null,
+                                    telegramChatId = null,
+                                    telegramFileId = null,
+                                    artistsJson = artistsJson,
+                                    sourceType = SourceType.YOUTUBE,
+                                    albumBrowseId = song.albumBrowseId
+                                )
+                            }
                         
                         // We also need to map the unique albums and artists to insert them to avoid foreign key violations
                         val uniqueArtists = allNativeSongs.flatMap { parseYoutubeArtistNames(it.artist) }.distinct().map { name ->
@@ -2278,20 +2302,25 @@ class PlaylistViewModel @Inject constructor(
                             }
                         }
                         
-                        val albumToInsert = AlbumEntity(
-                            id = toUnifiedYoutubeAlbumId("YouTube Music"),
-                            title = "YouTube Music",
-                            artistName = "YouTube Music",
-                            artistId = toUnifiedYoutubeArtistId("YouTube Music"),
-                            songCount = 0,
-                            dateAdded = System.currentTimeMillis(),
-                            year = 0,
-                            albumArtUriString = ytPlaylist.thumbnail
-                        )
+                        val albumsToInsert = allNativeSongs.map { song ->
+                            val songAlbum = song.album.takeIf { it.isNotBlank() } ?: "YouTube Music"
+                            val albumId = toUnifiedYoutubeAlbumId(songAlbum)
+                            val primaryArtist = parseYoutubeArtistNames(song.artist).firstOrNull() ?: "YouTube Music"
+                            AlbumEntity(
+                                id = albumId,
+                                title = songAlbum,
+                                artistName = primaryArtist,
+                                artistId = toUnifiedYoutubeArtistId(primaryArtist),
+                                songCount = 0,
+                                dateAdded = System.currentTimeMillis(),
+                                year = 0,
+                                albumArtUriString = song.albumArtUriString ?: ytPlaylist.thumbnail
+                            )
+                        }.distinctBy { it.id }
                         
                         musicDao.incrementalSyncMusicData(
                             songs = songsToInsert,
-                            albums = listOf(albumToInsert),
+                            albums = albumsToInsert,
                             artists = uniqueArtists,
                             crossRefs = crossRefs,
                             deletedSongIds = emptyList()

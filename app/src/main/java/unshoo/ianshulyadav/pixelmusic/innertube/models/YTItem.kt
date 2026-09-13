@@ -44,7 +44,7 @@ data class Artist(
 @Immutable
 data class Album(
     val name: String,
-    val id: String,
+    val id: String? = null,
 )
 
 enum class AlbumReleaseType {

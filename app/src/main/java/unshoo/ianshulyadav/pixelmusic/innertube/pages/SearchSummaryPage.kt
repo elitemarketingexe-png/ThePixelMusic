@@ -96,11 +96,11 @@ data class SearchSummaryPage(
                             }
                             candidateArtists ?: return null
                         },
-                        album =
-                            subtitle?.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                        album = PageHelper.extractAlbumFromRuns(renderer.subtitle.runs)
+                            ?: subtitle?.getOrNull(2)?.firstOrNull()?.let {
                                 Album(
                                     name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                                    id = it.navigationEndpoint?.browseEndpoint?.browseId,
                                 )
                             },
                         duration =

@@ -38,12 +38,7 @@ data class PlaylistPage(
                         id = it.navigationEndpoint?.browseEndpoint?.browseId,
                     )
                 }.orEmpty(),
-                album = renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let {
-                    Album(
-                        name = it.text,
-                        id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return@let null
-                    )
-                },
+                album = PageHelper.extractAlbum(renderer),
                 duration = renderer.fixedColumns?.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text?.parseTime(),
                 thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                 explicit = renderer.badges?.find {

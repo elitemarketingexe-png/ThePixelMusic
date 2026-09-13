@@ -43,11 +43,11 @@ object SearchPage {
                     id = renderer.playlistItemData?.videoId ?: endpoint?.videoId ?: return null,
                     title = title,
                     artists = metadata.getOrNull(0).toArtists(),
-                    album =
-                        metadata.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                    album = PageHelper.extractAlbum(renderer)
+                        ?: metadata.getOrNull(1)?.firstOrNull()?.let {
                             Album(
                                 name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
                             )
                         },
                     duration = metadata.duration(),

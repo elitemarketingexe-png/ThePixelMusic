@@ -766,6 +766,7 @@ class MusicRepositoryImpl @Inject constructor(
                     }
                 }.map { ySong ->
                     val primaryArtistId = toUnifiedYoutubeArtistId(ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist")
+                    val songAlbum = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
                     Song(
                         id = "youtube_${ySong.youtubeId}",
                         title = ySong.title,
@@ -778,8 +779,8 @@ class MusicRepositoryImpl @Inject constructor(
                                 isPrimary = true
                             )
                         ),
-                        album = "YouTube Music",
-                        albumId = toUnifiedYoutubeAlbumId("YouTube Music"),
+                        album = songAlbum,
+                        albumId = toUnifiedYoutubeAlbumId(songAlbum),
                         albumArtist = null,
                         path = ySong.audioFilePath ?: "",
                         contentUriString = "youtube://${ySong.youtubeId}",
@@ -796,7 +797,8 @@ class MusicRepositoryImpl @Inject constructor(
                         mimeType = "audio/opus",
                         bitrate = null,
                         sampleRate = null,
-                        youtubeId = ySong.youtubeId
+                        youtubeId = ySong.youtubeId,
+                        albumBrowseId = ySong.albumBrowseId
                     )
                 }
                 emit(matching)
@@ -1130,7 +1132,8 @@ class MusicRepositoryImpl @Inject constructor(
         thumbnailUrl: String?,
         duration: Long,
         genre: String?,
-        album: String? = null
+        album: String? = null,
+        albumBrowseId: String? = null
     ) {
         val songId = toUnifiedYoutubeSongId(youtubeId)
         val artistNames = parseYoutubeArtistNames(artist)
@@ -1215,7 +1218,8 @@ class MusicRepositoryImpl @Inject constructor(
             telegramChatId = null,
             telegramFileId = null,
             artistsJson = artistsJson,
-            sourceType = SourceType.YOUTUBE
+            sourceType = SourceType.YOUTUBE,
+            albumBrowseId = albumBrowseId
         )
 
         musicDao.incrementalSyncMusicData(
@@ -1255,7 +1259,9 @@ class MusicRepositoryImpl @Inject constructor(
                             artist = ytSong.artist,
                             thumbnailUrl = ytSong.thumbnailPath ?: ytSong.thumbnailHref,
                             duration = parseDurationStringToMillis(ytSong.duration),
-                            genre = ytSong.genre ?: "YouTube Music"
+                            genre = ytSong.genre ?: "YouTube Music",
+                            album = ytSong.album,
+                            albumBrowseId = ytSong.albumBrowseId
                         )
                     } else {
                         try {
@@ -1266,7 +1272,9 @@ class MusicRepositoryImpl @Inject constructor(
                                 artist = networkSong.artist,
                                 thumbnailUrl = networkSong.thumbnailPath ?: networkSong.thumbnailHref,
                                 duration = parseDurationStringToMillis(networkSong.duration),
-                                genre = networkSong.genre ?: "YouTube Music"
+                                genre = networkSong.genre ?: "YouTube Music",
+                                album = networkSong.album,
+                                albumBrowseId = networkSong.albumBrowseId
                             )
                         } catch (e: Exception) {
                             Timber.e(e, "Failed to fetch online metadata for liked song $youtubeId")
@@ -1332,7 +1340,9 @@ class MusicRepositoryImpl @Inject constructor(
                             artist = ytSong.artist,
                             thumbnailUrl = ytSong.thumbnailPath ?: ytSong.thumbnailHref,
                             duration = parseDurationStringToMillis(ytSong.duration),
-                            genre = ytSong.genre ?: "YouTube Music"
+                            genre = ytSong.genre ?: "YouTube Music",
+                            album = ytSong.album,
+                            albumBrowseId = ytSong.albumBrowseId
                         )
                     } else {
                         try {
@@ -1341,9 +1351,11 @@ class MusicRepositoryImpl @Inject constructor(
                                 youtubeId = youtubeId,
                                 title = networkSong.title,
                                 artist = networkSong.artist,
-                                thumbnailUrl = networkSong.thumbnailHref,
+                                thumbnailUrl = networkSong.thumbnailPath ?: networkSong.thumbnailHref,
                                 duration = parseDurationStringToMillis(networkSong.duration),
-                                genre = "YouTube Music"
+                                genre = networkSong.genre ?: "YouTube Music",
+                                album = networkSong.album,
+                                albumBrowseId = networkSong.albumBrowseId
                             )
                         } catch (e: Exception) {
                             insertYoutubeSongSkeleton(
@@ -1921,7 +1933,8 @@ class MusicRepositoryImpl @Inject constructor(
                         telegramChatId = null,
                         telegramFileId = null,
                         artistsJson = artistsJson,
-                        sourceType = SourceType.YOUTUBE
+                        sourceType = SourceType.YOUTUBE,
+                        albumBrowseId = song.albumBrowseId
                     )
                 )
 
@@ -1930,6 +1943,8 @@ class MusicRepositoryImpl @Inject constructor(
                         youtubeId = youtubeId,
                         title = song.title,
                         artist = song.artist,
+                        album = song.album?.takeIf { it.isNotBlank() },
+                        albumBrowseId = song.albumBrowseId,
                         duration = com.unshoo.pixelmusic.utils.formatDuration(song.duration),
                         thumbnailHref = song.albumArtUriString ?: "",
                         thumbnailPath = null,
