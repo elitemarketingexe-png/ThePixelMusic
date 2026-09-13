@@ -92,6 +92,8 @@ class ExploreViewModel @Inject constructor(
     val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
 
     private var stage2Job: Job? = null
+    @Volatile
+    private var hasFetchedFromNetwork = false
 
     private val gson by lazy {
         com.google.gson.GsonBuilder()
@@ -108,7 +110,9 @@ class ExploreViewModel @Inject constructor(
             withContext(Dispatchers.IO) {
                 restoreFromCache()
             }
-            loadDataInternal(forceRefresh = false)
+            if (_sectionsState.value.isEmpty()) {
+                loadDataInternal(forceRefresh = false)
+            }
         }
         viewModelScope.launch {
             playlistPreferencesRepository.userPlaylistsFlow.collect { playlists ->
@@ -211,6 +215,9 @@ class ExploreViewModel @Inject constructor(
     }
 
     private suspend fun loadDataInternal(forceRefresh: Boolean) {
+        if (!forceRefresh && hasFetchedFromNetwork && _sectionsState.value.isNotEmpty()) {
+            return
+        }
         stage2Job?.cancel()
 
         if (forceRefresh) {
@@ -344,6 +351,7 @@ class ExploreViewModel @Inject constructor(
 
                 prefetchThumbnails(rawSections)
                 persistToCache(rawSections)
+                hasFetchedFromNetwork = true
             } else if (_sectionsState.value.isEmpty()) {
                 val msg = "Failed to fetch explore data. Check connection."
                 _errorState.value = msg

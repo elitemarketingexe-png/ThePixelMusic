@@ -269,10 +269,15 @@ class SyncManager @Inject constructor(
      * Fuerza una nueva sincronización, reemplazando cualquier trabajo de sincronización
      * existente. Ideal para el botón de "Refrescar Biblioteca".
      */
-    fun forceRefresh() {
-        Log.i(TAG, "Force refresh requested - Scheduling incremental worker")
+    fun forceRefresh(syncCloud: Boolean = false) {
+        Log.i(TAG, "Force refresh requested (syncCloud=$syncCloud) - Scheduling worker")
+        val request = if (syncCloud) {
+            SyncWorker.forceCloudSyncWork()
+        } else {
+            SyncWorker.incrementalSyncWork()
+        }
         enqueueSyncWork(
-            request = SyncWorker.incrementalSyncWork(),
+            request = request,
             policy = ExistingWorkPolicy.REPLACE
         )
     }

@@ -67,7 +67,9 @@ private object SmartImageRegex {
 
 val SmartImageCompactListTargetSize = Size(96, 96)
 val SmartImageListTargetSize = Size(128, 128)
-private val DefaultSmartImageSize = Size(128, 128)
+val SmartImageCardTargetSize = Size(512, 512)
+val SmartImageLargeCardTargetSize = Size(1024, 1024)
+private val DefaultSmartImageSize = Size(512, 512)
 
 @Composable
 fun SmartImage(
@@ -173,16 +175,29 @@ fun SmartImage(
         memoryCacheKey
     ) {
         val optimizedModel = if (model is String && (model.contains("googleusercontent.com") || model.contains("ggpht.com"))) {
-            val widthPx = (requestTargetSize.width as? coil.size.Dimension.Pixels)?.px ?: 300
-            val heightPx = (requestTargetSize.height as? coil.size.Dimension.Pixels)?.px ?: 300
-            if (SmartImageRegex.sizeParamRegex.containsMatchIn(model)) {
-                model.replace(SmartImageRegex.sizeParamRegex, "=w$widthPx-h$heightPx-c-rj")
-            } else if (SmartImageRegex.sizeParamRegex2.containsMatchIn(model)) {
-                model.replace(SmartImageRegex.sizeParamRegex2, "/w$widthPx-h$heightPx-c-rj")
-            } else if (model.contains("=")) {
-                model.substringBeforeLast("=") + "=w$widthPx-h$heightPx-c-rj"
+            val widthPx = (requestTargetSize.width as? coil.size.Dimension.Pixels)?.px ?: 512
+            val heightPx = (requestTargetSize.height as? coil.size.Dimension.Pixels)?.px ?: 512
+            val sizeStr = if (widthPx >= 400 || heightPx >= 400) {
+                "=w1024-h1024-l90-rj"
             } else {
-                "$model=w$widthPx-h$heightPx-c-rj"
+                "=w$widthPx-h$heightPx-c-rj"
+            }
+            if (SmartImageRegex.sizeParamRegex.containsMatchIn(model)) {
+                model.replace(SmartImageRegex.sizeParamRegex, sizeStr)
+            } else if (SmartImageRegex.sizeParamRegex2.containsMatchIn(model)) {
+                model.replace(SmartImageRegex.sizeParamRegex2, sizeStr.replace("=", "/"))
+            } else if (model.contains("=")) {
+                model.substringBeforeLast("=") + sizeStr
+            } else {
+                "$model$sizeStr"
+            }
+        } else if (model is String && (model.contains("i.ytimg.com") || model.contains("img.youtube.com"))) {
+            val match = Regex("/vi(?:_webp)?/([^/]+)/").find(model)
+            if (match != null) {
+                val videoId = match.groupValues[1]
+                "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+            } else {
+                model
             }
         } else {
             model

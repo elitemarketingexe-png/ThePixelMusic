@@ -29,14 +29,21 @@ class FavoriteArtistReleasesViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    @Volatile
+    private var hasLoadedThisSession = false
+
     init {
         viewModelScope.launch {
             AppReadinessSignal.awaitReady()
-            loadReleases()
+            kotlinx.coroutines.delay(4000L) // Stagger release fetching so it doesn't fight with first frame renders
+            loadReleases(force = false)
         }
     }
 
-    fun loadReleases() {
+    fun loadReleases(force: Boolean = false) {
+        if (!force && hasLoadedThisSession && _releases.value.isNotEmpty()) {
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -101,6 +108,7 @@ class FavoriteArtistReleasesViewModel @Inject constructor(
 
                 // Remove duplicates and limit to 15 items
                 _releases.value = allReleases.distinctBy { it.id }.take(15)
+                hasLoadedThisSession = true
             } catch (e: Exception) {
                 Timber.e(e, "Error in loadReleases")
             } finally {

@@ -113,6 +113,8 @@ constructor(
                             inputData.getString(INPUT_SYNC_MODE) ?: SyncMode.INCREMENTAL.name
                     val syncMode = SyncMode.valueOf(syncModeName)
                     val forceMetadata = inputData.getBoolean(INPUT_FORCE_METADATA, false)
+                    val shouldSyncYoutube = inputData.getBoolean(INPUT_SYNC_YOUTUBE, false) ||
+                            syncMode == SyncMode.FULL || syncMode == SyncMode.REBUILD
                     var lastProgressUpdateAtMs = 0L
                     suspend fun reportProgressThrottled(current: Int, total: Int, phaseOrdinal: Int) {
                         val now = System.currentTimeMillis()
@@ -436,8 +438,10 @@ constructor(
                         Log.d(TAG, "Skipping Telegram sync — no channels configured.")
                     }
 
-                    if (isYoutubeConnected) {
+                    if (isYoutubeConnected && shouldSyncYoutube) {
                         syncYoutubeData()
+                    } else if (isYoutubeConnected) {
+                        Log.d(TAG, "Skipping YouTube sync — deferred until user explicitly force refreshes library.")
                     } else {
                         Log.d(TAG, "Skipping YouTube sync — not logged in.")
                     }
@@ -1362,6 +1366,7 @@ constructor(
         const val INPUT_FORCE_METADATA = "input_force_metadata"
         const val INPUT_SYNC_MODE = "input_sync_mode"
         const val INPUT_DEFER_MAINTENANCE = "input_defer_maintenance"
+        const val INPUT_SYNC_YOUTUBE = "input_sync_youtube"
         private const val MAINTENANCE_WORK_NAME = "$WORK_NAME.maintenance"
 
         // Progress reporting constants
@@ -1398,7 +1403,8 @@ constructor(
                                 workDataOf(
                                         INPUT_FORCE_METADATA to deepScan,
                                         INPUT_DEFER_MAINTENANCE to true,
-                                        INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name
+                                        INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name,
+                                        INPUT_SYNC_YOUTUBE to false
                                 )
                         )
                         // Do not compete with cold-start composition, image loading and player restore.
@@ -1408,7 +1414,22 @@ constructor(
 
         fun incrementalSyncWork() =
                 OneTimeWorkRequestBuilder<SyncWorker>()
-                        .setInputData(workDataOf(INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name))
+                        .setInputData(
+                                workDataOf(
+                                        INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name,
+                                        INPUT_SYNC_YOUTUBE to false
+                                )
+                        )
+                        .build()
+
+        fun forceCloudSyncWork() =
+                OneTimeWorkRequestBuilder<SyncWorker>()
+                        .setInputData(
+                                workDataOf(
+                                        INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name,
+                                        INPUT_SYNC_YOUTUBE to true
+                                )
+                        )
                         .build()
 
         // Full rescans and rebuilds do heavy bulk writes to Room + the album art cache.
@@ -1425,7 +1446,8 @@ constructor(
                         .setInputData(
                                 workDataOf(
                                         INPUT_SYNC_MODE to SyncMode.FULL.name,
-                                        INPUT_FORCE_METADATA to deepScan
+                                        INPUT_FORCE_METADATA to deepScan,
+                                        INPUT_SYNC_YOUTUBE to true
                                 )
                         )
                         .setConstraints(heavySyncConstraints)
@@ -1433,7 +1455,12 @@ constructor(
 
         fun rebuildDatabaseWork() =
                 OneTimeWorkRequestBuilder<SyncWorker>()
-                        .setInputData(workDataOf(INPUT_SYNC_MODE to SyncMode.REBUILD.name))
+                        .setInputData(
+                                workDataOf(
+                                        INPUT_SYNC_MODE to SyncMode.REBUILD.name,
+                                        INPUT_SYNC_YOUTUBE to true
+                                )
+                        )
                         .setConstraints(heavySyncConstraints)
                         .build()
     }

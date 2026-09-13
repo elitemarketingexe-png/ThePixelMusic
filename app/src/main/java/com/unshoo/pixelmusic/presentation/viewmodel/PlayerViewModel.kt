@@ -808,7 +808,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     val albumArtQuality: StateFlow<AlbumArtQuality> = userPreferencesRepository.albumArtQualityFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlbumArtQuality.MEDIUM)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlbumArtQuality.ORIGINAL)
 
     fun setLyricsSyncOffset(songId: String, offsetMs: Int) {
         lyricsStateHolder.setSyncOffset(songId, offsetMs)
@@ -1252,6 +1252,14 @@ class PlayerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val routeVolume: StateFlow<Int> = castStateHolder.routeVolume
     val isRefreshingRoutes: StateFlow<Boolean> = castStateHolder.isRefreshingRoutes
+
+    fun startCastDiscovery() {
+        castStateHolder.startDiscovery()
+    }
+
+    fun stopCastDiscovery() {
+        castStateHolder.stopDiscovery()
+    }
 
     // Connectivity state delegated to ConnectivityStateHolder
     val isWifiEnabled: StateFlow<Boolean> = connectivityStateHolder.isWifiEnabled
@@ -1783,7 +1791,7 @@ class PlayerViewModel @Inject constructor(
     data class FullPlayerSlice(
         val currentSongArtists: List<Artist> = emptyList(),
         val lyricsSyncOffset: Int = 0,
-        val albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM,
+        val albumArtQuality: AlbumArtQuality = AlbumArtQuality.ORIGINAL,
         val audioMetadata: PlaybackAudioMetadata = PlaybackAudioMetadata(),
         val showPlayerFileInfo: Boolean = true,
         val immersiveLyricsEnabled: Boolean = false,
@@ -2353,13 +2361,6 @@ class PlayerViewModel @Inject constructor(
 
         connectMediaController()
         startMediaControllerHealthMonitor()
-
-
-        // Start Cast discovery (deferred until after setup and main app readiness)
-        viewModelScope.launch {
-            awaitMainAppReady()
-            castStateHolder.startDiscovery()
-        }
 
         // Observe selection for HTTP server management
         viewModelScope.launch {
@@ -7773,6 +7774,7 @@ class PlayerViewModel @Inject constructor(
                     }
                     LibraryTabId.PLAYLISTS -> {
                         youTubeLibrarySyncManager.syncLikedPlaylists()
+                        syncManager.forceRefresh(syncCloud = true)
                     }
                     else -> {
                         syncManager.forceRefresh()

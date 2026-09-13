@@ -79,8 +79,20 @@ class QuickPicksViewModel @Inject constructor(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             AppReadinessSignal.awaitReady()
-            loadFromCache()
-            loadQuickPicks(_selectedCategory.value, forceRefresh = isCacheExpired())
+            val hasCached = loadFromCache()
+            if (!hasCached) {
+                val offline = loadOfflineQuickPicks()
+                if (offline.isNotEmpty()) {
+                    _quickPicks.value = offline.toImmutableList()
+                }
+            }
+
+            // Stagger network recommendation fetch until after UI has settled completely
+            kotlinx.coroutines.delay(4000L)
+            if (isCacheExpired() || _quickPicks.value.isEmpty()) {
+                loadQuickPicks(_selectedCategory.value, forceRefresh = false)
+            }
+
             userPreferencesRepository.discoverFlow.collect { _ ->
                 if (_selectedCategory.value == "All") {
                     loadQuickPicks("All", forceRefresh = isCacheExpired())
@@ -97,7 +109,6 @@ class QuickPicksViewModel @Inject constructor(
 
     fun refresh(force: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
-            clearCache()
             loadQuickPicks(_selectedCategory.value, forceRefresh = true)
         }
     }
@@ -162,13 +173,9 @@ class QuickPicksViewModel @Inject constructor(
         _quickPicks.value = persistentListOf()
     }
 
-    private fun loadFromCache() {
+    private fun loadFromCache(): Boolean {
         try {
-            if (isCacheExpired()) {
-                clearCache()
-                return
-            }
-            val songsJson = prefs.getString(KEY_SONGS, null) ?: return
+            val songsJson = prefs.getString(KEY_SONGS, null) ?: return false
             val categoriesJson = prefs.getString(KEY_CATEGORIES, null)
 
             val songsArray = JSONArray(songsJson)
@@ -184,8 +191,10 @@ class QuickPicksViewModel @Inject constructor(
                 for (i in 0 until catArray.length()) cats.add(catArray.getString(i))
                 if (cats.isNotEmpty()) _categories.value = cats.toImmutableList()
             }
+            return songs.isNotEmpty()
         } catch (e: Exception) {
             Timber.tag("QuickPicks").w(e, "Failed to load cache")
+            return false
         }
     }
 
@@ -257,9 +266,6 @@ class QuickPicksViewModel @Inject constructor(
             if (category == "All" && !shouldRefresh && _quickPicks.value.isNotEmpty()) {
                 _isLoading.value = false
                 return@launch
-            }
-            if (cacheExpired) {
-                clearCache()
             }
             if (_quickPicks.value.isEmpty()) {
                 _isLoading.value = true

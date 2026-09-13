@@ -214,6 +214,13 @@ fun CastBottomSheet(
         }
     }
 
+    DisposableEffect(Unit) {
+        playerViewModel.startCastDiscovery()
+        onDispose {
+            playerViewModel.stopCastDiscovery()
+        }
+    }
+
     val activeRoute = selectedRoute?.takeUnless { it.isDefault }
     val isRemoteSession = (isRemotePlaybackActive || isCastConnecting) && activeRoute != null
 

@@ -291,6 +291,7 @@ fun QuickPicksSection(
                                     model = song.albumArtUriString,
                                     contentDescription = song.title,
                                     contentScale = ContentScale.Crop,
+                                    targetSize = SmartImageLargeCardTargetSize,
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 
@@ -405,6 +406,7 @@ fun QuickPicksSection(
                                     model = song.albumArtUriString,
                                     contentDescription = song.title,
                                     contentScale = ContentScale.Crop,
+                                    targetSize = SmartImageLargeCardTargetSize,
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 
@@ -566,6 +568,7 @@ private fun QuickPickPortraitCard(
                 model = song.albumArtUriString,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                targetSize = SmartImageLargeCardTargetSize,
                 modifier = Modifier.fillMaxSize()
             )
             
@@ -841,6 +844,7 @@ private fun QuickPickClassicCard(
                     model = song.albumArtUriString,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
+                    targetSize = SmartImageCardTargetSize,
                     modifier = Modifier.fillMaxSize()
                 )
                 

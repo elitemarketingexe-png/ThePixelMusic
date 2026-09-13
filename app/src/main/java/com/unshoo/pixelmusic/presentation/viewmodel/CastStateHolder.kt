@@ -277,6 +277,12 @@ class CastStateHolder @Inject constructor(
         syncSelectedRouteFromRouter(mediaRouter)
     }
 
+    fun stopDiscovery() {
+        try {
+            mediaRouter.removeCallback(mediaRouterCallback)
+        } catch (_: Exception) {}
+    }
+
     private fun updateRoutes() {
         _castRoutes.value = mediaRouter.routes.filter { it.isCastRoute() }.distinctBy { it.id }
     }

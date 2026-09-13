@@ -166,23 +166,7 @@ object YoutubeHelper {
     }
 
     private fun upgradeThumbnailUrlToHighQuality(url: String): String {
-        if (url.isBlank()) return url
-        val resizeRegex = Regex("=w\\d+-h\\d+.*")
-        if (resizeRegex.containsMatchIn(url)) {
-            return url.replace(resizeRegex, "=w1000-h1000")
-        }
-        val sRegex = Regex("=s\\d+.*")
-        if (sRegex.containsMatchIn(url)) {
-            return url.replace(sRegex, "=s1000")
-        }
-        if (url.contains("googleusercontent.com")) {
-            return if (url.contains("=")) {
-                url.substringBeforeLast("=") + "=w1000-h1000"
-            } else {
-                "$url=w1000-h1000"
-            }
-        }
-        return url
+        return com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(url) ?: url
     }
 
     fun getSongInfo(songMap: JsonElement, songInfoIndex: SongInfoType): String {

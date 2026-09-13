@@ -6,33 +6,29 @@ import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
 
 fun upgradeThumbnailUrlToHighQuality(url: String?): String? {
     if (url.isNullOrBlank()) return url
-    
-    // Handle YouTube video thumbnails
-    if (url.contains("i.ytimg.com/vi/") || url.contains("i.ytimg.com/vi_webp/")) {
-        val videoId = url.substringAfter("vi/").substringAfter("vi_webp/").substringBefore("/")
-        if (videoId.isNotBlank() && !videoId.contains("http")) {
-            return "https://i.ytimg.com/vi/$videoId/maxresdefault.jpg"
+
+    return when {
+        url.contains("googleusercontent.com") || url.contains("ggpht.com") -> {
+            url.replace(Regex("=w\\d+-h\\d+.*"), "=w1024-h1024-l90-rj")
+                .replace(Regex("=s\\d+.*"), "=s1024")
+                .let {
+                    if (!it.contains("=w") && !it.contains("=s")) {
+                        if (it.contains("=")) it.substringBeforeLast("=") + "=w1024-h1024-l90-rj"
+                        else "$it=w1024-h1024-l90-rj"
+                    } else it
+                }
         }
+        url.contains("i.ytimg.com") || url.contains("img.youtube.com") -> {
+            val match = Regex("/vi(?:_webp)?/([^/]+)/").find(url)
+            if (match != null) {
+                val videoId = match.groupValues[1]
+                "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+            } else {
+                url.substringBefore("?")
+            }
+        }
+        else -> url
     }
-    
-    // Handle googleusercontent / ggpht urls (album arts & artist arts)
-    if (url.contains("googleusercontent.com") || url.contains("ggpht.com")) {
-        val sizeParamRegex = Regex("=[ws]\\d+.*")
-        if (sizeParamRegex.containsMatchIn(url)) {
-            return url.replace(sizeParamRegex, "=w1000-h1000")
-        }
-        val sizeParamRegex2 = Regex("/[ws]\\d+.*")
-        if (sizeParamRegex2.containsMatchIn(url)) {
-            return url.replace(sizeParamRegex2, "/w1000-h1000")
-        }
-        return if (url.contains("=")) {
-            url.substringBeforeLast("=") + "=w1000-h1000"
-        } else {
-            "$url=w1000-h1000"
-        }
-    }
-    
-    return url
 }
 
 fun SongItem.toYoutubeSong(): com.unshoo.pixelmusic.data.model.youtube.Song {
