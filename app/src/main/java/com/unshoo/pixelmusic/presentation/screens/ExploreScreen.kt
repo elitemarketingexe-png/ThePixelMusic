@@ -200,7 +200,6 @@ fun ExploreScreen(
         topBar = {
             ExploreTopBar(
                 onSettingsClick = { navController.navigateSafely(Screen.Settings.route) },
-                onSearchClick = { navController.navigateSafely(Screen.Search.route) },
                 onCreateClick = { navController.navigateSafely(Screen.SmartMix.route) },
                 isScrolled = isScrolled
             )
@@ -260,33 +259,7 @@ fun ExploreScreen(
                         )
                     }
 
-                    // 2. Quick Tiles (Liked Songs, Liked on YouTube, Mix, New Releases)
-                    val quickTiles = state.feedData.quickTiles
-                    if (quickTiles.isNotEmpty()) {
-                        item(key = "feed_quick_tiles") {
-                            QuickTilesGrid(
-                                tiles = quickTiles,
-                                onTileClick = { tile ->
-                                    when {
-                                        tile.collection == "radio" -> feedViewModel.playInfiniteRadio(playerViewModel)
-                                        tile.collection == "yt_liked" || tile.playlistId == "yt_liked" -> {
-                                            navController.navigateSafely(Screen.FeedPlaylistDetail.createRoute("yt_liked"))
-                                        }
-                                        tile.collection == "new_releases" -> {
-                                            navController.navigateSafely(Screen.FeedPlaylistDetail.createRoute("new_releases"))
-                                        }
-                                        tile.isLiked && tile.localPlaylistId != null -> {
-                                            navController.navigateSafely(Screen.Library.route)
-                                        }
-                                        tile.playlistId != null -> {
-                                            navController.navigateSafely(Screen.FeedPlaylistDetail.createRoute(tile.playlistId))
-                                        }
-                                        else -> feedViewModel.playInfiniteRadio(playerViewModel)
-                                    }
-                                }
-                            )
-                        }
-                    }
+
 
                     // 3. Taste Tags Strip
                     if (state.feedData.tasteTags.isNotEmpty()) {
@@ -482,6 +455,35 @@ fun ExploreScreen(
                         }
                     }
 
+                    // Your Library Section (positioned right after Artists for you)
+                    val libraryPlaylists = exploreUiState.libraryPlaylists
+                    if (libraryPlaylists.isNotEmpty()) {
+                        item(key = "feed_your_library") {
+                            FeedSectionHeader(
+                                title = "Your Library",
+                                subtitle = "Your saved playlists & albums",
+                                actionText = "See All",
+                                actionIcon = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+                                onActionClick = { navController.navigateToTopLevelSafely(Screen.Library.route) }
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                modifier = Modifier.padding(top = 10.dp)
+                            ) {
+                                itemsIndexed(libraryPlaylists, key = { idx, p -> "lib_${p.id}_$idx" }) { _, playlist ->
+                                    LibraryPlaylistCard(
+                                        playlist = playlist,
+                                        playerViewModel = playerViewModel,
+                                        onClick = {
+                                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlist.id))
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // 11. Heavy Rotation Section
                     if (state.feedData.heavyRotation.isNotEmpty()) {
                         item(key = "feed_heavy_rotation") {
@@ -603,35 +605,6 @@ fun ExploreScreen(
                         }
                     }
 
-                    // 15. Your Library Section (RETAINED as requested!)
-                    val libraryPlaylists = exploreUiState.libraryPlaylists
-                    if (libraryPlaylists.isNotEmpty()) {
-                        item(key = "feed_your_library") {
-                            FeedSectionHeader(
-                                title = "Your Library",
-                                subtitle = "Your saved playlists & albums",
-                                actionText = "See All",
-                                actionIcon = Icons.AutoMirrored.Rounded.ArrowForwardIos,
-                                onActionClick = { navController.navigateSafely(Screen.Library.route) }
-                            )
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                modifier = Modifier.padding(top = 10.dp)
-                            ) {
-                                itemsIndexed(libraryPlaylists, key = { idx, p -> "lib_${p.id}_$idx" }) { _, playlist ->
-                                    LibraryPlaylistCard(
-                                        playlist = playlist,
-                                        playerViewModel = playerViewModel,
-                                        onClick = {
-                                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlist.id))
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     // 16. Friends on Last.fm Section
                     if (state.feedData.friends.isNotEmpty()) {
                         item(key = "feed_friends") {
@@ -650,11 +623,6 @@ fun ExploreScreen(
                             }
                         }
                     }
-
-                    // 17. Feed Footer
-                    item(key = "feed_footer") {
-                        FeedFooter(lastUpdatedMillis = state.feedData.lastUpdatedMillis)
-                    }
                 }
             }
         }
@@ -664,48 +632,47 @@ fun ExploreScreen(
 @Composable
 fun ExploreTopBar(
     onSettingsClick: () -> Unit,
-    onSearchClick: () -> Unit,
     onCreateClick: () -> Unit,
     isScrolled: Boolean = false,
 ) {
+    val baseContainerColor = MaterialTheme.colorScheme.primaryContainer
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val solidTintedColor = remember(baseContainerColor, surfaceColor) {
+        Color(
+            red = (baseContainerColor.red * 0.45f) + (surfaceColor.red * 0.55f),
+            green = (baseContainerColor.green * 0.45f) + (surfaceColor.green * 0.55f),
+            blue = (baseContainerColor.blue * 0.45f) + (surfaceColor.blue * 0.55f),
+            alpha = 1f
+        )
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shadowElevation = if (isScrolled) 4.dp else 0.dp
+        color = solidTintedColor,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 24.dp, top = 10.dp, end = 16.dp, bottom = 12.dp),
+                .padding(start = 24.dp, top = 12.dp, end = 20.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Explore",
                 fontFamily = GoogleSansRounded,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 34.sp,
-                letterSpacing = (-0.5).sp
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 40.sp,
+                letterSpacing = 1.sp
             )
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = onSearchClick,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.Search,
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
                 AnimatedSparklesIconButton(onClick = onCreateClick)
 
                 FilledIconButton(
@@ -736,48 +703,12 @@ private fun FeedHeroSection(
     quickPicks: List<YouTubeMusicTrack>,
     onPlayInfiniteRadio: () -> Unit
 ) {
-    val greeting = remember {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        when (hour) {
-            in 4..11 -> "Good morning"
-            in 12..16 -> "Good afternoon"
-            in 17..21 -> "Good evening"
-            else -> "Late night beats"
-        }
-    }
-
-    val formattedDate = remember {
-        SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(Date())
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            val displayName = if (!userName.isNullOrBlank()) ", $userName" else ""
-            Text(
-                text = "$greeting$displayName",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFamily = GoogleSansRounded,
-                    letterSpacing = (-0.3).sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = formattedDate,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-            )
-        }
-
         // Infinite Radio Hero Card (Material 3 Expressive Container)
         InfiniteRadioHero(
             quickPicks = quickPicks,
@@ -804,7 +735,7 @@ private fun InfiniteRadioHero(
             },
         shape = AbsoluteSmoothCornerShape(26.dp, 75),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSystemInDarkTheme()) 2.dp else 0.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             if (!heroArt.isNullOrBlank()) {
@@ -813,20 +744,18 @@ private fun InfiniteRadioHero(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .alpha(0.25f)
+                        .matchParentSize()
+                        .alpha(0.20f)
                 )
             }
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
+                    .matchParentSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.70f),
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                             )
                         )
@@ -1134,8 +1063,8 @@ private fun FeedSectionHeader(
                 modifier = Modifier.size(36.dp),
                 shape = CircleShape,
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             ) {
                 Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle", modifier = Modifier.size(17.dp))
@@ -1143,24 +1072,54 @@ private fun FeedSectionHeader(
         }
 
         if (actionText != null && onActionClick != null) {
-            FilledTonalButton(
-                onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onActionClick()
-                },
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                modifier = Modifier.height(34.dp)
-            ) {
-                if (actionIcon != null) {
-                    Icon(actionIcon, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+            val isSeeAll = actionText.equals("See all", ignoreCase = true) || actionText.equals("See All", ignoreCase = true)
+            if (isSeeAll) {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onActionClick()
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.height(34.dp)
+                ) {
+                    Text(
+                        actionText,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = GoogleSansRounded
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (actionIcon != null) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            actionIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-                Text(actionText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+            } else {
+                FilledTonalButton(
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onActionClick()
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.height(34.dp)
+                ) {
+                    if (actionIcon != null) {
+                        Icon(actionIcon, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Text(actionText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                }
             }
         }
     }
@@ -1588,7 +1547,7 @@ private fun SpotlightHeroCard(
     Card(
         shape = AbsoluteSmoothCornerShape(26.dp, 80),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSystemInDarkTheme()) 2.dp else 0.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
@@ -1600,23 +1559,26 @@ private fun SpotlightHeroCard(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(130.dp)
-                        .alpha(0.28f)
+                        .matchParentSize()
+                        .alpha(0.22f)
                 )
             }
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .matchParentSize()
                     .background(
-                        Brush.linearGradient(
+                        Brush.verticalGradient(
                             colors = listOf(
                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.75f),
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                             )
                         )
                     )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
                     .padding(20.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {

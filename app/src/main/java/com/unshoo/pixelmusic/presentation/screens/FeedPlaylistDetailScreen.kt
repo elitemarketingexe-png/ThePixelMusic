@@ -1,31 +1,25 @@
 package com.unshoo.pixelmusic.presentation.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shuffle
@@ -50,25 +44,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.unshoo.pixelmusic.data.feed.YouTubeMusicTrack
 import com.unshoo.pixelmusic.data.feed.toSong
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
-import com.unshoo.pixelmusic.presentation.components.PlayingWaveBars
-import com.unshoo.pixelmusic.presentation.navigation.Screen
-import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
+import com.unshoo.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import com.unshoo.pixelmusic.presentation.viewmodel.FeedPlaylistDetailUiState
 import com.unshoo.pixelmusic.presentation.viewmodel.FeedPlaylistDetailViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,7 +88,8 @@ fun FeedPlaylistDetailScreen(
                         text = title,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = GoogleSansRounded
                     )
                 },
                 navigationIcon = {
@@ -135,20 +127,48 @@ fun FeedPlaylistDetailScreen(
                         Text(
                             text = s.message,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = GoogleSansRounded,
+                            textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { viewModel.retry() }) {
                             Icon(Icons.Rounded.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Retry")
+                            Text("Retry", fontFamily = GoogleSansRounded)
                         }
                     }
                 }
                 is FeedPlaylistDetailUiState.Success -> {
                     val playlist = s.playlist
                     val songs = remember(playlist.tracks) { playlist.tracks.map { it.toSong() } }
-                    val bottomPadding = if (currentSongId != null) MiniPlayerHeight + 16.dp else 16.dp
+                    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                    val bottomPadding = MiniPlayerHeight + navBarPadding + 16.dp
+
+                    val playButtonShape = remember {
+                        AbsoluteSmoothCornerShape(
+                            cornerRadiusTL = 60.dp,
+                            smoothnessAsPercentTR = 60,
+                            cornerRadiusTR = 14.dp,
+                            smoothnessAsPercentTL = 60,
+                            cornerRadiusBL = 60.dp,
+                            smoothnessAsPercentBR = 60,
+                            cornerRadiusBR = 14.dp,
+                            smoothnessAsPercentBL = 60
+                        )
+                    }
+                    val shuffleButtonShape = remember {
+                        AbsoluteSmoothCornerShape(
+                            cornerRadiusTL = 14.dp,
+                            smoothnessAsPercentTR = 60,
+                            cornerRadiusTR = 60.dp,
+                            smoothnessAsPercentTL = 60,
+                            cornerRadiusBL = 14.dp,
+                            smoothnessAsPercentBR = 60,
+                            cornerRadiusBR = 60.dp,
+                            smoothnessAsPercentBL = 60
+                        )
+                    }
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -176,6 +196,18 @@ fun FeedPlaylistDetailScreen(
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Album,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(72.dp)
+                                            )
+                                        }
                                     }
                                 }
 
@@ -185,9 +217,11 @@ fun FeedPlaylistDetailScreen(
                                     text = playlist.title,
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
+                                    fontFamily = GoogleSansRounded,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center
                                 )
 
                                 if (!playlist.author.isNullOrBlank()) {
@@ -196,14 +230,17 @@ fun FeedPlaylistDetailScreen(
                                         text = playlist.author,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Medium,
+                                        fontFamily = GoogleSansRounded,
+                                        textAlign = TextAlign.Center
                                     )
                                 }
 
                                 Text(
-                                    text = "${playlist.trackCount} tracks",
+                                    text = "${playlist.tracks.size} tracks",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    fontFamily = GoogleSansRounded,
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
 
@@ -211,7 +248,7 @@ fun FeedPlaylistDetailScreen(
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Button(
                                         onClick = {
@@ -219,16 +256,19 @@ fun FeedPlaylistDetailScreen(
                                                 playerViewModel.playSongs(songs, songs.first(), queueName = playlist.title)
                                             }
                                         },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(16.dp),
+                                        enabled = songs.isNotEmpty(),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(56.dp),
+                                        shape = playButtonShape,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary,
                                             contentColor = MaterialTheme.colorScheme.onPrimary
                                         )
                                     ) {
-                                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Play", fontWeight = FontWeight.SemiBold)
+                                        Text("Play", fontWeight = FontWeight.SemiBold, fontFamily = GoogleSansRounded)
                                     }
 
                                     FilledTonalButton(
@@ -237,16 +277,19 @@ fun FeedPlaylistDetailScreen(
                                                 playerViewModel.playSongsShuffled(songs, queueName = "${playlist.title} Shuffle")
                                             }
                                         },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(16.dp),
+                                        enabled = songs.isNotEmpty(),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(56.dp),
+                                        shape = shuffleButtonShape,
                                         colors = ButtonDefaults.filledTonalButtonColors(
                                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                             contentColor = MaterialTheme.colorScheme.onSurface
                                         )
                                     ) {
-                                        Icon(Icons.Rounded.Shuffle, contentDescription = null)
+                                        Icon(Icons.Rounded.Shuffle, contentDescription = null, modifier = Modifier.size(20.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Shuffle", fontWeight = FontWeight.SemiBold)
+                                        Text("Shuffle", fontWeight = FontWeight.SemiBold, fontFamily = GoogleSansRounded)
                                     }
                                 }
 
@@ -254,82 +297,78 @@ fun FeedPlaylistDetailScreen(
                             }
                         }
 
-                        // Tracks
-                        itemsIndexed(
-                            items = playlist.tracks,
-                            key = { idx, t -> "${t.videoId}_$idx" }
-                        ) { index, track ->
-                            val song = songs.getOrNull(index) ?: track.toSong()
-                            val isCurrent = currentSongId == song.id
-                            val itemIsPlaying = isPlaying && isCurrent
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        playerViewModel.playSongs(songs, song, queueName = playlist.title)
-                                    }
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
+                        if (songs.isEmpty() && !s.isLoadingMore) {
+                            item(key = "empty_state") {
+                                Column(
                                     modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                ) {
-                                    if (!track.artworkUrl.isNullOrBlank()) {
-                                        AsyncImage(
-                                            model = track.artworkUrl,
-                                            contentDescription = track.title,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    }
-                                    if (itemIsPlaying) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color.Black.copy(alpha = 0.45f)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            PlayingWaveBars(
-                                                waveColor = Color.White,
-                                                containerColor = Color.Transparent
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(14.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = track.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = track.artist,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                IconButton(
-                                    onClick = {
-                                        playerViewModel.selectSongForInfo(song)
-                                    }
+                                        .fillMaxWidth()
+                                        .padding(top = 40.dp, bottom = 40.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Icon(
-                                        Icons.Rounded.MoreVert,
-                                        contentDescription = "More",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        Icons.Filled.Album,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(56.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No tracks found",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontFamily = GoogleSansRounded,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "New releases from your artists will appear here.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontFamily = GoogleSansRounded
+                                    )
+                                }
+                            }
+                        }
+
+                        // Tracks
+                        itemsIndexed(
+                            items = songs,
+                            key = { index, song -> "${song.id}_$index" }
+                        ) { index, song ->
+                            EnhancedSongListItem(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                                song = song,
+                                isPlaying = isPlaying && currentSongId == song.id,
+                                isCurrentSong = currentSongId == song.id,
+                                onClick = {
+                                    playerViewModel.playSongs(songs, song, queueName = playlist.title)
+                                },
+                                onMoreOptionsClick = {
+                                    playerViewModel.selectSongForInfo(song)
+                                }
+                            )
+                        }
+
+                        if (s.isLoadingMore) {
+                            item(key = "loading_more") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Loading more tracks from your artists…",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontFamily = GoogleSansRounded
                                     )
                                 }
                             }

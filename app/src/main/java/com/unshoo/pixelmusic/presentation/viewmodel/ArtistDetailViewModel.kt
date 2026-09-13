@@ -173,14 +173,19 @@ class ArtistDetailViewModel @Inject constructor(
             try {
                 val numericId = artistIdStr.toLongOrNull()
                 var browseId: String? = null
-                if (numericId == null || artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA")) {
+                if (artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA") || artistIdStr.startsWith("FEmusic_")) {
                     browseId = artistIdStr
                 } else {
-                    val localArtist = musicRepository.getArtistById(numericId).first()
-                    if (localArtist != null) {
-                        val primaryArtistName = localArtist.name.split(
+                    val rawName = if (numericId != null) {
+                        musicRepository.getArtistById(numericId).first()?.name
+                    } else {
+                        artistIdStr
+                    }
+                    val cleanName = rawName?.trim()?.trim(',', '&', '/', ';', '•', '·', '.', '-')?.trim()
+                    if (!cleanName.isNullOrBlank() && cleanName.any { it.isLetterOrDigit() }) {
+                        val primaryArtistName = cleanName.split(
                             ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
-                        ).firstOrNull()?.trim() ?: localArtist.name
+                        ).firstOrNull()?.trim() ?: cleanName
 
                         val searchResult = withContext(Dispatchers.IO) {
                             InnerTubeYouTube.search(primaryArtistName, InnerTubeYouTube.SearchFilter.FILTER_ARTIST).getOrNull()
@@ -190,7 +195,7 @@ class ArtistDetailViewModel @Inject constructor(
                     }
                 }
 
-                if (browseId != null && (browseId.startsWith("UC") || browseId.startsWith("LA") || numericId == null)) {
+                if (browseId != null && (browseId.startsWith("UC") || browseId.startsWith("LA") || browseId.startsWith("FEmusic_"))) {
                     val artistPageResult = withContext(Dispatchers.IO) {
                         InnerTubeYouTube.artist(browseId)
                     }
@@ -300,8 +305,8 @@ class ArtistDetailViewModel @Inject constructor(
                             )
                         }
                     }
-                } else {
-                    val id = numericId ?: return@launch
+                } else if (numericId != null) {
+                    val id = numericId
                     val artistDetailsFlow = musicRepository.getArtistById(id)
                     val artistSongsFlow = musicRepository.getSongsForArtist(id)
 
@@ -365,6 +370,13 @@ class ArtistDetailViewModel @Inject constructor(
                                 }
                             }
                         }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            error = context.getString(R.string.artist_id_not_found),
+                            isLoading = false
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update {

@@ -46,6 +46,9 @@ fun NavController.popBackStackSafely(): Boolean {
 
 fun NavController.navigateSafely(route: String): Boolean {
     if (!isReadyForNavigation()) return false
+    if (isMainRootRoute(route)) {
+        return navigateToTopLevelSafely(route)
+    }
     return try {
         navigate(route) {
             launchSingleTop = true

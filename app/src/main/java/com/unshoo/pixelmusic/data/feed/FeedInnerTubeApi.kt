@@ -191,9 +191,10 @@ class FeedInnerTubeApi @Inject constructor(
             })
         }
 
-    suspend fun fetchNewReleases(): List<YouTubePlaylistSummary> = withContext(Dispatchers.IO) {
+    suspend fun fetchNewReleases(authenticated: Boolean = ytAuth.connection.value.isConnected): List<YouTubePlaylistSummary> = withContext(Dispatchers.IO) {
+        if (!authenticated) return@withContext emptyList()
         runCatching {
-            val root = browseRoot(YT_NEW_RELEASES_BROWSE_ID, authenticated = ytAuth.connection.value.isConnected)
+            val root = browseRoot(YT_NEW_RELEASES_BROWSE_ID, authenticated = true)
             parsePlaylistRenderers(root)
         }.getOrDefault(emptyList())
     }
@@ -320,7 +321,7 @@ class FeedInnerTubeApi @Inject constructor(
             val name = columns?.getOrNull(0)?.asObject()
                 ?.obj("musicResponsiveListItemFlexColumnRenderer")?.obj("text")?.array("runs")
                 ?.joinToString("") { it.asObject()?.string("text").orEmpty() }
-                ?.trim()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                ?.trim()?.takeIf { it.isNotBlank() && it.any { ch -> ch.isLetterOrDigit() } } ?: return@mapNotNull null
             val artworkUrl = extractArtwork(renderer)
             FeedArtist(name = name, browseId = browseId, artworkUrl = artworkUrl)
         }.distinctBy { it.name.trim().lowercase() }.take(limit)
@@ -517,15 +518,37 @@ class FeedInnerTubeApi @Inject constructor(
             ?.mapNotNull { it.asObject() }.orEmpty()
         val artist = detailRuns.firstOrNull { run ->
             run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("UC") == true
-        }?.string("text") ?: detailRuns.mapNotNull { it.string("text") }
-            .firstOrNull { it.isNotBlank() && it !in setOf("•", "·", "Song", "Video") && parseDuration(it) == null }
-            ?: "Unknown artist"
+        }?.string("text")?.trim()?.takeIf { it.isNotBlank() && it.any { ch -> ch.isLetterOrDigit() } }
+            ?: detailRuns.mapNotNull { it.string("text") }
+                .map { it.trim().trim(',', '&', '/', ';', '•', '·', '.', '-').trim() }
+                .firstOrNull { runText ->
+                    runText.isNotBlank() &&
+                    runText.any { ch -> ch.isLetterOrDigit() } &&
+                    !runText.equals("Song", ignoreCase = true) &&
+                    !runText.equals("Video", ignoreCase = true) &&
+                    !runText.equals("Album", ignoreCase = true) &&
+                    !runText.equals("Single", ignoreCase = true) &&
+                    !runText.equals("EP", ignoreCase = true) &&
+                    parseDuration(runText) == null
+                } ?: "Unknown artist"
         val album = detailRuns.firstOrNull { run ->
             run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("MPRE") == true
         }?.string("text")
         val duration = detailRuns.mapNotNull { it.string("text") }.firstNotNullOfOrNull(::parseDuration)
         val artwork = extractArtwork(renderer)
-        return YouTubeMusicTrack(videoId, title, artist, album, artwork, duration)
+        val watchConfig = renderer.obj("navigationEndpoint")?.obj("watchEndpoint")
+            ?.obj("watchEndpointMusicSupportedConfigs")?.obj("watchEndpointMusicConfig")
+            ?: renderer.obj("thumbnailOverlay")?.obj("musicItemThumbnailOverlayRenderer")
+                ?.obj("content")?.obj("musicPlayButtonRenderer")
+                ?.obj("playNavigationEndpoint")?.obj("watchEndpoint")
+                ?.obj("watchEndpointMusicSupportedConfigs")?.obj("watchEndpointMusicConfig")
+        val musicVideoType = watchConfig?.string("musicVideoType")
+        val hasVideoBadge = detailRuns.any { run ->
+            val txt = run.string("text")?.trim().orEmpty()
+            txt.equals("Video", ignoreCase = true) || txt.equals("Music video", ignoreCase = true)
+        }
+        val isVideo = musicVideoType == "MUSIC_VIDEO_TYPE_OMV" || musicVideoType == "MUSIC_VIDEO_TYPE_UGC" || hasVideoBadge
+        return YouTubeMusicTrack(videoId, title, artist, album, artwork, duration, isVideo)
     }
 
     private fun parseTwoRowSong(renderer: JsonObject): YouTubeMusicTrack? {
@@ -541,14 +564,37 @@ class FeedInnerTubeApi @Inject constructor(
         val details = renderer.obj("subtitle")?.array("runs")?.mapNotNull { it.asObject() }.orEmpty()
         val artist = details.firstOrNull { run ->
             run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("UC") == true
-        }?.string("text") ?: details.mapNotNull { it.string("text") }.firstOrNull { it.isNotBlank() && it !in setOf("•", "·", "Song", "Video") }
-            ?: "Unknown artist"
+        }?.string("text")?.trim()?.takeIf { it.isNotBlank() && it.any { ch -> ch.isLetterOrDigit() } }
+            ?: details.mapNotNull { it.string("text") }
+                .map { it.trim().trim(',', '&', '/', ';', '•', '·', '.', '-').trim() }
+                .firstOrNull { runText ->
+                    runText.isNotBlank() &&
+                    runText.any { ch -> ch.isLetterOrDigit() } &&
+                    !runText.equals("Song", ignoreCase = true) &&
+                    !runText.equals("Video", ignoreCase = true) &&
+                    !runText.equals("Album", ignoreCase = true) &&
+                    !runText.equals("Single", ignoreCase = true) &&
+                    !runText.equals("EP", ignoreCase = true) &&
+                    parseDuration(runText) == null
+                } ?: "Unknown artist"
         val album = details.firstOrNull { run ->
             run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("MPRE") == true
         }?.string("text")
         val duration = details.mapNotNull { it.string("text") }.firstNotNullOfOrNull(::parseDuration)
         val artwork = extractArtwork(renderer)
-        return YouTubeMusicTrack(videoId, title, artist, album, artwork, duration)
+        val watchConfig = renderer.obj("navigationEndpoint")?.obj("watchEndpoint")
+            ?.obj("watchEndpointMusicSupportedConfigs")?.obj("watchEndpointMusicConfig")
+            ?: renderer.obj("thumbnailOverlay")?.obj("musicItemThumbnailOverlayRenderer")
+                ?.obj("content")?.obj("musicPlayButtonRenderer")
+                ?.obj("playNavigationEndpoint")?.obj("watchEndpoint")
+                ?.obj("watchEndpointMusicSupportedConfigs")?.obj("watchEndpointMusicConfig")
+        val musicVideoType = watchConfig?.string("musicVideoType")
+        val hasVideoBadge = details.any { run ->
+            val txt = run.string("text")?.trim().orEmpty()
+            txt.equals("Video", ignoreCase = true) || txt.equals("Music video", ignoreCase = true)
+        }
+        val isVideo = musicVideoType == "MUSIC_VIDEO_TYPE_OMV" || musicVideoType == "MUSIC_VIDEO_TYPE_UGC" || hasVideoBadge
+        return YouTubeMusicTrack(videoId, title, artist, album, artwork, duration, isVideo)
     }
 
     private fun parsePlaylistPanelSong(renderer: JsonObject): YouTubeMusicTrack? {
@@ -564,7 +610,16 @@ class FeedInnerTubeApi @Inject constructor(
             ?.array("runs")?.mapNotNull { it.asObject() }.orEmpty()
         val artist = detailRuns.firstOrNull { run ->
             run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("UC") == true
-        }?.string("text") ?: "Unknown artist"
+        }?.string("text")?.trim()?.takeIf { it.isNotBlank() && it.any { ch -> ch.isLetterOrDigit() } }
+            ?: detailRuns.mapNotNull { it.string("text") }
+                .map { it.trim().trim(',', '&', '/', ';', '•', '·', '.', '-').trim() }
+                .firstOrNull { runText ->
+                    runText.isNotBlank() &&
+                    runText.any { ch -> ch.isLetterOrDigit() } &&
+                    !runText.equals("Song", ignoreCase = true) &&
+                    !runText.equals("Video", ignoreCase = true) &&
+                    parseDuration(runText) == null
+                } ?: "Unknown artist"
         val album = detailRuns.firstOrNull { run ->
             run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("MPRE") == true
         }?.string("text")
@@ -578,8 +633,14 @@ class FeedInnerTubeApi @Inject constructor(
         val title = renderer.obj("title")?.array("runs")?.joinToString("") { it.asObject()?.string("text").orEmpty() }
             ?: renderer.obj("title")?.string("simpleText")
             ?: return null
-        val artist = renderer.obj("shortBylineText")?.array("runs")?.firstOrNull()?.asObject()?.string("text")
-            ?: "Unknown artist"
+        val artist = renderer.obj("shortBylineText")?.array("runs")?.mapNotNull { it.asObject()?.string("text") }
+            ?.map { it.trim().trim(',', '&', '/', ';', '•', '·', '.', '-').trim() }
+            ?.firstOrNull { runText ->
+                runText.isNotBlank() &&
+                runText.any { ch -> ch.isLetterOrDigit() } &&
+                !runText.equals("Song", ignoreCase = true) &&
+                !runText.equals("Video", ignoreCase = true)
+            } ?: "Unknown artist"
         val duration = renderer.string("lengthSeconds")?.toIntOrNull()
         val artwork = extractArtwork(renderer)
         return YouTubeMusicTrack(videoId, title, artist, null, artwork, duration)
@@ -606,9 +667,27 @@ class FeedInnerTubeApi @Inject constructor(
         val title = renderer.obj("title")?.array("runs")?.joinToString("") { it.asObject()?.string("text").orEmpty() }
             ?: renderer.obj("title")?.string("simpleText")
             ?: return null
-        val subtitleRuns = renderer.obj("subtitle")?.array("runs")?.mapNotNull { it.asObject()?.string("text") }.orEmpty()
-        val author = subtitleRuns.firstOrNull { it.isNotBlank() && it !in setOf("•", "·", "Playlist", "Album") }
-        val trackCountText = subtitleRuns.firstOrNull { it.contains("song", ignoreCase = true) || it.contains("track", ignoreCase = true) }
+        val subtitleRuns = renderer.obj("subtitle")?.array("runs")?.mapNotNull { it.asObject() }.orEmpty()
+        val author = subtitleRuns.firstOrNull { run ->
+            run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("UC") == true
+        }?.string("text")?.trim()?.takeIf { it.isNotBlank() && it.any { ch -> ch.isLetterOrDigit() } }
+            ?: subtitleRuns.mapNotNull { it.string("text") }
+                .map { it.trim().trim(',', '&', '/', ';', '•', '·', '.', '-').trim() }
+                .firstOrNull { text ->
+                    text.isNotBlank() &&
+                    text.any { ch -> ch.isLetterOrDigit() } &&
+                    !text.equals("Playlist", ignoreCase = true) &&
+                    !text.equals("Album", ignoreCase = true) &&
+                    !text.equals("Single", ignoreCase = true) &&
+                    !text.equals("EP", ignoreCase = true) &&
+                    !text.equals("Song", ignoreCase = true) &&
+                    !text.equals("Video", ignoreCase = true) &&
+                    !text.contains("song", ignoreCase = true) &&
+                    !text.contains("track", ignoreCase = true)
+                }
+        val trackCountText = subtitleRuns.mapNotNull { it.string("text") }.firstOrNull {
+            it.contains("song", ignoreCase = true) || it.contains("track", ignoreCase = true)
+        }
         val artworkUrl = extractArtwork(renderer)
         return YouTubePlaylistSummary(
             id = cleanId,

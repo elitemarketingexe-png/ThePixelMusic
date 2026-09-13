@@ -1,33 +1,36 @@
 package com.unshoo.pixelmusic.data.feed
 
+import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+import com.unshoo.pixelmusic.utils.DEFAULT_WORD_DELIMITERS
+import com.unshoo.pixelmusic.utils.splitArtistsByDelimiters
+
 /**
- * Utility for splitting and handling composite multi-artist strings cleanly.
- * Handles separators such as commas, ampersands, slashes, "feat.", "ft.", "with", and "x".
+ * Clean wrapper for multi-artist splitting in feed and recommendations.
+ * Reuses the app's standard [splitArtistsByDelimiters] and strips dirty punctuation.
  */
 object ArtistHelper {
-    private val SEPARATOR_REGEX = Regex(
-        "(?:\\s*,\\s*|\\s*&\\s*|\\s*;\\s*|\\s*\\/\\s*|\\s*\\+\\s*|\\s+(?:ft\\.?|feat\\.?|featuring|with|and|x|X)\\s+)",
-        RegexOption.IGNORE_CASE
-    )
+    fun splitArtists(rawArtist: String?): List<String> =
+        splitArtists(rawArtist, UserPreferencesRepository.DEFAULT_ARTIST_DELIMITERS, DEFAULT_WORD_DELIMITERS)
 
-    /**
-     * Splits multi-artist strings (e.g. "Arijit Singh, Badshah", "Alan Walker feat. Au/Ra", "Drake & 21 Savage")
-     * into clean, individual artist names.
-     */
-    fun splitArtists(rawArtist: String?): List<String> {
+    fun splitArtists(
+        rawArtist: String?,
+        delimiters: List<String>,
+        wordDelimiters: List<String> = DEFAULT_WORD_DELIMITERS
+    ): List<String> {
         if (rawArtist.isNullOrBlank()) return emptyList()
-        val trimmed = rawArtist.trim()
-        val parts = trimmed.split(SEPARATOR_REGEX)
-            .map { it.trim().trim(',', '&', '/', ';').trim() }
-            .filter { it.isNotBlank() }
-            .distinct()
-        return if (parts.isNotEmpty()) parts else listOf(trimmed)
+        return rawArtist.splitArtistsByDelimiters(delimiters, wordDelimiters)
+            .map { it.trim(',', '&', '/', ';', '+', '•', '·', '.', '-').trim() }
+            .filter { it.any { ch -> ch.isLetterOrDigit() } }
     }
 
-    /**
-     * Returns the primary / first artist from a composite string.
-     */
-    fun primaryArtist(rawArtist: String?): String {
-        return splitArtists(rawArtist).firstOrNull() ?: rawArtist.orEmpty()
-    }
+    fun primaryArtist(rawArtist: String?): String =
+        splitArtists(rawArtist).firstOrNull().orEmpty()
+
+    fun primaryArtist(
+        rawArtist: String?,
+        delimiters: List<String>,
+        wordDelimiters: List<String> = DEFAULT_WORD_DELIMITERS
+    ): String = splitArtists(rawArtist, delimiters, wordDelimiters).firstOrNull().orEmpty()
 }
+
+

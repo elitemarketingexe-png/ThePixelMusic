@@ -46,11 +46,17 @@ class FeedRepository @Inject constructor(
 
         val random = kotlin.random.Random(System.nanoTime())
 
-        val newReleasesDef = async(Dispatchers.IO) { runCatching { innerTube.fetchNewReleases() }.getOrDefault(emptyList()) }
-        val chartsDef = async(Dispatchers.IO) { runCatching { innerTube.fetchCharts() }.getOrDefault(emptyList()) }
+        val pureYtMusicOnly = runCatching { userPreferencesRepository.pureYtMusicOnlyFlow.first() }.getOrDefault(false)
+        fun filterVideoTrack(t: YouTubeMusicTrack): Boolean = !pureYtMusicOnly || !t.isVideo
+
+        val newReleasesDef = async(Dispatchers.IO) {
+            if (isYtConnected) runCatching { innerTube.fetchNewReleases(authenticated = true) }.getOrDefault(emptyList())
+            else emptyList()
+        }
+        val chartsDef = async(Dispatchers.IO) { runCatching { innerTube.fetchCharts() }.getOrDefault(emptyList()).filter(::filterVideoTrack) }
         val homeMixesDef = async(Dispatchers.IO) { runCatching { innerTube.fetchHomeMixes() }.getOrDefault(emptyList()) }
         val homeSongsDef = async(Dispatchers.IO) {
-            if (isYtConnected) emptyList() else runCatching { innerTube.fetchHomeSongs() }.getOrDefault(emptyList())
+            if (isYtConnected) emptyList() else runCatching { innerTube.fetchHomeSongs() }.getOrDefault(emptyList()).filter(::filterVideoTrack)
         }
 
         val ytTasteDef = async(Dispatchers.IO) {
@@ -143,13 +149,13 @@ class FeedRepository @Inject constructor(
 
         val regularPicks = tasteProfile?.topTracksRaw.orEmpty().map {
             YouTubeMusicTrack(it.youtubeVideoIdOrNull().orEmpty(), it.name, it.artist, it.album, it.artworkUrl)
-        }
+        }.filter(::filterVideoTrack)
         val quickCandidates = buildList {
-            ytQuickPicks.forEachIndexed { i, t -> add(t to trackScore(t, i, 3.0)) }
-            ytLikedSongs.forEachIndexed { i, t -> add(t to trackScore(t, i, 2.2)) }
-            ytRecentSongs.forEachIndexed { i, t -> add(t to trackScore(t, i, 1.6)) }
+            ytQuickPicks.filter(::filterVideoTrack).forEachIndexed { i, t -> add(t to trackScore(t, i, 3.0)) }
+            ytLikedSongs.filter(::filterVideoTrack).forEachIndexed { i, t -> add(t to trackScore(t, i, 2.2)) }
+            ytRecentSongs.filter(::filterVideoTrack).forEachIndexed { i, t -> add(t to trackScore(t, i, 1.6)) }
             regularPicks.forEachIndexed { i, t -> add(t to trackScore(t, i, 2.6)) }
-            homeSongs.forEachIndexed { i, t -> add(t to trackScore(t, i, 1.2)) }
+            homeSongs.filter(::filterVideoTrack).forEachIndexed { i, t -> add(t to trackScore(t, i, 1.2)) }
         }
             .distinctBy { (t, _) -> t.artist.trim().lowercase() to t.title.trim().lowercase() }
             .sortedByDescending { it.second }
@@ -157,7 +163,7 @@ class FeedRepository @Inject constructor(
 
         val quickPicks = diversify(quickCandidates, YouTubeMusicTrack::artist, maxPerArtist = 2)
             .take(18)
-            .ifEmpty { charts }
+            .ifEmpty { charts.filter(::filterVideoTrack) }
             .distinctBy { it.artist.trim().lowercase() to it.title.trim().lowercase() }
             .take(15)
 
@@ -194,7 +200,7 @@ class FeedRepository @Inject constructor(
             .filter { it.isNotBlank() && !it.equals("Unknown artist", ignoreCase = true) }
             .map { it.lowercase() }.distinct()
         val artistRanks = tasteArtists.withIndex().associate { it.value to it.index }
-        val matchedReleases = if (artistRanks.isEmpty()) releaseCandidates else releaseCandidates
+        val matchedReleases = if (artistRanks.isEmpty()) emptyList() else releaseCandidates
             .mapNotNull { release ->
                 val rank = ArtistHelper.splitArtists(release.author).mapNotNull { artistRanks[it.lowercase()] }.minOrNull()
                 rank?.let { release to it }
@@ -206,10 +212,9 @@ class FeedRepository @Inject constructor(
                 listeningArtists.getOrNull(index)?.let { add(it) }
             }
             addAll(recentTracks.map { it.artist.displayName })
-            if (isEmpty()) addAll(artistSignalTracks.map(YouTubeMusicTrack::artist))
         }
             .flatMap(ArtistHelper::splitArtists)
-            .filter { it.isNotBlank() && !it.equals("Unknown artist", ignoreCase = true) }
+            .filter { it.isNotBlank() && !it.equals("Unknown artist", ignoreCase = true) && it.any { ch -> ch.isLetterOrDigit() } }
             .distinctBy { it.lowercase() }
             .take(8)
             .shuffled(random)
@@ -271,15 +276,15 @@ class FeedRepository @Inject constructor(
                 }
             }.awaitAll().flatten()
 
-        val newReleases = (matchedReleases + artistReleases)
+        val newReleases: List<YouTubePlaylistSummary> = (matchedReleases + artistReleases)
             .ifEmpty { previous?.newReleases.orEmpty() }
             .distinctBy { it.id }.shuffled(random).take(15)
 
         val discoveryResults = discoverySeeds.zip(discoveryDef.await())
-        val discoveryTracks = discoveryResults.flatMap { it.second }.distinctBy { it.videoId }
+        val discoveryTracks = discoveryResults.flatMap { it.second }.filter(::filterVideoTrack).distinctBy { it.videoId }
         val familiarIds = (ytLikedSongs + ytRecentSongs + regularPicks).mapTo(mutableSetOf()) { it.videoId }
         val freshPool = (discoveryTracks + charts + homeSongs + ytQuickPicks)
-            .filter { it.videoId.isNotBlank() && it.videoId !in familiarIds }
+            .filter { it.videoId.isNotBlank() && it.videoId !in familiarIds && filterVideoTrack(it) }
             .distinctBy { it.videoId }.shuffled(random)
         val previousFreshIds = previous?.freshFinds.orEmpty().mapTo(mutableSetOf()) { it.videoId }
         val freshFinds = diversify(
@@ -293,7 +298,7 @@ class FeedRepository @Inject constructor(
 
         val previousMixIds = previous?.mixes.orEmpty().mapTo(mutableSetOf()) { it.seed.videoId }
         val mixes = (quickPicks + ytLikedSongs + discoveryTracks)
-            .filter { it.videoId.isNotBlank() }.distinctBy { it.videoId }.shuffled(random)
+            .filter { it.videoId.isNotBlank() && filterVideoTrack(it) }.distinctBy { it.videoId }.shuffled(random)
             .sortedBy { it.videoId in previousMixIds }
             .distinctBy { ArtistHelper.primaryArtist(it.artist).trim().lowercase() }.take(8)
             .map { FeedMix(title = "${ArtistHelper.primaryArtist(it.artist)} mix", seed = it) }
@@ -513,8 +518,9 @@ class FeedRepository @Inject constructor(
             }
         } else emptyList()
 
+        val becausePool: List<YouTubeMusicTrack> = radioTracks.ifEmpty { radioFallback }
         val becauseTracks = diversify(
-            (radioTracks.ifEmpty { radioFallback }).distinctBy { it.videoId.ifBlank { it.title + "|" + it.artist } },
+            becausePool.filter(::filterVideoTrack).distinctBy { it.videoId.ifBlank { it.title + "|" + it.artist } },
             YouTubeMusicTrack::artist,
             maxPerArtist = 2,
         ).take(15)

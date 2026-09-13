@@ -66,6 +66,7 @@ data class YouTubeMusicTrack(
     val album: String? = null,
     val artworkUrl: String? = null,
     val durationSeconds: Int? = null,
+    val isVideo: Boolean = false,
 ) {
     fun toSong(): Song {
         val cleanArtist = ArtistHelper.primaryArtist(artist)
