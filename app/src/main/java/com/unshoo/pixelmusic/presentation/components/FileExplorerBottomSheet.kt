@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import kotlinx.collections.immutable.ImmutableList
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -98,8 +99,8 @@ import java.io.File
 fun FileExplorerDialog(
     visible: Boolean,
     currentPath: File,
-    directoryChildren: List<DirectoryEntry>,
-    availableStorages: List<StorageInfo>,
+    directoryChildren: ImmutableList<DirectoryEntry>,
+    availableStorages: ImmutableList<StorageInfo>,
     selectedStorageIndex: Int,
     isLoading: Boolean,
     isPriming: Boolean = false,
@@ -174,8 +175,8 @@ fun FileExplorerDialog(
 @Composable
 fun FileExplorerContent(
     currentPath: File,
-    directoryChildren: List<DirectoryEntry>,
-    availableStorages: List<StorageInfo>,
+    directoryChildren: ImmutableList<DirectoryEntry>,
+    availableStorages: ImmutableList<StorageInfo>,
     selectedStorageIndex: Int,
     isLoading: Boolean,
     isPriming: Boolean,

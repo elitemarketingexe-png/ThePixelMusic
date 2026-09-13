@@ -166,6 +166,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.absoluteValue
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.style.TextOverflow
@@ -324,13 +325,13 @@ fun SetupScreen(
                 .padding(paddingValues)
         ) { pageIndex ->
             val page = pages[pageIndex]
-            val pageOffset = pagerState.currentPageOffsetFraction
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        alpha = 1f - pageOffset.coerceIn(0f, 1f)
+                        val pageOffset = ((pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction).absoluteValue
+                        alpha = (1f - pageOffset).coerceIn(0f, 1f)
                         translationX = size.width * pageOffset
                     },
                 contentAlignment = Alignment.Center
@@ -460,8 +461,8 @@ fun SetupScreen(
 fun DirectorySelectionPage(
     uiState: SetupUiState,
     currentPath: File,
-    directoryChildren: List<DirectoryEntry>,
-    availableStorages: List<StorageInfo>,
+    directoryChildren: ImmutableList<DirectoryEntry>,
+    availableStorages: ImmutableList<StorageInfo>,
     selectedStorageIndex: Int,
     isExplorerPriming: Boolean,
     isExplorerReady: Boolean,

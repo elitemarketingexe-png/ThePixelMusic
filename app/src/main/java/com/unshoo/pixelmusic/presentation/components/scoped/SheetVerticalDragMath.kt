@@ -1,5 +1,6 @@
 package com.unshoo.pixelmusic.presentation.components.scoped
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.ui.util.lerp
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerSheetState
 import kotlin.math.abs
@@ -55,14 +56,14 @@ internal fun resolveVerticalSheetTargetState(
     }
 }
 
-internal fun collapseAnimationDurationForFraction(currentFraction: Float): Int {
-    // Shorter, deterministic close animations feel smoother on midrange devices than
-    // low-stiffness springs, especially while lists/pages are still settling after scroll.
-    return lerp(170f, 235f, currentFraction.coerceIn(0f, 1f)).toInt()
+internal fun collapseSpringDampingForFraction(currentFraction: Float): Float {
+    return lerp(
+        start = Spring.DampingRatioNoBouncy,
+        stop = Spring.DampingRatioLowBouncy,
+        fraction = currentFraction
+    )
 }
 
 internal fun collapseInitialSquashForFraction(currentFraction: Float): Float {
-    // Keep the old "squish" extremely subtle. Large/bouncy scale changes are visually
-    // expensive and made dismiss look laggy on low-end GPUs.
-    return lerp(1.0f, 0.992f, currentFraction.coerceIn(0f, 1f))
+    return lerp(1.0f, 0.97f, currentFraction)
 }

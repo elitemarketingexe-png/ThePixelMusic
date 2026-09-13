@@ -38,6 +38,8 @@ import com.unshoo.pixelmusic.data.repository.LyricsRepository
 import com.unshoo.pixelmusic.data.repository.MusicRepository
 import com.unshoo.pixelmusic.data.model.LyricsSourcePreference
 import com.unshoo.pixelmusic.data.worker.SyncManager
+import kotlinx.collections.immutable.ImmutableList
+import com.unshoo.pixelmusic.utils.StorageInfo
 import com.unshoo.pixelmusic.data.worker.SyncProgress
 import com.unshoo.pixelmusic.data.remote.youtube.DatastoreRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -499,9 +501,9 @@ class SettingsViewModel @Inject constructor(
     private val fileExplorerStateHolder = FileExplorerStateHolder(userPreferencesRepository, viewModelScope, context)
 
     val currentPath = fileExplorerStateHolder.currentPath
-    val currentDirectoryChildren = fileExplorerStateHolder.currentDirectoryChildren
+    val currentDirectoryChildren: StateFlow<ImmutableList<DirectoryEntry>> = fileExplorerStateHolder.currentDirectoryChildren
     val blockedDirectories = fileExplorerStateHolder.blockedDirectories
-    val availableStorages = fileExplorerStateHolder.availableStorages
+    val availableStorages: StateFlow<ImmutableList<StorageInfo>> = fileExplorerStateHolder.availableStorages
     val selectedStorageIndex = fileExplorerStateHolder.selectedStorageIndex
     val isLoadingDirectories = fileExplorerStateHolder.isLoading
     val isExplorerPriming = fileExplorerStateHolder.isPrimingExplorer

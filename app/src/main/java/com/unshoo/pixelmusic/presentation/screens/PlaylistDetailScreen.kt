@@ -262,10 +262,6 @@ fun PlaylistDetailScreen(
     var isReorderModeEnabled by remember { mutableStateOf(false) }
     var isRemoveModeEnabled by remember { mutableStateOf(false) }
 
-    var predictiveBackProgress by remember { mutableStateOf(0f) }
-    var swipeEdge by remember { mutableStateOf<Int?>(null) }
-
-    val backScope = rememberCoroutineScope()
     val canHandlePlaylistBack = isReorderModeEnabled || isRemoveModeEnabled || showAddSongsSheet
     BackHandler(enabled = canHandlePlaylistBack) {
         when {
@@ -277,30 +273,6 @@ fun PlaylistDetailScreen(
             }
             isRemoveModeEnabled -> {
                 isRemoveModeEnabled = false
-            }
-        }
-    }
-
-    if (!canHandlePlaylistBack && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        PredictiveBackHandler(enabled = true) { progressFlow ->
-            try {
-                progressFlow.collect { backEvent ->
-                    predictiveBackProgress = backEvent.progress
-                    swipeEdge = backEvent.swipeEdge
-                }
-                onBackClick()
-                predictiveBackProgress = 0f
-                swipeEdge = null
-            } catch (e: CancellationException) {
-                backScope.launch {
-                    androidx.compose.animation.core.Animatable(predictiveBackProgress).animateTo(
-                        targetValue = 0f,
-                        animationSpec = tween(durationMillis = 250)
-                    ) {
-                        predictiveBackProgress = value
-                    }
-                    swipeEdge = null
-                }
             }
         }
     }
@@ -509,15 +481,6 @@ fun PlaylistDetailScreen(
                 }
             }
 
-            val scale = 1f - (predictiveBackProgress * 0.06f)
-            val translationX = if (swipeEdge == 0) { // EDGE_LEFT
-                predictiveBackProgress * 32.dp.value * density.density
-            } else if (swipeEdge == 1) { // EDGE_RIGHT
-                -predictiveBackProgress * 32.dp.value * density.density
-            } else {
-                0f
-            }
-
             androidx.compose.animation.AnimatedVisibility(
                 visible = !showLoading,
                 enter = androidx.compose.animation.fadeIn(animationSpec = tween(300)),
@@ -526,16 +489,6 @@ fun PlaylistDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                            this.translationX = translationX
-                            if (predictiveBackProgress > 0.001f) {
-                                val radius = with(density) { lerp(0.dp, 28.dp, predictiveBackProgress).toPx() }
-                                shape = RoundedCornerShape(radius)
-                                clip = true
-                            }
-                        }
                         .background(MaterialTheme.colorScheme.background)
                         .nestedScroll(nestedScrollConnection)
                 ) {

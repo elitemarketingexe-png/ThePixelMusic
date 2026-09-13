@@ -32,6 +32,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.flow.StateFlow
+import com.unshoo.pixelmusic.utils.StorageInfo
 import java.io.File
 
 data class SetupUiState(
@@ -86,9 +89,9 @@ class SetupViewModel @Inject constructor(
     private val fileExplorerStateHolder = FileExplorerStateHolder(userPreferencesRepository, viewModelScope, context)
 
     val currentPath = fileExplorerStateHolder.currentPath
-    val currentDirectoryChildren = fileExplorerStateHolder.currentDirectoryChildren
+    val currentDirectoryChildren: StateFlow<ImmutableList<DirectoryEntry>> = fileExplorerStateHolder.currentDirectoryChildren
     val blockedDirectories = fileExplorerStateHolder.blockedDirectories
-    val availableStorages = fileExplorerStateHolder.availableStorages
+    val availableStorages: StateFlow<ImmutableList<StorageInfo>> = fileExplorerStateHolder.availableStorages
     val selectedStorageIndex = fileExplorerStateHolder.selectedStorageIndex
     val isLoadingDirectories = fileExplorerStateHolder.isLoading
     val isExplorerPriming = fileExplorerStateHolder.isPrimingExplorer
