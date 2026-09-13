@@ -56,6 +56,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.CloudDownload
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.filled.Album
@@ -1016,11 +1018,20 @@ fun LibraryScreen(
                                 }
                             }
                         }
-                        AnimatedSparklesIconButton(
+                        FilledIconButton(
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            ),
                             onClick = {
                                 navController.navigateSafely(Screen.SmartMix.route)
                             }
-                        )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = "Smart Mix Studio"
+                            )
+                        }
                         FilledIconButton(
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -1031,7 +1042,7 @@ fun LibraryScreen(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Download,
+                                imageVector = Icons.Rounded.CloudDownload,
                                 contentDescription = stringResource(R.string.cloud_downloads_title)
                             )
                         }

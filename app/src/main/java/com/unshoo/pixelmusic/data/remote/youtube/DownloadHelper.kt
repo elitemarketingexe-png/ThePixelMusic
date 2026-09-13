@@ -154,11 +154,11 @@ object DownloadHelper {
                                     if (!response.isSuccessful && response.code != 206) {
                                         throw IOException("Failed chunk $i (HTTP ${response.code})")
                                     }
-                                    response.body?.byteStream()?.use { input ->
+                                    response.body.byteStream().use { input ->
                                         FileOutputStream(partFile).use { output ->
                                             input.copyTo(output)
                                         }
-                                    } ?: throw IOException("Empty body for chunk $i")
+                                    }
                                 }
                             }
                         }.awaitAll()
@@ -187,11 +187,11 @@ object DownloadHelper {
                             throw IOException("Failed download (HTTP ${response.code}) for song ${song.youtubeId}")
                         }
 
-                        response.body?.byteStream()?.use { input ->
+                        response.body.byteStream().use { input ->
                             FileOutputStream(tempFile).use { output ->
                                 input.copyTo(output)
                             }
-                        } ?: throw IOException("Empty response body for song ${song.youtubeId}")
+                        }
                     }
                 }
 
@@ -215,8 +215,12 @@ object DownloadHelper {
                 }
 
                 // Finished downloading audio file successfully
-                cleanupTempFile()
+                if (!tempFile.renameTo(outputFile)) {
+                    tempFile.copyTo(outputFile, overwrite = true)
+                    cleanupTempFile()
+                }
 
+                enforceStorageLimit(context, keepFile = outputFile)
                 return@withContext outputFile.absolutePath
 
             } catch (e: CancellationException) {

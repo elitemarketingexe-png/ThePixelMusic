@@ -30,8 +30,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Deselect
 import androidx.compose.material.icons.rounded.Download
@@ -78,6 +80,7 @@ import com.unshoo.pixelmusic.data.offline.OfflineDownloadStatus
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.components.SongInfoBottomSheet
 import com.unshoo.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
+import com.unshoo.pixelmusic.presentation.viewmodel.ActiveDownloadDisplayItem
 import com.unshoo.pixelmusic.presentation.viewmodel.CloudDownloadsUiState
 import com.unshoo.pixelmusic.presentation.viewmodel.CloudDownloadsViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
@@ -177,11 +180,11 @@ fun CloudDownloadsScreen(
 
                     items(
                         items = uiState.activeDownloads,
-                        key = { "active_${it.downloadId}" }
+                        key = { "active_${it.id}" }
                     ) { download ->
                         ActiveDownloadCard(
                             download = download,
-                            onCancel = { viewModel.removeDownload(download.sourceUri) },
+                            onCancel = { viewModel.cancelActiveDownload(download) },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 3.dp)
                         )
                     }
@@ -228,17 +231,14 @@ fun CloudDownloadsScreen(
 
                     items(
                         items = uiState.completedDownloads,
-                        key = { "completed_${it.download.downloadId}" }
+                        key = { "completed_${it.song.id}" }
                     ) { item ->
                         val isSelected = item.song.id in uiState.selectedSongIds
-                        val isCurrent = stablePlayerState.currentSong?.id == item.song.id
-                        val isPlaying = isCurrent && stablePlayerState.isPlaying
 
-                        EnhancedSongListItem(
+                        LibraryPlaybackAwareSongItem(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             song = item.song,
-                            isCurrentSong = isCurrent,
-                            isPlaying = isPlaying,
+                            playerViewModel = playerViewModel,
                             isSelected = isSelected,
                             isSelectionMode = uiState.isSelectionMode,
                             onClick = {
@@ -264,7 +264,7 @@ fun CloudDownloadsScreen(
                 }
 
                 // Empty state
-                if (uiState.totalCount == 0) {
+                if (uiState.totalCount == 0 && uiState.activeDownloads.isEmpty() && uiState.completedDownloads.isEmpty()) {
                     item(key = "empty_downloads_state") {
                         Box(
                             modifier = Modifier
@@ -283,7 +283,7 @@ fun CloudDownloadsScreen(
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
-                                            imageVector = Icons.Rounded.Download,
+                                            imageVector = Icons.Rounded.CloudDownload,
                                             contentDescription = null,
                                             modifier = Modifier.size(36.dp),
                                             tint = MaterialTheme.colorScheme.primary
@@ -365,7 +365,7 @@ fun CloudDownloadsScreen(
                     showSongInfoBottomSheet = false
                 },
                 onDeleteFromDevice = { activity, song, onResult ->
-                    viewModel.removeDownload(song.contentUriString)
+                    viewModel.deleteSong(song)
                     onResult(true)
                 },
                 onNavigateToAlbum = {},
@@ -373,7 +373,7 @@ fun CloudDownloadsScreen(
                 onEditSong = { _, _, _, _, _, _, _, _, _, _, _, _ -> },
                 generateAiMetadata = { Result.failure(UnsupportedOperationException()) },
                 removeFromListTrigger = {
-                    viewModel.removeDownload(currentSong.contentUriString)
+                    viewModel.deleteSong(currentSong)
                 }
             )
         }
@@ -501,13 +501,13 @@ private fun StorageSummaryCard(
 ) {
     val context = LocalContext.current
     val formattedStorage = remember(uiState.storageUsedBytes) {
-        Formatter.formatFileSize(context, uiState.storageUsedBytes)
+        Formatter.formatShortFileSize(context, uiState.storageUsedBytes)
     }
 
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -522,17 +522,20 @@ private fun StorageSummaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
                         text = stringResource(R.string.cloud_downloads_storage_used),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                     )
                     Text(
                         text = formattedStorage,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
                         text = stringResource(
@@ -541,21 +544,61 @@ private fun StorageSummaryCard(
                             uiState.totalCount
                         ),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
                     )
                 }
 
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = CircleShape,
-                    modifier = Modifier.size(52.dp)
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(28.dp)
+                    Icon(
+                        imageVector = Icons.Rounded.CloudDownload,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            if (uiState.activeDownloads.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        val activePlCount = uiState.activeDownloads.count { it.isPlaylist }
+                        val activeSongCount = uiState.activeDownloads.size - activePlCount
+                        val activeText = buildString {
+                            append(stringResource(R.string.cloud_downloading))
+                            append(" ")
+                            if (activePlCount > 0) {
+                                append("$activePlCount playlist${if (activePlCount > 1) "s" else ""}")
+                                if (activeSongCount > 0) append(" · ")
+                            }
+                            if (activeSongCount > 0 || activePlCount == 0) {
+                                append("$activeSongCount track${if (activeSongCount != 1) "s" else ""}")
+                            }
+                        }
+                        Text(
+                            text = activeText,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
@@ -569,29 +612,43 @@ private fun StorageSummaryCard(
                     FilledTonalButton(
                         onClick = onPlayAll,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = stringResource(R.string.cloud_download_play_all))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.cloud_download_play_all),
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
 
                     FilledTonalButton(
                         onClick = onShuffleAll,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = stringResource(R.string.cloud_download_shuffle_all))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.cloud_download_shuffle_all),
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
@@ -615,78 +672,110 @@ private fun SectionHeader(
 
 @Composable
 private fun ActiveDownloadCard(
-    download: OfflineDownload,
+    download: ActiveDownloadDisplayItem,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
         modifier = modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (download.isPlaylist) Icons.AutoMirrored.Rounded.QueueMusic else Icons.Rounded.CloudDownload,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = download.title.ifBlank { stringResource(R.string.cloud_downloads_unknown_track) },
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                val statusText = if (download.status == OfflineDownloadStatus.DOWNLOADING) {
-                    val progressInt = download.progress?.let { (it * 100).toInt() }
-                    if (progressInt != null) {
-                        stringResource(R.string.cloud_downloading) + " (" + stringResource(R.string.cloud_download_progress, progressInt) + ")"
+                val statusText = download.subtitle.ifBlank {
+                    if (download.progress != null) {
+                        val progressPercent = (download.progress * 100).toInt()
+                        stringResource(R.string.cloud_downloading) + " ($progressPercent%)"
                     } else {
-                        stringResource(R.string.cloud_downloading)
+                        stringResource(R.string.cloud_download_queued)
                     }
-                } else {
-                    stringResource(R.string.cloud_download_queued)
                 }
 
                 Text(
                     text = statusText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+
+                Spacer(modifier = Modifier.height(2.dp))
 
                 if (download.progress != null) {
                     LinearProgressIndicator(
-                        progress = { download.progress!! },
+                        progress = { download.progress },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                     )
                 } else {
                     LinearProgressIndicator(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            IconButton(onClick = onCancel) {
+            FilledIconButton(
+                onClick = onCancel,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                modifier = Modifier.size(36.dp)
+            ) {
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = stringResource(R.string.cancel),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -701,7 +790,7 @@ private fun FailedDownloadCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
         ),
@@ -713,9 +802,28 @@ private fun FailedDownloadCard(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
                     text = download.title.ifBlank { stringResource(R.string.cloud_downloads_unknown_track) },

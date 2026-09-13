@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +33,7 @@ internal data class LibrarySongPlaybackUiState(
 @OptIn(UnstableApi::class)
 @Composable
 internal fun LibraryPlaybackAwareSongItem(
+    modifier: Modifier = Modifier,
     song: Song,
     playerViewModel: PlayerViewModel,
     albumArtSize: Dp = 50.dp,
@@ -55,6 +57,7 @@ internal fun LibraryPlaybackAwareSongItem(
     }.collectAsStateWithLifecycle(initialValue = LibrarySongPlaybackUiState())
 
     EnhancedSongListItem(
+        modifier = modifier,
         song = song,
         isPlaying = playbackUiState.isPlaying,
         isCurrentSong = playbackUiState.isCurrentSong,
