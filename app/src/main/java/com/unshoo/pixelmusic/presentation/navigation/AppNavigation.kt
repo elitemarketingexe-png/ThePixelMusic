@@ -50,6 +50,7 @@ import com.unshoo.pixelmusic.presentation.screens.MashupScreen
 import com.unshoo.pixelmusic.presentation.screens.NavBarCornerRadiusScreen
 import com.unshoo.pixelmusic.presentation.screens.PaletteStyleSettingsScreen
 import com.unshoo.pixelmusic.presentation.screens.PlaylistDetailScreen
+import com.unshoo.pixelmusic.presentation.screens.FeedPlaylistDetailScreen
 import com.unshoo.pixelmusic.presentation.screens.RecentlyPlayedScreen
 import com.unshoo.pixelmusic.presentation.screens.QuickPicksAllScreen
 import com.unshoo.pixelmusic.presentation.screens.SmartMixScreen
@@ -418,6 +419,27 @@ fun AppNavigation(
                             onBackClick = { navController.popBackStack() },
                             onDeletePlayListClick = { navController.popBackStack() },
                             navController = navController
+                        )
+                    }
+                }
+            }
+
+            composable(
+                route = Screen.FeedPlaylistDetail.route,
+                arguments = listOf(navArgument("playlistId") { type = NavType.StringType }),
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) { backStackEntry ->
+                val encodedId = backStackEntry.arguments?.getString("playlistId")
+                val playlistId = encodedId?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
+                if (playlistId != null) {
+                    ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                        FeedPlaylistDetailScreen(
+                            playlistId = playlistId,
+                            navController = navController,
+                            playerViewModel = playerViewModel
                         )
                     }
                 }

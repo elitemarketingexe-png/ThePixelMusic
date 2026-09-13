@@ -20,6 +20,9 @@ sealed class Screen(val route: String) {
     object PlaylistDetail : Screen("playlist_detail/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist_detail/$playlistId"
     }
+    object FeedPlaylistDetail : Screen("feed_playlist_detail/{playlistId}") {
+        fun createRoute(playlistId: String) = "feed_playlist_detail/${java.net.URLEncoder.encode(playlistId, "UTF-8")}"
+    }
 
     object SmartMix : Screen("smart_mix")
 
