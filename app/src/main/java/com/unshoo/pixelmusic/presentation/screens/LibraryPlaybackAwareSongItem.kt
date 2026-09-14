@@ -35,7 +35,9 @@ internal data class LibrarySongPlaybackUiState(
 internal fun LibraryPlaybackAwareSongItem(
     modifier: Modifier = Modifier,
     song: Song,
-    playerViewModel: PlayerViewModel,
+    playerViewModel: PlayerViewModel? = null,
+    isCurrentSong: Boolean? = null,
+    isPlaying: Boolean? = null,
     albumArtSize: Dp = 50.dp,
     isSelected: Boolean = false,
     selectionIndex: Int? = null,
@@ -44,23 +46,36 @@ internal fun LibraryPlaybackAwareSongItem(
     onMoreOptionsClick: (Song) -> Unit,
     onClick: () -> Unit
 ) {
-    val playbackUiState by remember(song.id, playerViewModel) {
-        playerViewModel.stablePlayerState
-            .map { state ->
-                val isCurrentSong = state.currentSong?.id == song.id
-                LibrarySongPlaybackUiState(
-                    isCurrentSong = isCurrentSong,
-                    isPlaying = isCurrentSong && state.isPlaying
-                )
-            }
-            .distinctUntilChanged()
-    }.collectAsStateWithLifecycle(initialValue = LibrarySongPlaybackUiState())
+    val currentSongFlag: Boolean
+    val playingFlag: Boolean
+
+    if (isCurrentSong != null && isPlaying != null) {
+        currentSongFlag = isCurrentSong
+        playingFlag = isPlaying
+    } else if (playerViewModel != null) {
+        val playbackUiState by remember(song.id, playerViewModel) {
+            playerViewModel.stablePlayerState
+                .map { state ->
+                    val isCur = state.currentSong?.id == song.id
+                    LibrarySongPlaybackUiState(
+                        isCurrentSong = isCur,
+                        isPlaying = isCur && state.isPlaying
+                    )
+                }
+                .distinctUntilChanged()
+        }.collectAsStateWithLifecycle(initialValue = LibrarySongPlaybackUiState())
+        currentSongFlag = playbackUiState.isCurrentSong
+        playingFlag = playbackUiState.isPlaying
+    } else {
+        currentSongFlag = false
+        playingFlag = false
+    }
 
     EnhancedSongListItem(
         modifier = modifier,
         song = song,
-        isPlaying = playbackUiState.isPlaying,
-        isCurrentSong = playbackUiState.isCurrentSong,
+        isPlaying = playingFlag,
+        isCurrentSong = currentSongFlag,
         isLoading = false,
         albumArtSize = albumArtSize,
         isSelected = isSelected,

@@ -30,6 +30,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,15 +110,12 @@ fun LibraryFavoritesTab(
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = null)
 
-    val currentSongListIndex = remember(favoriteSongs.itemSnapshotList, currentSongId) {
-        if (currentSongId == null) -1
-        else {
-            val snapshot = favoriteSongs.itemSnapshotList
-            val indexInSnapshot = snapshot.items.indexOfFirst { it.id == currentSongId }
-            if (indexInSnapshot != -1) indexInSnapshot + snapshot.placeholdersBefore else -1
-        }
-    }
-    // New action just triggers the ViewModel request
+    val isPlaying by remember(playerViewModel) {
+        playerViewModel.stablePlayerState
+            .map { it.isPlaying }
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
+
     val locateCurrentSongAction: (() -> Unit)? = remember(currentSongId) {
         if (currentSongId == null) {
             null
@@ -127,7 +125,7 @@ fun LibraryFavoritesTab(
             }
         }
     }
-    // Scroll Handler from ViewModel
+
     LaunchedEffect(Unit) {
         playerViewModel.scrollToIndexEvent.collect { index ->
             if (index >= 0) {
@@ -165,30 +163,15 @@ fun LibraryFavoritesTab(
         pendingFavoriteSortScrollReset = false
     }
 
-    LaunchedEffect(currentSongListIndex, favoriteSongs.itemCount, listState, currentSongId) {
-        if (currentSongId == null || favoriteSongs.itemCount == 0) {
-            visibilityCallback(false)
-            return@LaunchedEffect
+    val isCurrentSongVisible by remember(listState, currentSongId) {
+        derivedStateOf {
+            if (currentSongId == null) false
+            else listState.layoutInfo.visibleItemsInfo.any { it.key == currentSongId }
         }
+    }
 
-        if (currentSongListIndex == -1) {
-             visibilityCallback(true)
-             return@LaunchedEffect
-        }
-
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .map {
-                val visibleItems = listState.layoutInfo.visibleItemsInfo
-                if (visibleItems.isEmpty()) {
-                    false
-                } else {
-                    currentSongListIndex in visibleItems.first().index..visibleItems.last().index
-                }
-            }
-            .distinctUntilChanged()
-            .collect { isVisible ->
-                visibilityCallback(!isVisible)
-            }
+    LaunchedEffect(isCurrentSongVisible, hasCurrentSong, currentSongId) {
+        visibilityCallback(hasCurrentSong && currentSongId != null && !isCurrentSongVisible)
     }
 
     DisposableEffect(Unit) {
@@ -243,8 +226,7 @@ fun LibraryFavoritesTab(
                         items(
                             count = favoriteSongs.itemCount,
                             key = { index ->
-                                val songId = favoriteSongs.peek(index)?.id
-                                if (songId != null) "${songId}_$index" else "fav_placeholder_$index"
+                                favoriteSongs.peek(index)?.id ?: "fav_placeholder_$index"
                             },
                             contentType = { index ->
                                 if (favoriteSongs.peek(index) != null) "song" else "placeholder"
@@ -252,9 +234,14 @@ fun LibraryFavoritesTab(
                         ) { index ->
                             val song = favoriteSongs[index]
                             if (song != null) {
+                                val isCurrent = song.id == currentSongId
+                                val songIsPlaying = isCurrent && isPlaying
+
                                 LibraryPlaybackAwareSongItem(
                                     song = song,
                                     playerViewModel = playerViewModel,
+                                    isCurrentSong = isCurrent,
+                                    isPlaying = songIsPlaying,
                                     onMoreOptionsClick = { onMoreOptionsClick(song) },
                                     isSelected = selectedSongIds.contains(song.id),
                                     selectionIndex = if (isSelectionMode) getSelectionIndex(song.id) else null,
@@ -435,8 +422,7 @@ fun LibrarySongsTabPaginated(
                             items(
                                 count = paginatedSongs.itemCount,
                                 key = { index ->
-                                    val songId = paginatedSongs.peek(index)?.id
-                                    if (songId != null) "${songId}_$index" else "paged_song_$index"
+                                    paginatedSongs.peek(index)?.id ?: "paged_song_$index"
                                 },
                                 contentType = { index ->
                                     if (paginatedSongs.peek(index) != null) "song" else "placeholder"
@@ -444,18 +430,16 @@ fun LibrarySongsTabPaginated(
                             ) { index ->
                                 val song = paginatedSongs[index]
                                 if (song != null) {
-                                     val rememberedOnMoreOptionsClick: (Song) -> Unit = remember(onMoreOptionsClick) {
-                                        { songFromListItem -> onMoreOptionsClick(songFromListItem) }
-                                     }
-                                     val rememberedOnClick: () -> Unit = remember(song.id) {
-                                         { playerViewModel.showAndPlaySongFromLibrary(song) }
-                                     }
+                                     val isCurrent = song.id == stablePlayerState.currentSong?.id
+                                     val isSongPlaying = isCurrent && stablePlayerState.isPlaying
 
                                      LibraryPlaybackAwareSongItem(
                                          song = song,
                                          playerViewModel = playerViewModel,
-                                         onMoreOptionsClick = rememberedOnMoreOptionsClick,
-                                         onClick = rememberedOnClick
+                                         isCurrentSong = isCurrent,
+                                         isPlaying = isSongPlaying,
+                                         onMoreOptionsClick = { onMoreOptionsClick(song) },
+                                         onClick = { playerViewModel.showAndPlaySongFromLibrary(song) }
                                      )
                                 } else {
                                     EnhancedSongListItem(

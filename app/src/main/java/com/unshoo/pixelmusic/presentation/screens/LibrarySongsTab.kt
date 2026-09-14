@@ -24,6 +24,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,6 +103,12 @@ fun LibrarySongsTab(
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = null)
 
+    val isPlaying by remember(playerViewModel) {
+        playerViewModel.stablePlayerState
+            .map { it.isPlaying }
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
+
     // Check if list is effectively empty (based on Paging state)
     // val isListEmpty = songs.itemCount == 0 && songs.loadState.refresh is LoadState.NotLoading
     
@@ -162,39 +169,15 @@ fun LibrarySongsTab(
         pendingSongSortScrollReset = false
     }
 
-    val currentSongListIndex = remember(songs.itemSnapshotList, currentSongId) {
-        if (currentSongId == null) -1
-        else {
-            val snapshot = songs.itemSnapshotList
-            val indexInSnapshot = snapshot.items.indexOfFirst { it.id == currentSongId }
-            if (indexInSnapshot != -1) indexInSnapshot + snapshot.placeholdersBefore else -1
+    val isCurrentSongVisible by remember(listState, currentSongId) {
+        derivedStateOf {
+            if (currentSongId == null) false
+            else listState.layoutInfo.visibleItemsInfo.any { it.key == currentSongId }
         }
     }
 
-    LaunchedEffect(currentSongListIndex, songs.itemCount, listState, currentSongId) {
-        if (currentSongId == null || songs.itemCount == 0) {
-            visibilityCallback(false)
-            return@LaunchedEffect
-        }
-
-        if (currentSongListIndex == -1) {
-            visibilityCallback(true)
-            return@LaunchedEffect
-        }
-
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .map {
-                val visibleItems = listState.layoutInfo.visibleItemsInfo
-                if (visibleItems.isEmpty()) {
-                    false
-                } else {
-                    currentSongListIndex in visibleItems.first().index..visibleItems.last().index
-                }
-            }
-            .distinctUntilChanged()
-            .collect { isVisible ->
-                visibilityCallback(!isVisible)
-            }
+    LaunchedEffect(isCurrentSongVisible, hasCurrentSong, currentSongId) {
+        visibilityCallback(hasCurrentSong && currentSongId != null && !isCurrentSongVisible)
     }
 
     DisposableEffect(Unit) {
@@ -307,8 +290,7 @@ fun LibrarySongsTab(
                             items(
                                 count = songs.itemCount,
                                 key = { index ->
-                                    val songId = songs.peek(index)?.id
-                                    if (songId != null) "${songId}_$index" else "song_placeholder_$index"
+                                    songs.peek(index)?.id ?: "song_placeholder_$index"
                                 },
                                 contentType = { index ->
                                     if (songs.peek(index) != null) "song" else "placeholder"
@@ -318,33 +300,26 @@ fun LibrarySongsTab(
                                 
                                 if (song != null) {
                                     val isSelected = selectedSongIds.contains(song.id)
-                                    
-                                    val rememberedOnMoreOptionsClick: (Song) -> Unit = remember(onMoreOptionsClick) {
-                                        { songFromListItem -> onMoreOptionsClick(songFromListItem) }
-                                    }
-                                    
-                                    // In selection mode, click toggles selection instead of playing
-                                    val rememberedOnClick: () -> Unit = remember(song.id, isSelectionMode) {
-                                        if (isSelectionMode) {
-                                            { onSongSelectionToggle(song) }
-                                        } else {
-                                            { playerViewModel.showAndPlaySongFromLibrary(song) }
-                                        }
-                                    }
-                                    
-                                    val rememberedOnLongPress: () -> Unit = remember(song.id) {
-                                        { onSongLongPress(song) }
-                                    }
+                                    val isCurrent = song.id == currentSongId
+                                    val songIsPlaying = isCurrent && isPlaying
 
                                     LibraryPlaybackAwareSongItem(
                                         song = song,
                                         playerViewModel = playerViewModel,
+                                        isCurrentSong = isCurrent,
+                                        isPlaying = songIsPlaying,
                                         isSelected = isSelected,
                                         isSelectionMode = isSelectionMode,
                                         selectionIndex = if (isSelectionMode) getSelectionIndex(song.id) else null,
-                                        onLongPress = rememberedOnLongPress,
-                                        onMoreOptionsClick = rememberedOnMoreOptionsClick,
-                                        onClick = rememberedOnClick
+                                        onLongPress = { onSongLongPress(song) },
+                                        onMoreOptionsClick = onMoreOptionsClick,
+                                        onClick = {
+                                            if (isSelectionMode) {
+                                                onSongSelectionToggle(song)
+                                            } else {
+                                                playerViewModel.showAndPlaySongFromLibrary(song)
+                                            }
+                                        }
                                     )
                                 } else {
                                      // Placeholder

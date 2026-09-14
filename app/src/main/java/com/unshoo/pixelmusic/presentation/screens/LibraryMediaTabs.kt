@@ -363,8 +363,7 @@ fun LibraryAlbumsTab(
                                 items(
                                     count = albums.itemCount,
                                     key = { index ->
-                                        val albumId = albums.peek(index)?.id
-                                        if (albumId != null) "${albumId}_$index" else "album_placeholder_$index"
+                                        albums.peek(index)?.id ?: "album_placeholder_$index"
                                     },
                                     contentType = { "album_list_item" }
                                 ) { index ->
@@ -440,8 +439,7 @@ fun LibraryAlbumsTab(
                                 items(
                                     count = albums.itemCount,
                                     key = { index ->
-                                        val albumId = albums.peek(index)?.id
-                                        if (albumId != null) "${albumId}_$index" else "album_grid_placeholder_$index"
+                                        albums.peek(index)?.id ?: "album_grid_placeholder_$index"
                                     },
                                     contentType = { "album_grid_item" }
                                 ) { index ->
@@ -664,8 +662,7 @@ fun LibraryArtistsTab(
                             items(
                                 count = artists.itemCount,
                                 key = { index ->
-                                    val artistId = artists.peek(index)?.id
-                                    if (artistId != null) "${artistId}_$index" else "artist_placeholder_$index"
+                                    artists.peek(index)?.id ?: "artist_placeholder_$index"
                                 },
                                 contentType = { "artist" }
                             ) { index ->

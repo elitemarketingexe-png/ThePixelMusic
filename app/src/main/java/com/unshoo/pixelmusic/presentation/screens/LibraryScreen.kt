@@ -3800,7 +3800,7 @@ fun LibraryFoldersTab(
                                     }
                                 }
 
-                                itemsIndexed(songsToShow, key = { index, song -> "${song.id}_$index" }, contentType = { _, _ -> "song" }) { _, song ->
+                                items(songsToShow, key = { it.id }, contentType = { "song" }) { song ->
                                     EnhancedSongListItem(
                                         song = song,
                                         isPlaying = folderPlayerState.currentSongId == song.id && folderPlayerState.isPlaying,

@@ -7,7 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,7 +70,9 @@ private fun lerpFloat(start: Float, stop: Float, fraction: Float): Float {
 }
 
 private val DefaultSurfaceShape = RoundedCornerShape(22.dp)
+private val PlayingSurfaceShape = RoundedCornerShape(50.dp)
 private val DefaultAlbumShape = RoundedCornerShape(10.dp)
+private val PlayingAlbumShape = RoundedCornerShape(50.dp)
 
 /**
  * Enhanced song list item with multi-selection support.
@@ -88,7 +90,7 @@ private val DefaultAlbumShape = RoundedCornerShape(10.dp)
  * @param onMoreOptionsClick Callback for more options button
  * @param onClick Callback for tap gesture
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun EnhancedSongListItem(
     modifier: Modifier = Modifier,
@@ -108,23 +110,67 @@ fun EnhancedSongListItem(
     onMoreOptionsClick: (Song) -> Unit,
     onClick: () -> Unit
 ) {
-    // Avoid creating a DataStore collector per visible song row. SmartImageCache is a single
-    // app-wide state holder initialized by SmartImage; using it here removes dozens of per-item
-    // Flow subscriptions from large lists.
     val performanceModeEnabled = SmartImageCache.performanceModeEnabled
-
     val albumArtTargetSizePx = with(LocalDensity.current) { albumArtSize.roundToPx() }
     val isHighlighted = isCurrentSong && !isLoading
     val isStaticState = performanceModeEnabled || (!isHighlighted && !isSelected)
 
-    val highlightProgress: Float
-    val selectionVisualProgress: Float
+    val colors = MaterialTheme.colorScheme
+    val baseContainerColor = containerColorOverride ?: colors.surfaceContainerLow
+    val baseContentColor = colors.onSurface
+
+    val surfaceShape: androidx.compose.ui.graphics.Shape
+    val albumShape: androidx.compose.ui.graphics.Shape
+    val containerColor: Color
+    val contentColor: Color
+    val selectionBorderWidth: Dp
+    val selectionBorderColor: Color
+    val mvContainerColor: Color
+    val mvContentColor: Color
+    val selectionOverlayColor: Color
+    val selectionOverlayContentColor: Color
+    val showSelectionDecoration: Boolean
     val selectionScaleProgressState: State<Float>
 
     if (isStaticState) {
-        highlightProgress = if (isHighlighted) 1f else 0f
-        selectionVisualProgress = if (isSelected) 1f else 0f
         selectionScaleProgressState = rememberUpdatedState(if (isSelected) 1f else 0f)
+        if (isSelected) {
+            surfaceShape = customShape ?: DefaultSurfaceShape
+            albumShape = DefaultAlbumShape
+            containerColor = colors.secondaryContainer
+            contentColor = colors.onSecondaryContainer
+            selectionBorderWidth = 2.5.dp
+            selectionBorderColor = colors.primary
+            mvContainerColor = colors.onSurface
+            mvContentColor = colors.surfaceContainerHigh
+            selectionOverlayColor = colors.primary.copy(alpha = 0.7f)
+            selectionOverlayContentColor = colors.onPrimary
+            showSelectionDecoration = true
+        } else if (isHighlighted) {
+            surfaceShape = customShape ?: PlayingSurfaceShape
+            albumShape = PlayingAlbumShape
+            containerColor = colors.primaryContainer
+            contentColor = colors.onPrimaryContainer
+            selectionBorderWidth = 0.dp
+            selectionBorderColor = Color.Transparent
+            mvContainerColor = colors.primaryContainer
+            mvContentColor = colors.onPrimaryContainer
+            selectionOverlayColor = Color.Transparent
+            selectionOverlayContentColor = Color.Transparent
+            showSelectionDecoration = false
+        } else {
+            surfaceShape = customShape ?: DefaultSurfaceShape
+            albumShape = DefaultAlbumShape
+            containerColor = baseContainerColor
+            contentColor = baseContentColor
+            selectionBorderWidth = 0.dp
+            selectionBorderColor = Color.Transparent
+            mvContainerColor = colors.onSurface
+            mvContentColor = colors.surfaceContainerHigh
+            selectionOverlayColor = Color.Transparent
+            selectionOverlayContentColor = Color.Transparent
+            showSelectionDecoration = false
+        }
     } else {
         val animationTarget = remember(isHighlighted, isSelected) {
             EnhancedSongAnimationTarget(
@@ -136,13 +182,13 @@ fun EnhancedSongListItem(
             targetState = animationTarget,
             label = "EnhancedSongListItemTransition"
         )
-        highlightProgress = transition.animateFloat(
+        val highlightProgress = transition.animateFloat(
             transitionSpec = { tween(durationMillis = 400) },
             label = "highlightProgress"
         ) { state ->
             if (state.isHighlighted) 1f else 0f
         }.value
-        selectionVisualProgress = transition.animateFloat(
+        val selectionVisualProgress = transition.animateFloat(
             transitionSpec = { tween(durationMillis = 250) },
             label = "selectionVisualProgress"
         ) { state ->
@@ -159,67 +205,27 @@ fun EnhancedSongListItem(
         ) { state ->
             if (state.isSelected) 1f else 0f
         }
-    }
 
-    val animatedCornerRadius = if (isStaticState && !isHighlighted) 22.dp else lerpDp(22.dp, 50.dp, highlightProgress)
-    val animatedAlbumCornerRadius = if (isStaticState && !isHighlighted) 10.dp else lerpDp(10.dp, 50.dp, highlightProgress)
-    val selectionBorderWidth = if (isStaticState && !isSelected) 0.dp else lerpDp(0.dp, 2.5.dp, selectionVisualProgress)
+        val animatedCornerRadius = lerpDp(22.dp, 50.dp, highlightProgress)
+        val animatedAlbumCornerRadius = lerpDp(10.dp, 50.dp, highlightProgress)
+        selectionBorderWidth = lerpDp(0.dp, 2.5.dp, selectionVisualProgress)
 
-    val surfaceShape = remember(animatedCornerRadius, customShape, isHighlighted, isStaticState) {
-        if (customShape != null && !isHighlighted) {
-            customShape
-        } else if (isStaticState && !isHighlighted) {
-            DefaultSurfaceShape
-        } else {
-            RoundedCornerShape(animatedCornerRadius)
-        }
-    }
+        surfaceShape = customShape ?: RoundedCornerShape(animatedCornerRadius)
+        albumShape = RoundedCornerShape(animatedAlbumCornerRadius)
 
-    val albumShape = remember(animatedAlbumCornerRadius, isStaticState, isHighlighted) {
-        if (isStaticState && !isHighlighted) {
-            DefaultAlbumShape
-        } else {
-            RoundedCornerShape(animatedAlbumCornerRadius)
-        }
-    }
-
-    val colors = MaterialTheme.colorScheme
-    val baseContainerColor = containerColorOverride ?: colors.surfaceContainerLow
-    
-    val containerColor = remember(baseContainerColor, colors.primaryContainer, colors.secondaryContainer, highlightProgress, selectionVisualProgress) {
         val playbackContainerColor = lerpColor(baseContainerColor, colors.primaryContainer, highlightProgress)
-        lerpColor(playbackContainerColor, colors.secondaryContainer, selectionVisualProgress)
-    }
+        containerColor = lerpColor(playbackContainerColor, colors.secondaryContainer, selectionVisualProgress)
 
-    val baseContentColor = colors.onSurface
-    
-    val contentColor = remember(baseContentColor, colors.onPrimaryContainer, colors.onSecondaryContainer, highlightProgress, selectionVisualProgress) {
         val playbackContentColor = lerpColor(baseContentColor, colors.onPrimaryContainer, highlightProgress)
-        lerpColor(playbackContentColor, colors.onSecondaryContainer, selectionVisualProgress)
-    }
+        contentColor = lerpColor(playbackContentColor, colors.onSecondaryContainer, selectionVisualProgress)
 
-    val selectionBorderColor = remember(colors.primary, selectionVisualProgress) {
-        lerpColor(colors.primary.copy(alpha = 0f), colors.primary, selectionVisualProgress)
+        selectionBorderColor = lerpColor(colors.primary.copy(alpha = 0f), colors.primary, selectionVisualProgress)
+        mvContainerColor = lerpColor(colors.onSurface, colors.primaryContainer, highlightProgress)
+        mvContentColor = lerpColor(colors.surfaceContainerHigh, colors.onPrimaryContainer, highlightProgress)
+        selectionOverlayColor = lerpColor(Color.Transparent, colors.primary.copy(alpha = 0.7f), selectionVisualProgress)
+        selectionOverlayContentColor = lerpColor(Color.Transparent, colors.onPrimary, selectionVisualProgress)
+        showSelectionDecoration = selectionVisualProgress > 0.001f
     }
-    val mvContainerColor = remember(colors.onSurface, colors.primaryContainer, highlightProgress) {
-        lerpColor(colors.onSurface, colors.primaryContainer, highlightProgress)
-    }
-    val mvContentColor = remember(colors.surfaceContainerHigh, colors.onPrimaryContainer, highlightProgress) {
-        lerpColor(colors.surfaceContainerHigh, colors.onPrimaryContainer, highlightProgress)
-    }
-    val selectionOverlayColor = remember(colors.primary, selectionVisualProgress) {
-        lerpColor(
-            Color.Transparent,
-            colors.primary.copy(alpha = 0.7f),
-            selectionVisualProgress
-        )
-    }
-    val selectionOverlayContentColor = lerpColor(
-        Color.Transparent,
-        colors.onPrimary,
-        selectionVisualProgress
-    )
-    val showSelectionDecoration = selectionVisualProgress > 0.001f
 
     if (isLoading) {
         // Shimmer Placeholder Layout
@@ -281,8 +287,6 @@ fun EnhancedSongListItem(
         }
     } else {
         // Actual Song Item Layout
-        var applyTextMarquee by remember { mutableStateOf(false) }
-
         Surface(
             modifier = modifier
                 .fillMaxWidth()
@@ -307,31 +311,16 @@ fun EnhancedSongListItem(
                         Modifier
                     }
                 )
-                .pointerInput(isSelectionMode) {
-                    detectTapGestures(
-                        onTap = { 
-                            if (isSelectionMode) {
-                                // In selection mode, tap toggles selection
-                                onLongPress()
-                            } else {
-                                onClick() 
-                            }
-                        },
-                        onLongPress = { 
-                            // Long press always activates/toggles selection
+                .combinedClickable(
+                    onClick = {
+                        if (isSelectionMode) {
                             onLongPress()
-                        },
-                        onPress = {
-                            if (!isSelectionMode) {
-                                try {
-                                    awaitRelease()
-                                } finally {
-                                    applyTextMarquee = false
-                                }
-                            }
+                        } else {
+                            onClick()
                         }
-                    )
-                },
+                    },
+                    onLongClick = onLongPress
+                ),
             shape = surfaceShape,
             color = containerColor,
         ) {
