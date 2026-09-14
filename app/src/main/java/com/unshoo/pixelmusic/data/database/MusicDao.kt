@@ -1651,8 +1651,7 @@ interface MusicDao {
 
     @Query("""
         SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count,
-               SUM(COALESCE(song_engagements.play_count, 0)) AS total_play_count
+               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
         LEFT JOIN songs ON song_artist_cross_ref.song_id = songs.id AND (
@@ -1669,10 +1668,6 @@ interface MusicDao {
                 songs.artist_id IN (SELECT id FROM artists WHERE channel_id IS NOT NULL AND channel_id != '')
                 AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
             )
-        )
-        LEFT JOIN song_engagements ON (
-            (songs.source_type != 7 AND CAST(songs.id AS TEXT) = song_engagements.song_id)
-            OR (songs.source_type = 7 AND songs.content_uri_string = REPLACE(song_engagements.song_id, 'youtube_', 'youtube://'))
         )
         WHERE (
             (:subscribedOnly = 0 OR (
@@ -1713,7 +1708,6 @@ interface MusicDao {
             CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
-            CASE WHEN :sortOrder = 'artist_most_played' THEN total_play_count END DESC,
             artists.name COLLATE NOCASE ASC,
             artists.id ASC
     """)

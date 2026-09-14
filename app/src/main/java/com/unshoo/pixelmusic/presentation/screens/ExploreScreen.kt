@@ -529,8 +529,9 @@ fun ExploreScreen(
                                         subtitle = album.artist,
                                         artworkUrl = album.artworkUrl,
                                         onClick = {
-                                            if (!album.browseId.isNullOrBlank()) {
-                                                navController.navigateSafely(Screen.AlbumDetail.createRoute(album.browseId))
+                                            val id = album.browseId
+                                            if (!id.isNullOrBlank() && (id.startsWith("MPRE") || id.startsWith("OLAK"))) {
+                                                navController.navigateSafely(Screen.AlbumDetail.createRoute(id))
                                             }
                                         }
                                     )

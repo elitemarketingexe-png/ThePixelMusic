@@ -249,7 +249,8 @@ class MusicRepositoryImpl @Inject constructor(
             userPreferencesRepository.subscribedArtistIdsFlow
         ) { allowedDirs, blockedDirs, subscribedIds ->
             Triple(allowedDirs, blockedDirs, subscribedIds)
-        }.flatMapLatest { (allowedDirs, blockedDirs, subscribedIds) ->
+        }.distinctUntilChanged()
+        .flatMapLatest { (allowedDirs, blockedDirs, subscribedIds) ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
                     computeAllowedDirs(allowedDirs, blockedDirs)
@@ -276,17 +277,7 @@ class MusicRepositoryImpl @Inject constructor(
                 )
             }.flatMapLatest { it }
         }.map { pagingData ->
-            pagingData.map { entity ->
-                val artist = entity.toArtist()
-                if (artist.effectiveImageUrl.isNullOrBlank() && artist.name.isNotBlank()) {
-                    repositoryScope.launch(Dispatchers.IO) {
-                        runCatching {
-                            artistImageRepository.getArtistImageUrl(artist.name, artist.id)
-                        }
-                    }
-                }
-                artist
-            }
+            pagingData.map { entity -> entity.toArtist() }
         }.flowOn(Dispatchers.IO)
     }
 

@@ -222,6 +222,14 @@ class FeedInnerTubeApi @Inject constructor(
         }.getOrDefault(emptyList())
     }
 
+    suspend fun fetchHomeAlbums(limit: Int = 12): List<FeedAlbum> = withContext(Dispatchers.IO) {
+        val isAuth = ytAuth.connection.value.isConnected
+        runCatching {
+            val root = browseRoot(YT_HOME_BROWSE_ID, authenticated = isAuth)
+            parseHomeAlbums(root, limit)
+        }.getOrDefault(emptyList())
+    }
+
     suspend fun fetchTasteSignals(
         recentLimit: Int = 30,
         likedLimit: Int = 24,
@@ -375,9 +383,11 @@ class FeedInnerTubeApi @Inject constructor(
             val nav = item.obj("navigationEndpoint")?.obj("browseEndpoint")
                 ?: item.obj("title")?.array("runs")?.firstOrNull()?.asObject()?.obj("navigationEndpoint")?.obj("browseEndpoint")
             val itemBrowseId = nav?.string("browseId") ?: continue
+            if (!itemBrowseId.startsWith("MPRE")) continue
             val subtitleRuns = item.obj("subtitle")?.array("runs")?.mapNotNull { it.asObject()?.string("text") }.orEmpty()
             val year = subtitleRuns.firstOrNull { it.trim().matches(Regex("^(19|20)\\d{2}$")) }
-            val type = subtitleRuns.firstOrNull { it.equals("Single", true) || it.equals("EP", true) || it.equals("Album", true) } ?: "Album"
+            val explicitType = subtitleRuns.firstOrNull { it.equals("Single", true) || it.equals("EP", true) || it.equals("Album", true) }
+            val type = explicitType ?: if (itemBrowseId.startsWith("MPREb_")) "Album" else continue
             val artworkUrl = extractArtwork(item)
             val albumItem = ArtistAlbumItem(
                 title = title.trim(),
@@ -696,6 +706,52 @@ class FeedInnerTubeApi @Inject constructor(
             trackCountText = trackCountText,
             artworkUrl = artworkUrl
         )
+    }
+
+    private fun parseHomeAlbums(root: JsonElement, limit: Int): List<FeedAlbum> {
+        val renderers = mutableListOf<JsonObject>()
+        collectObjects(root, "musicTwoRowItemRenderer", renderers)
+        return renderers.mapNotNull { item ->
+            val nav = item.obj("navigationEndpoint")?.obj("browseEndpoint")
+                ?: item.obj("title")?.array("runs")?.firstOrNull()?.asObject()?.obj("navigationEndpoint")?.obj("browseEndpoint")
+            val browseId = nav?.string("browseId") ?: return@mapNotNull null
+            if (!browseId.startsWith("MPRE")) return@mapNotNull null
+            val pageType = nav.obj("browseEndpointContextSupportedConfigs")
+                ?.obj("browseEndpointContextMusicConfig")?.string("pageType")
+            val subtitleRuns = item.obj("subtitle")?.array("runs")?.mapNotNull { it.asObject()?.string("text") }.orEmpty()
+            val isAlbumType = pageType == "MUSIC_PAGE_TYPE_ALBUM" ||
+                pageType == "MUSIC_PAGE_TYPE_AUDIOBOOK" ||
+                subtitleRuns.any { it.equals("Album", ignoreCase = true) || it.equals("EP", ignoreCase = true) || it.equals("Single", ignoreCase = true) } ||
+                browseId.startsWith("MPREb_")
+            if (!isAlbumType) return@mapNotNull null
+
+            val title = item.obj("title")?.array("runs")?.joinToString("") { it.asObject()?.string("text").orEmpty() }
+                ?: item.obj("title")?.string("simpleText")
+                ?: return@mapNotNull null
+            if (title.isBlank()) return@mapNotNull null
+
+            val details = item.obj("subtitle")?.array("runs")?.mapNotNull { it.asObject() }.orEmpty()
+            val artist = details.firstOrNull { run ->
+                run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("UC") == true
+            }?.string("text")?.trim()?.takeIf { it.isNotBlank() }
+                ?: details.mapNotNull { it.string("text") }
+                    .map { it.trim().trim(',', '&', '/', ';', '•', '·', '.', '-').trim() }
+                    .firstOrNull { runText ->
+                        runText.isNotBlank() &&
+                        !runText.equals("Album", ignoreCase = true) &&
+                        !runText.equals("Single", ignoreCase = true) &&
+                        !runText.equals("EP", ignoreCase = true) &&
+                        !runText.matches(Regex("^(19|20)\\d{2}$"))
+                    } ?: "Unknown artist"
+
+            val artworkUrl = extractArtwork(item)
+            FeedAlbum(
+                title = title.trim(),
+                artist = artist,
+                artworkUrl = artworkUrl,
+                browseId = browseId
+            )
+        }.distinctBy { "${it.artist.trim().lowercase()}_${it.title.trim().lowercase()}" }.take(limit)
     }
 
     private fun directWatchVideoId(renderer: JsonObject): String? =
