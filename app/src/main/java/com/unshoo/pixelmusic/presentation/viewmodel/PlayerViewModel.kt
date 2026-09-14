@@ -3027,7 +3027,9 @@ class PlayerViewModel @Inject constructor(
             val controller = mediaController
             val currentQueue = _playerUiState.value.currentPlaybackQueue
             val songIndexInQueue = currentQueue.indexOfFirst { it.id == song.id }
-            val queueMatchesContext = currentQueue.matchesSongOrder(playbackContext)
+            val queueMatchesContext = currentQueue.matchesSongOrder(playbackContext) ||
+                (playbackContext.any { it.id == song.id } && currentQueue.any { it.id == song.id } &&
+                    (queueName == _playerUiState.value.currentQueueSourceName || queueName == "Current Context" || queueName == "None"))
             val reusableTargetIndex = if (
                 controller != null &&
                 controller.isConnected &&
@@ -4232,10 +4234,18 @@ class PlayerViewModel @Inject constructor(
             return currentMediaItemIndex.takeIf { index -> index != C.INDEX_UNSET } ?: 0
         }
 
-        if (songIndexInQueue !in 0 until mediaItemCount) return null
+        if (songIndexInQueue in 0 until mediaItemCount) {
+            val mediaIdAtTarget = runCatching { getMediaItemAt(songIndexInQueue).mediaId }.getOrNull()
+            if (mediaIdAtTarget == songId) return songIndexInQueue
+        }
 
-        val mediaIdAtTarget = runCatching { getMediaItemAt(songIndexInQueue).mediaId }.getOrNull()
-        return songIndexInQueue.takeIf { mediaIdAtTarget == songId }
+        // Search the timeline if display index differs from raw player order (e.g. shuffled queue)
+        for (i in 0 until mediaItemCount) {
+            val itemMediaId = runCatching { getMediaItemAt(i).mediaId }.getOrNull()
+            if (itemMediaId == songId) return i
+        }
+
+        return null
     }
 
     private fun playLoadedControllerItem(controller: MediaController, targetIndex: Int, targetSong: Song? = null): Job {
@@ -5476,8 +5486,9 @@ class PlayerViewModel @Inject constructor(
                 syncDisplayedMediaItemIfChanged(playerCtrl)
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                if (playbackStateHolder.stablePlayerState.value.isShuffleEnabled != shuffleModeEnabled) {
-                    toggleShuffle()
+                if (isRemoteSessionControllingPlayback()) return
+                playbackStateHolder.updateStablePlayerState {
+                    it.copy(isShuffleEnabled = shuffleModeEnabled)
                 }
                 updateCurrentPlaybackQueueFromPlayer(playerCtrl)
             }

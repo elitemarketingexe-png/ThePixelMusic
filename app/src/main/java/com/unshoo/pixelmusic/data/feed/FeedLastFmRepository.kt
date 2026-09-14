@@ -160,7 +160,7 @@ fun JsonObject.artistName(): String {
     val a = this["artist"] ?: return ""
     return when (a) {
         is JsonPrimitive -> a.contentOrNull.orEmpty()
-        is JsonObject -> stringOrNull("name") ?: stringOrNull("#text").orEmpty()
+        is JsonObject -> a.stringOrNull("name")?.takeIf { it.isNotBlank() } ?: a.stringOrNull("#text").orEmpty()
         else -> ""
     }
 }
@@ -179,7 +179,7 @@ fun JsonObject.albumName(): String? {
     val a = this["album"] ?: return null
     return when (a) {
         is JsonPrimitive -> a.contentOrNull
-        is JsonObject -> stringOrNull("#text") ?: stringOrNull("title")
+        is JsonObject -> a.stringOrNull("#text")?.takeIf { it.isNotBlank() } ?: a.stringOrNull("title")
         else -> null
     }
 }

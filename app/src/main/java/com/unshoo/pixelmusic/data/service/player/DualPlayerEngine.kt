@@ -884,6 +884,8 @@ class DualPlayerEngine @Inject constructor(
             playerA.setMediaItems(mediaItems, currentIndex, positionMs)
             playerA.repeatMode = repeatMode
             playerA.shuffleModeEnabled = shuffleMode
+            playerB.repeatMode = repeatMode
+            playerB.shuffleModeEnabled = shuffleMode
             playerA.prepare()
             playerA.playWhenReady = desiredPlayWhenReady
             applyWakeModeForCurrentItem()
@@ -1454,6 +1456,17 @@ class DualPlayerEngine @Inject constructor(
                 resetPreparedWindowState()
                 playerB.setMediaItem(resolvedItem)
                 playerB.seekTo(startPositionMs)
+            }
+
+            playerB.repeatMode = playerA.repeatMode
+            playerB.shuffleModeEnabled = playerA.shuffleModeEnabled
+            if (playerA.shuffleModeEnabled && playerB.mediaItemCount > 0) {
+                playerB.setShuffleOrder(
+                    androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(
+                        IntArray(playerB.mediaItemCount) { it },
+                        System.currentTimeMillis()
+                    )
+                )
             }
 
             playerB.prepare()
