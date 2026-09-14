@@ -13,6 +13,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
@@ -1067,7 +1068,17 @@ fun LibraryScreen(
                                             compactMode = isCompactNavigation
                                         )
                                         if (pagerState.currentPage != targetPage) {
-                                            pagerState.animateScrollToPage(targetPage)
+                                            val diff = targetPage - pagerState.currentPage
+                                            if (kotlin.math.abs(diff) > 1) {
+                                                pagerState.scrollToPage(if (diff > 0) targetPage - 1 else targetPage + 1)
+                                            }
+                                            pagerState.animateScrollToPage(
+                                                page = targetPage,
+                                                animationSpec = tween(
+                                                    durationMillis = 320,
+                                                    easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                                                )
+                                            )
                                         }
                                     }
                                 }
@@ -1717,9 +1728,11 @@ fun LibraryScreen(
 
                                     LibraryTabId.LIKED -> {
                                         val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
+                                        val isLibraryLoading by libraryViewModel.isLoadingLibrary.collectAsStateWithLifecycle()
 
                                         LibraryFavoritesTab(
                                             favoriteSongs = favoritePagingItems,
+                                            isLoading = isLibraryLoading || (playerUiState.isLoadingLibraryCategories && favoritePagingItems.itemCount == 0),
                                             playerViewModel = playerViewModel,
                                             bottomBarHeight = bottomBarHeightDp,
                                             onMoreOptionsClick = stableOnMoreOptionsClick,
@@ -2315,7 +2328,17 @@ fun LibraryScreen(
                         compactMode = isCompactNavigation
                     )
                     if (pagerState.currentPage != targetPage) {
-                        pagerState.animateScrollToPage(targetPage)
+                        val diff = targetPage - pagerState.currentPage
+                        if (kotlin.math.abs(diff) > 1) {
+                            pagerState.scrollToPage(if (diff > 0) targetPage - 1 else targetPage + 1)
+                        }
+                        pagerState.animateScrollToPage(
+                            page = targetPage,
+                            animationSpec = tween(
+                                durationMillis = 320,
+                                easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                            )
+                        )
                     }
                 }
                 showTabSwitcherSheet = false

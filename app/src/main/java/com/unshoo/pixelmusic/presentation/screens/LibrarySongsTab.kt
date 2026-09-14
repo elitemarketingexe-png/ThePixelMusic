@@ -189,9 +189,6 @@ fun LibrarySongsTab(
 
     val refreshState = songs.loadState.refresh
     val reachedEndOfPagination = songs.loadState.append.endOfPaginationReached
-    val shouldShowInitialLoading = songs.itemCount == 0 && (
-        isLoading || refreshState is LoadState.Loading
-    )
 
     when {
         refreshState is LoadState.Error && songs.itemCount == 0 -> {
@@ -213,36 +210,6 @@ fun LibrarySongsTab(
                     Button(onClick = { songs.retry() }) {
                         Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                }
-            }
-        }
-        shouldShowInitialLoading -> {
-            // Initial loading - show skeleton placeholders
-            LazyColumn(
-                modifier = Modifier
-                    .padding(start = 12.dp, end = 24.dp, bottom = 6.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = 26.dp,
-                            topEnd = 26.dp,
-                            bottomStart = PlayerSheetCollapsedCornerRadius,
-                            bottomEnd = PlayerSheetCollapsedCornerRadius
-                        )
-                    )
-                    .fillMaxSize(),
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap)
-            ) {
-                items(12, key = { "skeleton_song_$it" }) {
-                    EnhancedSongListItem(
-                        song = Song.emptySong(),
-                        isPlaying = false,
-                        isLoading = true,
-                        isCurrentSong = false,
-                        onMoreOptionsClick = {},
-                        onClick = {}
-                    )
                 }
             }
         }

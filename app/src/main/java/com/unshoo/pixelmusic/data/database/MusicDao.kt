@@ -1654,7 +1654,7 @@ interface MusicDao {
                artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
-        LEFT JOIN songs ON song_artist_cross_ref.song_id = songs.id AND (
+        LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
@@ -1675,7 +1675,10 @@ interface MusicDao {
                 OR CAST(artists.id AS TEXT) IN (:subscribedIds)
             ))
             AND (
-                (:filterMode != 1 AND (artists.channel_id IS NOT NULL AND artists.channel_id != ''))
+                (:filterMode != 1 AND (
+                    (artists.channel_id IS NOT NULL AND artists.channel_id != '')
+                    OR EXISTS (SELECT 1 FROM library_membership lm_a WHERE lm_a.song_key = 'artist_' || CAST(artists.id AS TEXT))
+                ))
                 OR (
                     songs.id IS NOT NULL 
                     AND (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
@@ -1702,7 +1705,9 @@ interface MusicDao {
             )
         )
         GROUP BY artists.id
-        HAVING track_count >= :minSongCount OR (artists.channel_id IS NOT NULL AND artists.channel_id != '')
+        HAVING track_count >= :minSongCount 
+            OR (artists.channel_id IS NOT NULL AND artists.channel_id != '')
+            OR EXISTS (SELECT 1 FROM library_membership lm_a WHERE lm_a.song_key = 'artist_' || CAST(artists.id AS TEXT))
         ORDER BY
             CASE WHEN :sortOrder = 'artist_name_az' THEN artists.name END COLLATE NOCASE ASC,
             CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
@@ -1730,7 +1735,7 @@ interface MusicDao {
                artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
-        LEFT JOIN songs ON song_artist_cross_ref.song_id = songs.id AND (
+        LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
@@ -1766,7 +1771,7 @@ interface MusicDao {
                artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
-        LEFT JOIN songs ON song_artist_cross_ref.song_id = songs.id
+        LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id)
         WHERE artists.id < 0
           AND (
               artists.channel_id IN (:subscribedIds)
@@ -1792,7 +1797,7 @@ interface MusicDao {
                artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
-        INNER JOIN songs ON song_artist_cross_ref.song_id = songs.id AND (
+        INNER JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
@@ -1823,7 +1828,7 @@ interface MusicDao {
                artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
-        LEFT JOIN songs ON song_artist_cross_ref.song_id = songs.id AND (
+        LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
@@ -1950,7 +1955,7 @@ interface MusicDao {
                artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
-        LEFT JOIN songs ON song_artist_cross_ref.song_id = songs.id AND (
+        LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')

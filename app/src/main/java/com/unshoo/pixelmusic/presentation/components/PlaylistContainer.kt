@@ -138,9 +138,7 @@ fun PlaylistContainer(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) { ContainedLoadingIndicator() }
-        }
-
-        if (filteredPlaylists.isEmpty() && !playlistUiState.isLoading) {
+        } else if (filteredPlaylists.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()

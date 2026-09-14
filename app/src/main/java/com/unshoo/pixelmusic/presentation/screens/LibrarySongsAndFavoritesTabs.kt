@@ -73,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 @Composable
 fun LibraryFavoritesTab(
     favoriteSongs: LazyPagingItems<Song>,
+    isLoading: Boolean = false,
     playerViewModel: PlayerViewModel,
     bottomBarHeight: Dp,
     onMoreOptionsClick: (Song) -> Unit,
@@ -116,25 +117,28 @@ fun LibraryFavoritesTab(
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
 
+    // Scroll Handler from ViewModel (Centers playing song vertically in list)
+    LaunchedEffect(Unit) {
+        playerViewModel.scrollToIndexEvent.collect { index ->
+            if (index >= 0) {
+                 val viewportHeight = listState.layoutInfo.viewportSize.height
+                 val centerOffset = -(viewportHeight / 3)
+                 val firstVisible = listState.firstVisibleItemIndex
+                 if (Math.abs(index - firstVisible) > 20) {
+                     listState.scrollToItem(index, scrollOffset = centerOffset)
+                 } else {
+                     listState.animateScrollToItem(index, scrollOffset = centerOffset)
+                 }
+            }
+        }
+    }
+
     val locateCurrentSongAction: (() -> Unit)? = remember(currentSongId) {
         if (currentSongId == null) {
             null
         } else {
             {
-                playerViewModel.requestLocateCurrentFavoriteSong()
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        playerViewModel.scrollToIndexEvent.collect { index ->
-            if (index >= 0) {
-                 val firstVisible = listState.firstVisibleItemIndex
-                 if (Math.abs(index - firstVisible) > 20) {
-                     listState.scrollToItem(index)
-                 } else {
-                     listState.animateScrollToItem(index)
-                 }
+                playerViewModel.requestLocateCurrentSong()
             }
         }
     }
@@ -181,32 +185,57 @@ fun LibraryFavoritesTab(
         }
     }
 
-    if (favoriteSongs.itemCount == 0 && favoriteSongs.loadState.refresh !is LoadState.Loading) {
-        LibraryExpressiveEmptyState(
-            tabId = LibraryTabId.LIKED,
-            storageFilter = storageFilter,
-            bottomBarHeight = bottomBarHeight
-        )
+    val refreshState = favoriteSongs.loadState.refresh
+
+    if (favoriteSongs.itemCount == 0 && refreshState !is LoadState.Loading) {
+        if (refreshState is LoadState.Error) {
+            val error = (refreshState as? LoadState.Error)?.error
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.library_error_loading_songs), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        error?.localizedMessage ?: stringResource(R.string.error_unknown),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(onClick = { favoriteSongs.retry() }) {
+                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        } else {
+            LibraryExpressiveEmptyState(
+                tabId = LibraryTabId.LIKED,
+                storageFilter = storageFilter,
+                bottomBarHeight = bottomBarHeight
+            )
+        }
     } else {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            val songsPullToRefreshState = rememberPullToRefreshState()
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = onRefresh,
-                state = songsPullToRefreshState,
-                modifier = Modifier.fillMaxSize(),
-                indicator = {
-                    PullToRefreshDefaults.LoadingIndicator(
-                        state = songsPullToRefreshState,
-                        isRefreshing = isRefreshing,
-                        modifier = Modifier.align(Alignment.TopCenter)
-                    )
-                }
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
+                val songsPullToRefreshState = rememberPullToRefreshState()
+                PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = onRefresh,
+                    state = songsPullToRefreshState,
+                    modifier = Modifier.fillMaxSize(),
+                    indicator = {
+                        PullToRefreshDefaults.LoadingIndicator(
+                            state = songsPullToRefreshState,
+                            isRefreshing = isRefreshing,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
