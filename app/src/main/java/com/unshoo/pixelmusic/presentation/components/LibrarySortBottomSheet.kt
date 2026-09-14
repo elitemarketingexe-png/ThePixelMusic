@@ -118,18 +118,13 @@ fun LibrarySortBottomSheet(
                 modifier = Modifier.padding(start = 2.dp, top = 0.dp, bottom = 16.dp)
             )
 
-            // Cast to nullable list to handle potential runtime nulls, then filter
-            @Suppress("UNCHECKED_CAST")
-            val safeOptions = remember(options) {
-                (options as List<SortOption?>).filterNotNull()
-            }
-            val resolvedSelectedOption = remember(safeOptions, selectedOption) {
-                safeOptions.firstOrNull { option ->
+            val resolvedSelectedOption = remember(options, selectedOption) {
+                options.firstOrNull { option ->
                     option.storageKey == selectedOption?.storageKey
-                } ?: selectedOption ?: safeOptions.firstOrNull()
+                } ?: selectedOption ?: options.firstOrNull()
             }
-            val methodOptions = remember(safeOptions) {
-                safeOptions
+            val methodOptions = remember(options) {
+                options
                     .map { it.methodOption() }
                     .distinctBy { it.methodKey }
             }
@@ -184,7 +179,6 @@ fun LibrarySortBottomSheet(
                     }
 
                     Surface(
-                        //shape = MaterialTheme.shapes.extraLarge,
                         color = containerColor,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -380,11 +374,6 @@ private fun LibrarySheetSortDirectionCard(
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor
                 )
-//                Text(
-//                    text = supportingText,
-//                    style = MaterialTheme.typography.bodySmall,
-//                    color = contentColor.copy(alpha = 0.78f)
-//                )
             }
         }
     }
@@ -402,18 +391,7 @@ internal fun LibrarySheetToggleCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 0.dp)
-            .clip(
-                AbsoluteSmoothCornerShape(
-                    cornerRadiusBL = boxCornerRadius,
-                    smoothnessAsPercentBR = 60,
-                    cornerRadiusTR = boxCornerRadius,
-                    smoothnessAsPercentTL = 60,
-                    cornerRadiusTL = boxCornerRadius,
-                    smoothnessAsPercentBL = 60,
-                    cornerRadiusBR = boxCornerRadius,
-                    smoothnessAsPercentTR = 60
-                )
-            )
+            .clip(AbsoluteSmoothCornerShape(boxCornerRadius, 60))
             .background(color = boxBackgroundColor)
             .clickable(onClick = { onCheckedChange(!checked) })
     ) {
@@ -446,7 +424,6 @@ internal fun LibrarySheetToggleCard(
                         Icon(
                             imageVector = Icons.Rounded.Check,
                             contentDescription = stringResource(R.string.presentation_batch_g_cd_switch_on),
-                            //tint = MaterialTheme.colorScheme.onTertiaryContainer,
                             modifier = Modifier.size(SwitchDefaults.IconSize),
                         )
                     }

@@ -445,39 +445,6 @@ private fun PlayerUiState.toLibraryScreenProjection(): LibraryScreenPlayerProjec
         hideLocalMedia = hideLocalMedia
     )
 
-private data class SongsTabSlice(
-    val currentSongSortOption: SortOption = SortOption.SongTitleAZ,
-    val currentStorageFilter: StorageFilter = StorageFilter.ALL,
-    val hideLocalMedia: Boolean = false
-)
-
-private data class AlbumsTabSlice(
-    val isAlbumsListView: Boolean = false,
-    val currentAlbumSortOption: SortOption = SortOption.AlbumTitleAZ,
-    val currentStorageFilter: StorageFilter = StorageFilter.ALL,
-    val hideLocalMedia: Boolean = false
-)
-
-private data class ArtistsTabSlice(
-    val currentArtistSortOption: SortOption = SortOption.ArtistNameAZ,
-    val currentStorageFilter: StorageFilter = StorageFilter.ALL,
-    val hideLocalMedia: Boolean = false
-)
-
-private data class FavoritesTabSlice(
-    val currentFavoriteSortOption: SortOption = SortOption.LikedSongDateLiked,
-    val currentStorageFilter: StorageFilter = StorageFilter.ALL,
-    val hideLocalMedia: Boolean = false
-)
-
-private data class FoldersTabSlice(
-    val musicFolders: ImmutableList<MusicFolder> = persistentListOf(),
-    val currentFolder: MusicFolder? = null,
-    val isFoldersPlaylistView: Boolean = false,
-    val currentFolderSortOption: SortOption = SortOption.FolderNameAZ,
-    val isLoadingLibraryCategories: Boolean = true
-)
-
 @Immutable
 data class FolderPlayerProjection(
     val currentSongId: String? = null,
@@ -1175,7 +1142,6 @@ fun LibraryScreen(
                         cornerRadiusTR = 34.dp,
                         smoothnessAsPercentTL = 60
                     )
-                    // shape = AbsoluteSmoothCornerShape(cornerRadiusTL = 24.dp, smoothnessAsPercentTR = 60, /*...*/) // Your custom shape
                 ) {
                     Column(Modifier.fillMaxSize()) {
                         LaunchedEffect(currentTabId) {
@@ -1650,17 +1616,6 @@ fun LibraryScreen(
                                     LibraryTabId.SONGS -> {
                                         val allSongsLazyPagingItems = libraryViewModel.songsPagingFlow.collectAsLazyPagingItems()
                                         val isLibraryLoading by libraryViewModel.isLoadingLibrary.collectAsStateWithLifecycle()
-                                        val songsTabSlice by remember(playerViewModel) {
-                                            playerViewModel.playerUiState
-                                                .map { uiState ->
-                                                    SongsTabSlice(
-                                                        currentSongSortOption = uiState.currentSongSortOption,
-                                                        currentStorageFilter = uiState.currentStorageFilter,
-                                                        hideLocalMedia = uiState.hideLocalMedia
-                                                    )
-                                                }
-                                                .distinctUntilChanged()
-                                        }.collectAsStateWithLifecycle(initialValue = SongsTabSlice())
 
                                         LibrarySongsTab(
                                             songs = allSongsLazyPagingItems,
@@ -1680,26 +1635,13 @@ fun LibraryScreen(
                                             getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
                                             onLocateCurrentSongVisibilityChanged = { songsShowLocateButton = it },
                                             onRegisterLocateCurrentSongAction = { songsLocateAction = it },
-                                            sortOption = songsTabSlice.currentSongSortOption,
-                                            storageFilter = if (songsTabSlice.hideLocalMedia) StorageFilter.ONLINE else songsTabSlice.currentStorageFilter,
+                                            sortOption = playerUiState.currentSongSortOption,
+                                            storageFilter = if (playerUiState.hideLocalMedia) StorageFilter.ONLINE else playerUiState.currentStorageFilter,
                                             hasCurrentSong = hasCurrentSong
                                         )
                                     }
                                     LibraryTabId.ALBUMS -> {
                                         val albumsLazyPagingItems = libraryViewModel.albumsPagingFlow.collectAsLazyPagingItems()
-                                        val albumsTabSlice by remember(playerViewModel) {
-                                            playerViewModel.playerUiState
-                                                .map { uiState ->
-                                                    AlbumsTabSlice(
-                                                        isAlbumsListView = uiState.isAlbumsListView,
-                                                        currentAlbumSortOption = uiState.currentAlbumSortOption,
-                                                        currentStorageFilter = uiState.currentStorageFilter,
-                                                        hideLocalMedia = uiState.hideLocalMedia
-                                                    )
-                                                }
-                                                .distinctUntilChanged()
-                                        }.collectAsStateWithLifecycle(initialValue = AlbumsTabSlice())
-
                                         val isLoading = playerUiState.isLoadingLibraryCategories && albumsLazyPagingItems.itemCount == 0
 
                                         val stableOnAlbumClick: (Long) -> Unit = remember(navController) {
@@ -1715,8 +1657,8 @@ fun LibraryScreen(
                                             isLoading = isLoading,
                                             playerViewModel = playerViewModel,
                                             bottomBarHeight = bottomBarHeightDp,
-                                            isListView = albumsTabSlice.isAlbumsListView,
-                                            currentAlbumSortOption = albumsTabSlice.currentAlbumSortOption,
+                                            isListView = playerUiState.isAlbumsListView,
+                                            currentAlbumSortOption = playerUiState.currentAlbumSortOption,
                                             onAlbumClick = stableOnAlbumClick,
                                             isRefreshing = isRefreshing,
                                             onRefresh = onRefresh,
@@ -1725,24 +1667,12 @@ fun LibraryScreen(
                                             onAlbumLongPress = onAlbumLongPress,
                                             onAlbumSelectionToggle = onAlbumSelectionToggle,
                                             getSelectionIndex = getAlbumSelectionIndex,
-                                            storageFilter = if (albumsTabSlice.hideLocalMedia) StorageFilter.ONLINE else albumsTabSlice.currentStorageFilter
+                                            storageFilter = if (playerUiState.hideLocalMedia) StorageFilter.ONLINE else playerUiState.currentStorageFilter
                                         )
                                     }
 
                                     LibraryTabId.ARTISTS -> {
                                         val artistsLazyPagingItems = libraryViewModel.artistsPagingFlow.collectAsLazyPagingItems()
-                                        val artistsTabSlice by remember(playerViewModel) {
-                                            playerViewModel.playerUiState
-                                                .map { uiState ->
-                                                    ArtistsTabSlice(
-                                                        currentArtistSortOption = uiState.currentArtistSortOption,
-                                                        currentStorageFilter = uiState.currentStorageFilter,
-                                                        hideLocalMedia = uiState.hideLocalMedia
-                                                    )
-                                                }
-                                                .distinctUntilChanged()
-                                        }.collectAsStateWithLifecycle(initialValue = ArtistsTabSlice())
-
                                         val isLoading = playerUiState.isLoadingLibraryCategories && artistsLazyPagingItems.itemCount == 0
 
                                         val stableOnArtistClick: (Long) -> Unit = remember(navController) {
@@ -1759,11 +1689,11 @@ fun LibraryScreen(
                                             isLoading = isLoading,
                                             playerViewModel = playerViewModel,
                                             bottomBarHeight = bottomBarHeightDp,
-                                            currentArtistSortOption = artistsTabSlice.currentArtistSortOption,
+                                            currentArtistSortOption = playerUiState.currentArtistSortOption,
                                             onArtistClick = stableOnArtistClick,
                                             isRefreshing = isRefreshing,
                                             onRefresh = onRefresh,
-                                            storageFilter = if (artistsTabSlice.hideLocalMedia) StorageFilter.ONLINE else artistsTabSlice.currentStorageFilter
+                                            storageFilter = if (playerUiState.hideLocalMedia) StorageFilter.ONLINE else playerUiState.currentStorageFilter
                                         )
                                     }
 
@@ -1787,17 +1717,6 @@ fun LibraryScreen(
 
                                     LibraryTabId.LIKED -> {
                                         val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
-                                        val favoritesTabSlice by remember(playerViewModel) {
-                                            playerViewModel.playerUiState
-                                                .map { uiState ->
-                                                    FavoritesTabSlice(
-                                                        currentFavoriteSortOption = uiState.currentFavoriteSortOption,
-                                                        currentStorageFilter = uiState.currentStorageFilter,
-                                                        hideLocalMedia = uiState.hideLocalMedia
-                                                    )
-                                                }
-                                                .distinctUntilChanged()
-                                        }.collectAsStateWithLifecycle(initialValue = FavoritesTabSlice())
 
                                         LibraryFavoritesTab(
                                             favoriteSongs = favoritePagingItems,
@@ -1814,32 +1733,18 @@ fun LibraryScreen(
                                             onSongLongPress = onSongLongPress,
                                             onSongSelectionToggle = onSongSelectionToggle,
                                             getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
-                                            sortOption = favoritesTabSlice.currentFavoriteSortOption,
+                                            sortOption = playerUiState.currentFavoriteSortOption,
                                             onLocateCurrentSongVisibilityChanged = { likedShowLocateButton = it },
                                             onRegisterLocateCurrentSongAction = { likedLocateAction = it },
-                                            storageFilter = if (favoritesTabSlice.hideLocalMedia) StorageFilter.ONLINE else favoritesTabSlice.currentStorageFilter,
+                                            storageFilter = if (playerUiState.hideLocalMedia) StorageFilter.ONLINE else playerUiState.currentStorageFilter,
                                             hasCurrentSong = hasCurrentSong
                                         )
                                     }
 
                                     LibraryTabId.FOLDERS -> {
-                                        val foldersTabSlice by remember(playerViewModel) {
-                                            playerViewModel.playerUiState
-                                                .map { uiState ->
-                                                    FoldersTabSlice(
-                                                        musicFolders = uiState.musicFolders,
-                                                        currentFolder = uiState.currentFolder,
-                                                        isFoldersPlaylistView = uiState.isFoldersPlaylistView,
-                                                        currentFolderSortOption = uiState.currentFolderSortOption,
-                                                        isLoadingLibraryCategories = uiState.isLoadingLibraryCategories
-                                                    )
-                                                }
-                                                .distinctUntilChanged()
-                                        }.collectAsStateWithLifecycle(initialValue = FoldersTabSlice())
-
-                                        val folders = foldersTabSlice.musicFolders
-                                        val currentFolder = foldersTabSlice.currentFolder
-                                        val isLoading = foldersTabSlice.isLoadingLibraryCategories
+                                        val folders = playerUiState.musicFolders
+                                        val currentFolder = playerUiState.currentFolder
+                                        val isLoading = playerUiState.isLoadingLibraryCategories
                                         // PERF: FoldersTab only reads currentSong?.id, currentSong?.path,
                                         // and isPlaying. Narrow the collection to avoid recomposing the
                                         // entire tab on every player tick (position, queue change, etc.).
@@ -1883,8 +1788,8 @@ fun LibraryScreen(
                                                 )
                                             },
                                             onMoreOptionsClick = stableOnMoreOptionsClick,
-                                            isPlaylistView = foldersTabSlice.isFoldersPlaylistView,
-                                            currentSortOption = foldersTabSlice.currentFolderSortOption,
+                                            isPlaylistView = playerUiState.isFoldersPlaylistView,
+                                            currentSortOption = playerUiState.currentFolderSortOption,
                                             isRefreshing = isRefreshing,
                                             onRefresh = onRefresh,
                                             isSelectionMode = isSelectionMode,
@@ -3481,10 +3386,7 @@ private fun LibraryTabGridItem(
     }
 }
 
-private fun positiveMod(value: Int, mod: Int): Int {
-    if (mod <= 0) return 0
-    return ((value % mod) + mod) % mod
-}
+private fun positiveMod(value: Int, mod: Int): Int = if (mod <= 0) 0 else Math.floorMod(value, mod)
 
 private fun infinitePagerInitialPage(tabCount: Int, selectedTabIndex: Int): Int {
     if (tabCount <= 0) return 0
