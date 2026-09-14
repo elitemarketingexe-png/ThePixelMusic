@@ -577,7 +577,7 @@ class MusicService : MediaLibraryService() {
         //     each is fast — they just register callbacks).
 
         // Attach YouTube radio-mode auto-queue and stream-URL preloader immediately
-        AutoQueueManager.attach({ engine.masterPlayer }, this@MusicService, youtubeDatastoreRepository, serviceScope, musicDao, engagementDao, engine::forceRefreshQueueSnapshot)
+        AutoQueueManager.attach({ engine.masterPlayer }, this@MusicService, youtubeDatastoreRepository, serviceScope, musicDao, engagementDao, engine::forceRefreshQueueSnapshot, userPreferencesRepository)
         QueuePreloadManager.attach(engine.masterPlayer, this@MusicService, youtubeDatastoreRepository, serviceScope, exoCache, engine)
 
         serviceScope.launch {

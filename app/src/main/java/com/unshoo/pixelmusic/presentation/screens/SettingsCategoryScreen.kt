@@ -96,6 +96,8 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.Explicit
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
@@ -526,6 +528,13 @@ fun SettingsCategoryScreen(
                                     checked = uiState.hideVideo,
                                     onCheckedChange = { settingsViewModel.setHideVideo(it) },
                                     leadingIcon = { Icon(Icons.Outlined.VideoLibrary, null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
+                                SwitchSettingItem(
+                                    title = "Hide cover and lo-fi tracks",
+                                    subtitle = "Automatically hide cover songs and lo-fi tracks from Explore feed recommendations and playback queues.",
+                                    checked = uiState.filterCoverAndLofi,
+                                    onCheckedChange = { settingsViewModel.setFilterCoverAndLofi(it) },
+                                    leadingIcon = { Icon(Icons.Outlined.FilterAlt, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.settings_my_top_size_title),
@@ -1798,9 +1807,29 @@ fun SettingsCategoryScreen(
                                         ) 
                                     }
                                 )
+                                SwitchSettingItem(
+                                    title = "Explore recommendations with Last.fm",
+                                    subtitle = "Use your Last.fm listening history, top albums, and friends to personalize the Explore page.",
+                                    checked = uiState.exploreLastFmEnabled,
+                                    onCheckedChange = { settingsViewModel.setExploreLastFmEnabled(it) },
+                                    leadingIcon = { 
+                                        Icon(
+                                            imageVector = Icons.Outlined.TravelExplore, 
+                                            contentDescription = null, 
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        ) 
+                                    }
+                                )
                             }
 
                             SettingsSubsection(title = "Smart Mix Playlists") {
+                                SwitchSettingItem(
+                                    title = "Last.fm Smart Mix",
+                                    subtitle = "Generate mixes from songs using Last.fm recommendations (\"Start Mix from this\"). When off, standard YouTube Music mix is used.",
+                                    checked = uiState.lastfmSmartMixEnabled,
+                                    onCheckedChange = { settingsViewModel.setLastfmSmartMixEnabled(it) },
+                                    leadingIcon = { Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
                                 SwitchSettingItem(
                                     title = "Show Smart Mix playlists in Library",
                                     subtitle = "Display or hide Last.fm/AI-generated Smart Mix playlists on the Library playlists page.",

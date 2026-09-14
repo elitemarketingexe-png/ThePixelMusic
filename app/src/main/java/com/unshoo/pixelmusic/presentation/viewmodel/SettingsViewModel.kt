@@ -167,7 +167,10 @@ data class SettingsUiState(
     val scrobbleDelaySeconds: Int = 180,
     val generatedPlaylistsRetentionPeriod: String = "permanent",
     val youtubePlaylistUploadSyncEnabled: Boolean = true,
-    val showSmartMixPlaylists: Boolean = true
+    val showSmartMixPlaylists: Boolean = true,
+    val lastfmSmartMixEnabled: Boolean = true,
+    val exploreLastFmEnabled: Boolean = true,
+    val filterCoverAndLofi: Boolean = true
 )
 
 data class FailedSongInfo(
@@ -832,6 +835,24 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.showSmartMixPlaylistsFlow.collect { show ->
                 _uiState.update { it.copy(showSmartMixPlaylists = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.lastfmSmartMixEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(lastfmSmartMixEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.exploreLastfmEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(exploreLastFmEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.filterCoverAndLofiFlow.collect { enabled ->
+                _uiState.update { it.copy(filterCoverAndLofi = enabled) }
             }
         }
 
@@ -1926,6 +1947,24 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun setShowSmartMixPlaylists(show: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setShowSmartMixPlaylists(show)
+        }
+    }
+
+    fun setLastfmSmartMixEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLastfmSmartMixEnabled(enabled)
+        }
+    }
+
+    fun setExploreLastFmEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreLastFmEnabled(enabled)
+        }
+    }
+
+    fun setFilterCoverAndLofi(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setFilterCoverAndLofi(enabled)
         }
     }
 }

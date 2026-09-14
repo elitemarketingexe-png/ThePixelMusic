@@ -17,6 +17,7 @@ import javax.inject.Inject
 data class ArtistSettingsUiState(
     val artistDelimiters: List<String> = UserPreferencesRepository.DEFAULT_ARTIST_DELIMITERS,
     val wordDelimiters: List<String> = UserPreferencesRepository.DEFAULT_ARTIST_WORD_DELIMITERS,
+    val filterKeywords: List<String> = UserPreferencesRepository.DEFAULT_FILTER_KEYWORDS,
     val extractArtistsFromTitle: Boolean = true,
     val groupByAlbumArtist: Boolean = false,
     val rescanRequired: Boolean = false,
@@ -49,6 +50,12 @@ class ArtistSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.artistWordDelimitersFlow.collect { delimiters ->
                 _uiState.update { it.copy(wordDelimiters = delimiters) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.filterKeywordsFlow.collect { keywords ->
+                _uiState.update { it.copy(filterKeywords = keywords) }
             }
         }
 
@@ -140,6 +147,32 @@ class ArtistSettingsViewModel @Inject constructor(
     fun resetWordDelimitersToDefault() {
         viewModelScope.launch {
             userPreferencesRepository.resetArtistWordDelimitersToDefault()
+        }
+    }
+
+    fun addFilterKeyword(keyword: String): Boolean {
+        val trimmed = keyword.trim()
+        if (trimmed.isEmpty()) return false
+
+        val current = _uiState.value.filterKeywords
+        if (current.any { it.equals(trimmed, ignoreCase = true) }) return false
+
+        viewModelScope.launch {
+            userPreferencesRepository.setFilterKeywords(current + trimmed)
+        }
+        return true
+    }
+
+    fun removeFilterKeyword(keyword: String) {
+        val current = _uiState.value.filterKeywords
+        viewModelScope.launch {
+            userPreferencesRepository.setFilterKeywords(current.filterNot { it.equals(keyword, ignoreCase = true) })
+        }
+    }
+
+    fun resetFilterKeywordsToDefault() {
+        viewModelScope.launch {
+            userPreferencesRepository.resetFilterKeywordsToDefault()
         }
     }
 

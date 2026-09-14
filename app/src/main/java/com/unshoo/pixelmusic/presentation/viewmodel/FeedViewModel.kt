@@ -30,6 +30,13 @@ import javax.inject.Inject
 
 private const val STALE_AFTER_MILLIS = 30 * 60 * 1000L
 
+private data class FeedReloadKey(
+    val isYt: Boolean,
+    val username: String,
+    val filterCoverLofi: Boolean,
+    val keywords: List<String>
+)
+
 @Immutable
 data class FeedUiState(
     val isLoading: Boolean = true,
@@ -54,15 +61,22 @@ class FeedViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            combine(datastoreRepository.cookies, userPreferencesRepository.lastfmUsernameFlow) { cookies, username ->
+            combine(
+                datastoreRepository.cookies,
+                userPreferencesRepository.lastfmUsernameFlow,
+                userPreferencesRepository.exploreLastfmEnabledFlow,
+                userPreferencesRepository.filterCoverAndLofiFlow,
+                userPreferencesRepository.filterKeywordsFlow,
+            ) { cookies, username, exploreLastFm, filterCoverLofi, keywords ->
                 val isYt = cookies.toRawCookie().let { it.contains("SAPISID=") || it.contains("__Secure-3PAPISID=") }
-                isYt to username
-            }.distinctUntilChanged().collect { (isYt, username) ->
+                val effectiveUsername = if (exploreLastFm) username else ""
+                FeedReloadKey(isYt, effectiveUsername, filterCoverLofi, keywords)
+            }.distinctUntilChanged().collect { key ->
                 feedJob?.cancel()
                 _uiState.value = FeedUiState(
                     feedData = FeedData(
-                        isYtConnected = isYt,
-                        userName = username.takeIf(String::isNotBlank),
+                        isYtConnected = key.isYt,
+                        userName = key.username.takeIf(String::isNotBlank),
                     )
                 )
                 loadFeed()
@@ -88,7 +102,8 @@ class FeedViewModel @Inject constructor(
         feedJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = !refreshing || it.isLoading, isRefreshing = refreshing, error = null) }
             try {
-                val username = userPreferencesRepository.lastfmUsernameFlow.first().takeIf(String::isNotBlank)
+                val exploreLastFm = userPreferencesRepository.exploreLastfmEnabledFlow.first()
+                val username = if (exploreLastFm) userPreferencesRepository.lastfmUsernameFlow.first().takeIf(String::isNotBlank) else null
                 val data = repository.loadFeed(username) { update ->
                     ensureActive()
                     _uiState.update { it.copy(feedData = update, isLoading = false) }

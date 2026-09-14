@@ -2,6 +2,7 @@ package com.unshoo.pixelmusic.presentation.navigation
 
 import DelimiterConfigScreen
 import com.unshoo.pixelmusic.presentation.screens.WordDelimiterConfigScreen
+import com.unshoo.pixelmusic.presentation.screens.FilterKeywordsConfigScreen
 import android.annotation.SuppressLint
 import androidx.annotation.OptIn
 import androidx.compose.animation.EnterTransition
@@ -621,6 +622,17 @@ fun AppNavigation(
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
                     WordDelimiterConfigScreen(navController = navController)
+                }
+            }
+            composable(
+                Screen.FilterKeywordsConfig.route,
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { settingsPopEnterTransition() },
+                popExitTransition = { settingsPopExitTransition() },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    FilterKeywordsConfigScreen(navController = navController)
                 }
             }
             composable(

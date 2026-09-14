@@ -42,7 +42,8 @@ class FeedTasteProfileProvider @Inject constructor(
     }
 
     suspend fun get(forceRefresh: Boolean = false): TasteProfile = mutex.withLock {
-        val username = runCatching { userPreferencesRepository.lastfmUsernameFlow.first() }.getOrDefault("")
+        val exploreLastFm = runCatching { userPreferencesRepository.exploreLastfmEnabledFlow.first() }.getOrDefault(true)
+        val username = if (!exploreLastFm) "" else runCatching { userPreferencesRepository.lastfmUsernameFlow.first() }.getOrDefault("")
         val isGuest = username.isBlank() || username.equals("Guest User", ignoreCase = true)
         val cookies = runCatching { datastoreRepository.cookies.first() }.getOrNull()
         val isYtConnected = cookies?.toRawCookie()?.let {

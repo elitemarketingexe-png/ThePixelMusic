@@ -28,6 +28,8 @@ import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import unshoo.ianshulyadav.pixelmusic.innertube.models.WatchEndpoint
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.database.MusicDao
+import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+import com.unshoo.pixelmusic.utils.ContentFilterUtils
 
 object AutoQueueManager {
     private const val TAG = "AutoQueueMgr"
@@ -46,6 +48,7 @@ object AutoQueueManager {
     private var scope: CoroutineScope? = null
     private var contextRef: Context? = null
     private var datastoreRepository: DatastoreRepository? = null
+    private var userPreferencesRepository: UserPreferencesRepository? = null
 
     // playerRef is kept ONLY for listener add/remove bookkeeping (you must call
     // addListener/removeListener on the exact instance that has the listener).
@@ -128,12 +131,14 @@ object AutoQueueManager {
         coroutineScope: CoroutineScope,
         musicDao: MusicDao,
         engagementDao: com.unshoo.pixelmusic.data.database.EngagementDao,
-        onQueueItemsAdded: (() -> Unit)? = null
+        onQueueItemsAdded: (() -> Unit)? = null,
+        userPreferencesRepo: UserPreferencesRepository? = null
     ) {
         runOnMain {
             scope = coroutineScope
             contextRef = context.applicationContext
             datastoreRepository = datastoreRepo
+            userPreferencesRepository = userPreferencesRepo
             this.playerProvider = playerProvider
             val initialPlayer = playerProvider()
             playerRef = initialPlayer
@@ -388,7 +393,19 @@ object AutoQueueManager {
                 emptyList()
             }
 
+            val filterCoverLofi = runCatching { userPreferencesRepository?.filterCoverAndLofiFlow?.first() }.getOrNull() ?: true
+            val filterKeywords = runCatching { userPreferencesRepository?.filterKeywordsFlow?.first() }.getOrNull() ?: ContentFilterUtils.DEFAULT_FILTER_KEYWORDS
+
             val newItems = fetched.filterNot { it.mediaId in existingIds }
+                .let { items ->
+                    if (filterCoverLofi) {
+                        items.filterNot { item ->
+                            val title = item.mediaMetadata.title?.toString().orEmpty()
+                            val artist = item.mediaMetadata.artist?.toString().orEmpty()
+                            ContentFilterUtils.isCoverOrLofi(title, artist, filterKeywords = filterKeywords)
+                        }
+                    } else items
+                }
 
             if (newItems.isNotEmpty()) {
                 consecutiveEmptyFetches = 0

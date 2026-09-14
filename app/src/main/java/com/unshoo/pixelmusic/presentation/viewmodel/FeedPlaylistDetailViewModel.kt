@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+import com.unshoo.pixelmusic.utils.ContentFilterUtils
 import kotlinx.coroutines.flow.first
 
 sealed interface FeedPlaylistDetailUiState {
@@ -75,19 +76,25 @@ class FeedPlaylistDetailViewModel @Inject constructor(
                 else -> "YouTube Music"
             }
 
+            val pureYtMusic = runCatching { userPreferencesRepository.pureYtMusicOnlyFlow.first() }.getOrDefault(false)
+            val filterCoverAndLofi = runCatching { userPreferencesRepository.filterCoverAndLofiFlow.first() }.getOrDefault(true)
+            val filterKeywords = runCatching { userPreferencesRepository.filterKeywordsFlow.first() }.getOrDefault(ContentFilterUtils.DEFAULT_FILTER_KEYWORDS)
+            fun filterTrack(t: YouTubeMusicTrack): Boolean = (!pureYtMusic || !t.isVideo) && (!filterCoverAndLofi || !ContentFilterUtils.isCoverOrLofi(t, filterKeywords))
+
             fun showTracks(tracks: List<YouTubeMusicTrack>, customArt: String? = null) {
                 coroutineContext.ensureActive()
-                if (tracks.isEmpty()) return
+                val filtered = tracks.filter(::filterTrack)
+                if (filtered.isEmpty()) return
                 val state = _uiState.value as? FeedPlaylistDetailUiState.Success
-                if (state != null && state.playlist.tracks.size > tracks.size) return
+                if (state != null && state.playlist.tracks.size > filtered.size) return
                 _uiState.value = FeedPlaylistDetailUiState.Success(
                     YouTubePlaylistResult(
                         id = playlistId,
                         title = title,
                         author = author,
-                        artworkUrl = customArt ?: tracks.firstOrNull()?.artworkUrl,
-                        trackCount = tracks.size,
-                        tracks = tracks
+                        artworkUrl = customArt ?: filtered.firstOrNull()?.artworkUrl,
+                        trackCount = filtered.size,
+                        tracks = filtered
                     ),
                     isLoadingMore = true,
                 )
@@ -97,13 +104,11 @@ class FeedPlaylistDetailViewModel @Inject constructor(
             if (recent) showTracks(feedRepository.getCachedFeed()?.ytRecentSongs.orEmpty())
 
             try {
-                val pureYtMusic = runCatching { userPreferencesRepository.pureYtMusicOnlyFlow.first() }.getOrDefault(false)
-
                 val result = when {
                     recent -> {
                         val taste = innerTube.fetchTasteSignals(recentLimit = 50, likedLimit = 0, feedLimit = 0)
                         taste.recentTracks.takeIf { it.isNotEmpty() }?.let { tracks ->
-                            val filtered = if (pureYtMusic) tracks.filterNot { it.isVideo } else tracks
+                            val filtered = tracks.filter(::filterTrack)
                             YouTubePlaylistResult(
                                 id = playlistId,
                                 title = title,
@@ -150,7 +155,7 @@ class FeedPlaylistDetailViewModel @Inject constructor(
                             val songs = runCatching {
                                 innerTube.fetchAlbumPage(release.id)?.songs?.takeIf { it.isNotEmpty() }
                                     ?: innerTube.fetchPlaylist(release.id)?.tracks?.takeIf { it.isNotEmpty() }
-                            }.getOrNull().orEmpty().filter { !pureYtMusic || !it.isVideo }
+                            }.getOrNull().orEmpty().filter(::filterTrack)
 
                             if (songs.isNotEmpty()) {
                                 accumulatedTracks.addAll(songs)
@@ -175,11 +180,12 @@ class FeedPlaylistDetailViewModel @Inject constructor(
                     else -> {
                         val pl = innerTube.fetchPlaylist(if (liked) "LM" else playlistId, progressive = true, onPageLoaded = ::showTracks)
                         if (pl != null) {
-                            pl
+                            val filteredTracks = pl.tracks.filter(::filterTrack)
+                            pl.copy(tracks = filteredTracks, trackCount = filteredTracks.size)
                         } else {
                             // Fallback to fetchAlbumPage for album/single browse IDs
                             innerTube.fetchAlbumPage(playlistId)?.let { album ->
-                                val songs = album.songs.filter { !pureYtMusic || !it.isVideo }
+                                val songs = album.songs.filter(::filterTrack)
                                 YouTubePlaylistResult(
                                     id = playlistId,
                                     title = album.title,
@@ -194,11 +200,14 @@ class FeedPlaylistDetailViewModel @Inject constructor(
                 } ?: throw java.io.IOException("Couldn't finish loading this playlist. Tap Retry.")
 
                 coroutineContext.ensureActive()
+                val finalTracks = result.tracks.filter(::filterTrack)
                 _uiState.value = FeedPlaylistDetailUiState.Success(
                     result.copy(
                         id = playlistId,
                         title = if (liked || recent || isNewReleases) title else result.title.ifBlank { title },
-                        author = result.author?.takeIf(String::isNotBlank) ?: author
+                        author = result.author?.takeIf(String::isNotBlank) ?: author,
+                        tracks = finalTracks,
+                        trackCount = finalTracks.size
                     ),
                 )
             } catch (error: CancellationException) {

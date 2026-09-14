@@ -36,6 +36,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Person
@@ -259,6 +260,35 @@ fun ArtistSettingsScreen(
                             },
                             onClick = {
                                 navController.navigateSafely("word_delimiter_config")
+                            }
+                        )
+
+                        // Configure Filtered Words (Covers & Lo-Fi)
+                        SettingsItem(
+                            title = "Filtered Words (Covers & Lo-Fi)",
+                            subtitle = if (uiState.filterKeywords.isEmpty()) {
+                                "No filter words configured"
+                            } else {
+                                val preview = uiState.filterKeywords.take(5).joinToString(", ") +
+                                    if (uiState.filterKeywords.size > 5) "..." else ""
+                                "Current: $preview"
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.FilterAlt,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.ChevronRight,
+                                    contentDescription = stringResource(R.string.presentation_batch_g_artist_cd_configure),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = {
+                                navController.navigateSafely("filter_keywords_config")
                             }
                         )
 

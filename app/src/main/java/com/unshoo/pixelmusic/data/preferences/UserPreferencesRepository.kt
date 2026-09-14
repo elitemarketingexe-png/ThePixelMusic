@@ -368,6 +368,10 @@ constructor(
         val YOUTUBE_PLAYLIST_UPLOAD_SYNC_ENABLED = booleanPreferencesKey("youtube_playlist_upload_sync_enabled")
         val SHOW_SMART_MIX_PLAYLISTS = booleanPreferencesKey("show_smart_mix_playlists")
         val ARTIST_LIBRARY_FILTER = stringPreferencesKey("artist_library_filter")
+        val LASTFM_SMART_MIX_ENABLED = booleanPreferencesKey("lastfm_smart_mix_enabled")
+        val EXPLORE_LASTFM_ENABLED = booleanPreferencesKey("explore_lastfm_enabled")
+        val FILTER_COVER_AND_LOFI = booleanPreferencesKey("filter_cover_and_lofi")
+        val FILTER_KEYWORDS = stringPreferencesKey("filter_keywords")
 
         // YouTube Granular Sync & Personalization Options
         val YOUTUBE_SYNC_PLAYLISTS_AND_LIKES = booleanPreferencesKey("youtube_sync_playlists_and_likes")
@@ -1636,6 +1640,8 @@ constructor(
         val DEFAULT_ARTIST_DELIMITERS = listOf("/", ";", ",", "+", "&")
         /** Default word-based delimiters (matched case-insensitively with whitespace boundaries) */
         val DEFAULT_ARTIST_WORD_DELIMITERS = listOf("featuring", "feat.", "feat", "ft.", "ft", "vs.", "vs", "versus", "with", "prod.", "prod")
+        /** Default keywords for filtering out cover songs and lo-fi tracks */
+        val DEFAULT_FILTER_KEYWORDS = listOf("cover", "covers", "lofi", "lo-fi", "chillhop", "slowed", "reverb")
         const val DEFAULT_ALBUM_ART_CACHE_LIMIT_MB = 200
     }
 
@@ -2438,6 +2444,65 @@ constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.LASTFM_USE_NOW_PLAYING] = enabled
         }
+    }
+
+    val lastfmSmartMixEnabledFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.LASTFM_SMART_MIX_ENABLED] ?: true
+        }.distinctUntilChanged()
+
+    suspend fun setLastfmSmartMixEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LASTFM_SMART_MIX_ENABLED] = enabled
+        }
+    }
+
+    val exploreLastfmEnabledFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.EXPLORE_LASTFM_ENABLED] ?: true
+        }.distinctUntilChanged()
+
+    suspend fun setExploreLastfmEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_LASTFM_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setExploreLastFmEnabled(enabled: Boolean) = setExploreLastfmEnabled(enabled)
+
+    val filterCoverAndLofiFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.FILTER_COVER_AND_LOFI] ?: true
+        }.distinctUntilChanged()
+
+    suspend fun setFilterCoverAndLofi(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.FILTER_COVER_AND_LOFI] = enabled
+        }
+    }
+
+    val filterKeywordsFlow: Flow<List<String>> =
+        dataStore.data.map { preferences ->
+            val stored = preferences[PreferencesKeys.FILTER_KEYWORDS]
+            if (stored != null) {
+                try {
+                    json.decodeFromString<List<String>>(stored)
+                } catch (e: Exception) {
+                    DEFAULT_FILTER_KEYWORDS
+                }
+            } else {
+                DEFAULT_FILTER_KEYWORDS
+            }
+        }.distinctUntilChanged()
+
+    suspend fun setFilterKeywords(keywords: List<String>) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.FILTER_KEYWORDS] = json.encodeToString(keywords)
+        }
+    }
+
+    suspend fun resetFilterKeywordsToDefault() {
+        setFilterKeywords(DEFAULT_FILTER_KEYWORDS)
     }
 
     val scrobbleDelayPercentFlow: Flow<Float> =

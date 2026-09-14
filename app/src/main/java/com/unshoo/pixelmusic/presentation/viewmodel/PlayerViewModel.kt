@@ -109,6 +109,7 @@ import com.unshoo.pixelmusic.utils.StorageType
 import com.unshoo.pixelmusic.utils.StorageUtils
 import com.unshoo.pixelmusic.utils.ZipShareHelper
 import com.unshoo.pixelmusic.utils.normalizeMetadataText
+import com.unshoo.pixelmusic.utils.ContentFilterUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.ImmutableList
@@ -3181,13 +3182,20 @@ class PlayerViewModel @Inject constructor(
             currentMediaId.removePrefix("youtube_") == song.id.removePrefix("youtube_")
         ))
 
-        if (!LastFM.isInitialized()) {
-            sendToast("Last.fm not configured. Starting YouTube Music mix...")
-            playWithArchiveTuneQueueBuilder(song, "Mix: ${song.title}")
-            return
-        }
-
         lastFmMixJob = viewModelScope.launch {
+            val isSmartMixEnabled = runCatching { userPreferencesRepository.lastfmSmartMixEnabledFlow.first() }.getOrDefault(true)
+            if (!isSmartMixEnabled) {
+                sendToast("Last.fm Smart Mix disabled. Starting YouTube Music mix...")
+                playWithArchiveTuneQueueBuilder(song, "Mix: ${song.title}")
+                return@launch
+            }
+
+            if (!LastFM.isInitialized()) {
+                sendToast("Last.fm not configured. Starting YouTube Music mix...")
+                playWithArchiveTuneQueueBuilder(song, "Mix: ${song.title}")
+                return@launch
+            }
+
             sendToast("Generating Last.fm mix for '${song.title}'...")
 
             var lastfmFailed = false
@@ -3250,6 +3258,12 @@ class PlayerViewModel @Inject constructor(
 
                         filteredTracks.add(track)
                         artistCounts[tArtistNorm] = count + 1
+                    }
+
+                    val filterCoverAndLofi = runCatching { userPreferencesRepository.filterCoverAndLofiFlow.first() }.getOrDefault(true)
+                    val filterKeywords = runCatching { userPreferencesRepository.filterKeywordsFlow.first() }.getOrDefault(ContentFilterUtils.DEFAULT_FILTER_KEYWORDS)
+                    if (filterCoverAndLofi) {
+                        filteredTracks.removeAll { ContentFilterUtils.isCoverOrLofi(it.name, it.artist, filterKeywords = filterKeywords) }
                     }
 
                     val candidates = filteredTracks.shuffled().take(35)
@@ -4106,7 +4120,12 @@ class PlayerViewModel @Inject constructor(
             }
 
             result.onSuccess { nextResult ->
-                val relatedSongs = nextResult.items.map { it.toNativeSong() }
+                var relatedSongs = nextResult.items.map { it.toNativeSong() }
+                val filterCoverAndLofi = runCatching { userPreferencesRepository.filterCoverAndLofiFlow.first() }.getOrDefault(true)
+                val filterKeywords = runCatching { userPreferencesRepository.filterKeywordsFlow.first() }.getOrDefault(ContentFilterUtils.DEFAULT_FILTER_KEYWORDS)
+                if (filterCoverAndLofi) {
+                    relatedSongs = relatedSongs.filterNot { ContentFilterUtils.isCoverOrLofi(it, filterKeywords) }
+                }
                 if (relatedSongs.isNotEmpty()) {
                     val fullQueue = withContext(Dispatchers.IO) {
                         com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.buildMixQueue(song, relatedSongs)
@@ -5877,6 +5896,13 @@ class PlayerViewModel @Inject constructor(
         if (songsToPlay.isEmpty()) {
             clearPreparingSongIfMatching()
             return
+        }
+        val filterCoverAndLofi = runCatching { userPreferencesRepository.filterCoverAndLofiFlow.first() }.getOrDefault(true)
+        val filterKeywords = runCatching { userPreferencesRepository.filterKeywordsFlow.first() }.getOrDefault(ContentFilterUtils.DEFAULT_FILTER_KEYWORDS)
+        val songsToPlay = if (filterCoverAndLofi && songsToPlay.size > 1) {
+            songsToPlay.filter { it.id == startSong.id || !ContentFilterUtils.isCoverOrLofi(it, filterKeywords) }
+        } else {
+            songsToPlay
         }
         val effectiveStartSong = songsToPlay.firstOrNull { it.id == startSong.id } ?: songsToPlay.first()
         saveYoutubeSongsToDb(listOf(effectiveStartSong))
