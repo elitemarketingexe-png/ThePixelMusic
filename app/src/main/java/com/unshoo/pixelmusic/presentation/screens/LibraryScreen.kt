@@ -1745,18 +1745,22 @@ fun LibraryScreen(
 
                                         val isLoading = playerUiState.isLoadingLibraryCategories && artistsLazyPagingItems.itemCount == 0
 
+                                        val stableOnArtistClick: (Long) -> Unit = remember(navController) {
+                                            { artistId: Long ->
+                                                navController.navigateSafelyReplacing(
+                                                    route = Screen.ArtistDetail.createRoute(artistId),
+                                                    patternToPop = Screen.ArtistDetail.route
+                                                )
+                                            }
+                                        }
+
                                         LibraryArtistsTab(
                                             artists = artistsLazyPagingItems,
                                             isLoading = isLoading,
                                             playerViewModel = playerViewModel,
                                             bottomBarHeight = bottomBarHeightDp,
                                             currentArtistSortOption = artistsTabSlice.currentArtistSortOption,
-                                            onArtistClick = { artistId ->
-                                                navController.navigateSafelyReplacing(
-                                                    route = Screen.ArtistDetail.createRoute(artistId),
-                                                    patternToPop = Screen.ArtistDetail.route
-                                                )
-                                            },
+                                            onArtistClick = stableOnArtistClick,
                                             isRefreshing = isRefreshing,
                                             onRefresh = onRefresh,
                                             storageFilter = if (artistsTabSlice.hideLocalMedia) StorageFilter.ONLINE else artistsTabSlice.currentStorageFilter
