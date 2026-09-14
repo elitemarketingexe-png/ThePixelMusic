@@ -2251,6 +2251,13 @@ constructor(
                     
                     if (artistEntitiesToInsert.isNotEmpty()) {
                         musicDao.insertArtists(artistEntitiesToInsert)
+                        val memberships = artistEntitiesToInsert.map {
+                            com.unshoo.pixelmusic.data.database.LibraryMembershipEntity(
+                                songKey = "artist_${it.id}",
+                                firstPlayedTimestamp = System.currentTimeMillis()
+                            )
+                        }
+                        engagementDao.insertLibraryMemberships(memberships)
                     }
                     
                     // Batch subscribe in preferences

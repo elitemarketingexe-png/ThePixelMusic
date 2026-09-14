@@ -7834,7 +7834,7 @@ class PlayerViewModel @Inject constructor(
                         youTubeLibrarySyncManager.syncLikedAlbums()
                     }
                     LibraryTabId.ARTISTS -> {
-                        youTubeLibrarySyncManager.syncSubscribedArtists()
+                        youTubeLibrarySyncManager.syncSubscribedArtists(forceFull = true)
                     }
                     LibraryTabId.PLAYLISTS -> {
                         youTubeLibrarySyncManager.syncLikedPlaylists()

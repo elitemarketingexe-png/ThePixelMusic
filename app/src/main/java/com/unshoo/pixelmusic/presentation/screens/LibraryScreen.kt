@@ -151,6 +151,7 @@ import com.unshoo.pixelmusic.data.model.SortOption
 import com.unshoo.pixelmusic.data.model.StorageFilter
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.components.SmartImage
+import com.unshoo.pixelmusic.presentation.components.SmartImageListTargetSize
 import com.unshoo.pixelmusic.presentation.components.resolveMainScreenBottomGradientHeight
 import com.unshoo.pixelmusic.presentation.components.resolveNavBarOccupiedHeight
 import androidx.compose.foundation.layout.WindowInsets
@@ -4253,13 +4254,13 @@ fun ArtistListItem(artist: Artist, onClick: () -> Unit, isLoading: Boolean = fal
                     contentAlignment = Alignment.Center
                 ) {
                     if (!artist.effectiveImageUrl.isNullOrEmpty()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(artist.effectiveImageUrl)
-                                .crossfade(true)
-                                .build(),
+                        SmartImage(
+                            model = artist.effectiveImageUrl,
                             contentDescription = artist.name,
                             contentScale = ContentScale.Crop,
+                            shape = CircleShape,
+                            targetSize = SmartImageListTargetSize,
+                            errorResId = R.drawable.rounded_artist_24,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {

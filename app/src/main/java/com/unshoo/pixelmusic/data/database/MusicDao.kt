@@ -1680,7 +1680,7 @@ interface MusicDao {
                 OR CAST(artists.id AS TEXT) IN (:subscribedIds)
             ))
             AND (
-                (artists.channel_id IS NOT NULL AND artists.channel_id != '')
+                (:filterMode != 1 AND (artists.channel_id IS NOT NULL AND artists.channel_id != ''))
                 OR (
                     songs.id IS NOT NULL 
                     AND (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
@@ -1697,6 +1697,10 @@ interface MusicDao {
                         OR (
                             :filterMode = 3
                             AND songs.source_type = 7
+                        )
+                        OR (
+                            :filterMode = 4
+                            AND songs.source_type != 0
                         )
                     )
                 )
@@ -2077,9 +2081,12 @@ interface MusicDao {
 
     @Query("""
         DELETE FROM artists 
-        WHERE NOT EXISTS (SELECT 1 FROM song_artist_cross_ref WHERE song_artist_cross_ref.artist_id = artists.id)
+        WHERE (channel_id IS NULL OR channel_id = '')
+          AND id >= 0
+          AND NOT EXISTS (SELECT 1 FROM song_artist_cross_ref WHERE song_artist_cross_ref.artist_id = artists.id)
           AND NOT EXISTS (SELECT 1 FROM songs WHERE songs.artist_id = artists.id)
           AND NOT EXISTS (SELECT 1 FROM albums WHERE albums.artist_id = artists.id)
+          AND NOT EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = 'artist_' || CAST(artists.id AS TEXT))
     """)
     suspend fun deleteOrphanedArtists()
 

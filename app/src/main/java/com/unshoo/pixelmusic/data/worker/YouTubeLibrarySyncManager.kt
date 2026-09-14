@@ -116,9 +116,12 @@ class YouTubeLibrarySyncManager @Inject constructor(
         allArtistItems += firstPage.items.filterIsInstance<ArtistItem>()
 
         val existingSubscribedIds = userPreferencesRepository.subscribedArtistIdsFlow.first()
+        val firstPageIds = allArtistItems.map { ytArtistIdFromChannelId(it.id) }
+        val existingInDb = musicDao.getArtistsByIds(firstPageIds).associateBy { it.id }
         val allFirstPageKnown = !forceFull && existingSubscribedIds.isNotEmpty() &&
             allArtistItems.isNotEmpty() &&
-            allArtistItems.all { (it.id in existingSubscribedIds) || (ytArtistIdFromChannelId(it.id).toString() in existingSubscribedIds) }
+            allArtistItems.all { (it.id in existingSubscribedIds) || (ytArtistIdFromChannelId(it.id).toString() in existingSubscribedIds) } &&
+            firstPageIds.all { it in existingInDb }
 
         if (!allFirstPageKnown) {
             var pages = 0
@@ -136,9 +139,12 @@ class YouTubeLibrarySyncManager @Inject constructor(
 
         if (allArtistItems.isEmpty()) return
 
+        val memberships = mutableListOf<LibraryMembershipEntity>()
         val entities = allArtistItems.mapNotNull { item ->
+            val id = ytArtistIdFromChannelId(item.id)
+            memberships.add(LibraryMembershipEntity(songKey = "artist_$id", firstPlayedTimestamp = System.currentTimeMillis()))
             ArtistEntity(
-                id = ytArtistIdFromChannelId(item.id),
+                id = id,
                 name = item.title,
                 trackCount = 0,
                 imageUrl = item.thumbnail,
@@ -146,6 +152,7 @@ class YouTubeLibrarySyncManager @Inject constructor(
             )
         }
         musicDao.insertArtists(entities)
+        engagementDao.insertLibraryMemberships(memberships)
         val subscribedIds = existingSubscribedIds + entities.mapNotNull { it.channelId }.toSet() + entities.map { it.id.toString() }
         userPreferencesRepository.setSubscribedArtistIds(subscribedIds)
     }
