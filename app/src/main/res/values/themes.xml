@@ -28,7 +28,31 @@
          then hand off to the app theme as soon as the first frame is ready (see MainActivity). -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/light_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_blue_purple</item>
         <item name="postSplashScreenTheme">@style/Theme.PixelMusic</item>
+    </style>
+
+    <style name="Theme.App.Starting.BluePurple" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_blue_purple</item>
+    </style>
+
+    <style name="Theme.App.Starting.Graphite" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_graphite</item>
+    </style>
+
+    <style name="Theme.App.Starting.OrangeYellow" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_orange_yellow</item>
+    </style>
+
+    <style name="Theme.App.Starting.LimeGreen" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_lime_green</item>
+    </style>
+
+    <style name="Theme.App.Starting.BabyPinkPurple" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_baby_pink_purple</item>
+    </style>
+
+    <style name="Theme.App.Starting.LimeLemon" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_lime_lemon</item>
     </style>
 </resources>

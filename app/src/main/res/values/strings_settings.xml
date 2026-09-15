@@ -82,6 +82,21 @@
     <string name="setcat_reset_imported_lyrics_subtitle">Remove all imported lyrics from the database.</string>
 
     <!-- Appearance -->
+    <string name="setcat_app_icon_title">App Icon</string>
+    <string name="setcat_app_icon_subtitle">Select your preferred app icon</string>
+    <string name="app_icon_blue_purple_title">Aurora</string>
+    <string name="app_icon_blue_purple_desc">Iconic cobalt &amp; violet</string>
+    <string name="app_icon_graphite_title">Obsidian</string>
+    <string name="app_icon_graphite_desc">Matte stealth graphite</string>
+    <string name="app_icon_orange_yellow_title">Amber</string>
+    <string name="app_icon_orange_yellow_desc">Radiant sunset gold</string>
+    <string name="app_icon_lime_green_title">Emerald</string>
+    <string name="app_icon_lime_green_desc">Vivid electric lime</string>
+    <string name="app_icon_baby_pink_purple_title">Lilac</string>
+    <string name="app_icon_baby_pink_purple_desc">Soft pastel blush</string>
+    <string name="app_icon_lime_lemon_title">Citron</string>
+    <string name="app_icon_lime_lemon_desc">Crisp electric zest</string>
+
     <string name="setcat_global_theme">Global Theme</string>
     <string name="setcat_language_label">App Language</string>
     <string name="setcat_language_desc">Choose the language used across the app interface.</string>

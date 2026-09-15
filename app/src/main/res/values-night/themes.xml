@@ -15,7 +15,31 @@
     <!-- Splash screen theme for dark mode — dark background so there is no white flash at cold start. -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/pixel_play_purple_dark</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_baby_pink_purple</item>
         <item name="postSplashScreenTheme">@style/Theme.PixelMusic</item>
+    </style>
+
+    <style name="Theme.App.Starting.BluePurple" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_blue_purple</item>
+    </style>
+
+    <style name="Theme.App.Starting.Graphite" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_graphite</item>
+    </style>
+
+    <style name="Theme.App.Starting.OrangeYellow" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_orange_yellow</item>
+    </style>
+
+    <style name="Theme.App.Starting.LimeGreen" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_lime_green</item>
+    </style>
+
+    <style name="Theme.App.Starting.BabyPinkPurple" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_baby_pink_purple</item>
+    </style>
+
+    <style name="Theme.App.Starting.LimeLemon" parent="Theme.App.Starting">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_lime_lemon</item>
     </style>
 </resources>
