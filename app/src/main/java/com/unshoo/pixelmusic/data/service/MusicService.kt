@@ -51,6 +51,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import com.unshoo.pixelmusic.PixelMusicApplication
 import com.unshoo.pixelmusic.MainActivity
+import com.unshoo.pixelmusic.presentation.utils.AppIconManager
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.data.model.PlayerInfo
 import com.unshoo.pixelmusic.data.model.PlaybackQueueItemSnapshot
@@ -1131,6 +1132,17 @@ class MusicService : MediaLibraryService() {
         serviceScope.launch {
             themePreferencesRepository.albumArtColorAccuracyFlow.drop(1).collect {
                 requestWidgetFullUpdate(force = true)
+            }
+        }
+        serviceScope.launch {
+            themePreferencesRepository.appLauncherIconFlow.drop(1).collect { iconId ->
+                try {
+                    val pendingIntent = getOpenAppPendingIntent()
+                    mediaSession?.setSessionActivity(pendingIntent)
+                    Timber.tag("MusicService").d("Updated mediaSession sessionActivity for appLauncherIcon: $iconId")
+                } catch (e: Exception) {
+                    Timber.tag("MusicService").w(e, "Failed to update sessionActivity for appLauncherIcon $iconId")
+                }
             }
         }
 
@@ -3050,8 +3062,9 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun getOpenAppPendingIntent(): PendingIntent {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            setPackage(packageName)
+        val activeIcon = AppIconManager.getActiveLauncherIcon(this)
+        val intent = Intent().apply {
+            component = ComponentName(packageName, activeIcon.aliasClassName)
             action = WearIntents.ACTION_OPEN_PLAYER
             addCategory(Intent.CATEGORY_DEFAULT)
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP

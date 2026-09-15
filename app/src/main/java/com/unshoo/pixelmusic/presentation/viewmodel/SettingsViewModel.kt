@@ -62,11 +62,14 @@ import com.unshoo.pixelmusic.data.preferences.LaunchTab
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.service.player.HiFiCapabilityChecker
 import com.unshoo.pixelmusic.utils.AppLocaleManager
+import com.unshoo.pixelmusic.presentation.model.AppLauncherIcon
+import com.unshoo.pixelmusic.presentation.utils.AppIconManager
 import java.io.File
 
 data class SettingsUiState(
     val isLoadingDirectories: Boolean = false,
     val appLanguageTag: String = AppLanguage.SYSTEM.tag,
+    val appLauncherIcon: String = AppLauncherIcon.DEFAULT.id,
     val appThemeMode: String = AppThemeMode.FOLLOW_SYSTEM,
     val pitchBlackEnabled: Boolean = false,
     val appFontMode: String = AppFontMode.APP_DEFAULT,
@@ -556,6 +559,12 @@ class SettingsViewModel @Inject constructor(
     val dataTransferProgress: StateFlow<BackupTransferProgressUpdate?> = _dataTransferProgress.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            themePreferencesRepository.appLauncherIconFlow.collect { iconId ->
+                _uiState.update { it.copy(appLauncherIcon = iconId) }
+            }
+        }
+
         viewModelScope.launch {
             datastoreRepository.settings.collect { settings ->
                 _uiState.update {
@@ -1202,6 +1211,13 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun setCollageAutoRotate(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setCollageAutoRotate(enabled)
+        }
+    }
+
+    fun setAppLauncherIcon(context: Context, icon: AppLauncherIcon) {
+        viewModelScope.launch {
+            AppIconManager.setLauncherIcon(context, icon)
+            themePreferencesRepository.setAppLauncherIcon(icon.id)
         }
     }
 

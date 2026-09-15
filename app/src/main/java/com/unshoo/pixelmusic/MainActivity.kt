@@ -7,6 +7,7 @@ import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import com.unshoo.pixelmusic.presentation.utils.AppIconManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Trace
@@ -190,7 +191,10 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         LogUtils.d(this, "onCreate")
+        val activeIcon = AppIconManager.getActiveLauncherIcon(this)
+        setTheme(activeIcon.splashThemeRes)
         val splashScreen = installSplashScreen()
+        AppIconManager.updateTaskDescription(this, activeIcon)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(
                 android.graphics.Color.TRANSPARENT,

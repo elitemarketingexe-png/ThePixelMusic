@@ -23,6 +23,11 @@ class ThemePreferencesRepository @Inject constructor(
         val COLOR_PALETTE_PREFERENCE = stringPreferencesKey("color_palette_preference")
         val APP_FONT_PREFERENCE = stringPreferencesKey("app_font_preference")
         val PITCH_BLACK_ENABLED = booleanPreferencesKey("pitch_black_enabled")
+        val APP_LAUNCHER_ICON = stringPreferencesKey("app_launcher_icon")
+    }
+
+    val appLauncherIconFlow: Flow<String> = dataStore.data.map { preferences ->
+        preferences[Keys.APP_LAUNCHER_ICON] ?: com.unshoo.pixelmusic.presentation.model.AppLauncherIcon.DEFAULT.id
     }
 
     val appThemeModeFlow: Flow<String> = dataStore.data.map { preferences ->
@@ -105,5 +110,10 @@ class ThemePreferencesRepository @Inject constructor(
     suspend fun setPitchBlackEnabled(enabled: Boolean) =
         dataStore.edit { preferences ->
             preferences[Keys.PITCH_BLACK_ENABLED] = enabled
+        }
+
+    suspend fun setAppLauncherIcon(iconId: String) =
+        dataStore.edit { preferences ->
+            preferences[Keys.APP_LAUNCHER_ICON] = iconId
         }
 }

@@ -158,6 +158,7 @@ import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -193,6 +194,7 @@ import com.unshoo.pixelmusic.presentation.components.ExpressiveTopBarContent
 import com.unshoo.pixelmusic.presentation.components.FileExplorerDialog
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.model.SettingsCategory
+import com.unshoo.pixelmusic.presentation.model.AppLauncherIcon
 import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.viewmodel.LyricsRefreshProgress
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
@@ -818,6 +820,13 @@ fun SettingsCategoryScreen(
                                     selectedKey = uiState.appFontMode,
                                     onSelectionChanged = { settingsViewModel.setAppFontMode(it) },
                                     leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
+                                AppIconStyleItem(
+                                    selectedIcon = AppLauncherIcon.fromId(uiState.appLauncherIcon),
+                                    onIconSelected = { icon ->
+                                        settingsViewModel.setAppLauncherIcon(context, icon)
+                                    },
+                                    useSmoothCorners = useSmoothCorners
                                 )
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.setcat_app_color_palette_label),
@@ -3506,15 +3515,16 @@ private fun SettingsSubsectionHeader(title: String) {
 private fun SettingsSubsection(
     title: String,
     addBottomSpace: Boolean = true,
+    itemSpacing: Dp = 2.dp,
     content: @Composable () -> Unit
 ) {
     SettingsSubsectionHeader(title)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .then(if (itemSpacing == 2.dp) Modifier.clip(RoundedCornerShape(24.dp)) else Modifier)
             .background(Color.Transparent),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(itemSpacing)
     ) {
         content()
     }

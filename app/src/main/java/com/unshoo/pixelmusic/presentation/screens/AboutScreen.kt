@@ -362,7 +362,7 @@ private fun AboutHeroCard(
                                 painter = painterResource(R.drawable.pixelmusic_base_monochrome),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(28.dp),
+                                modifier = Modifier.size(36.dp),
                             )
                         }
                     }
