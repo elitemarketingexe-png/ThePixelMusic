@@ -92,7 +92,7 @@ enum class AppLauncherIcon(
     );
 
     companion object {
-        val DEFAULT = BABY_PINK_PURPLE
+        val DEFAULT = BLUE_PURPLE
 
         fun fromId(id: String?): AppLauncherIcon {
             return entries.find { it.id.equals(id, ignoreCase = true) } ?: DEFAULT
