@@ -326,28 +326,47 @@ class ExploreViewModel @Inject constructor(
         }
 
         try {
-            // Stage 1: Single fast fetch for YouTube Home (personalized by user session)
-            val home = withContext(Dispatchers.IO) {
+            // Stage 1: Fast initial and eager continuation batch fetch for YouTube Home
+            val initialHome = withContext(Dispatchers.IO) {
                 runCatching { YouTube.home().getOrNull() }.getOrNull()
             }
 
-            if (home != null) {
+            if (initialHome != null) {
+                val combinedSections = ArrayList<HomePage.Section>()
+                combinedSections.addAll(initialHome.sections)
+                var currentContinuation = initialHome.continuation
+                var continuationCount = 0
+
+                // Eagerly fetch up to 4 continuation batches in background to load all personalized homepage categories in one pass
+                while (!currentContinuation.isNullOrBlank() && continuationCount < 4) {
+                    continuationCount++
+                    val continuationBatch = withContext(Dispatchers.IO) {
+                        runCatching { YouTube.home(continuation = currentContinuation).getOrNull() }.getOrNull()
+                    }
+                    if (continuationBatch != null && continuationBatch.sections.isNotEmpty()) {
+                        combinedSections.addAll(continuationBatch.sections)
+                        currentContinuation = continuationBatch.continuation
+                    } else {
+                        break
+                    }
+                }
+
                 val cookies = runCatching { datastoreRepository.cookies.first() }.getOrNull()
                 val isYtConnected = cookies?.toRawCookie()?.let {
                     it.contains("SAPISID=") || it.contains("__Secure-3PAPISID=")
                 } == true
                 val isAdvancedExploreEnabled = !isYtConnected || userPreferencesRepository.advancedExplorePageFlow.first()
-                val currentContinuation = if (isAdvancedExploreEnabled) home.continuation else null
 
                 // Filter out undesirable sections in a single pass
-                val rawSections = home.sections.filter { section ->
+                val rawSections = combinedSections.filter { section ->
                     val title = section.title.lowercase()
                     !title.contains("new music videos") &&
                     !title.contains("trending") &&
                     !title.contains("long listens") &&
                     !title.contains("local") &&
                     !title.contains("quick picks") &&
-                    !title.contains("quickpicks")
+                    !title.contains("quickpicks") &&
+                    section.items.isNotEmpty()
                 }.distinctBy { it.title }
 
                 // Extract personalized new releases directly from user's YouTube Home feed (zero extra network calls)
@@ -379,7 +398,7 @@ class ExploreViewModel @Inject constructor(
 
                 // Progressive streaming: map to domain UI models once
                 val uiSections = rawSections.map { it.toUiModel() }
-                val rawChips = home.chips ?: emptyList()
+                val rawChips = initialHome.chips ?: emptyList()
                 val uiChips = rawChips.map { ExploreChipUiModel(it.title, it.endpoint?.browseId, it.endpoint?.params) }
 
                 _sectionsState.value = uiSections
@@ -457,7 +476,6 @@ class ExploreViewModel @Inject constructor(
         if (_uiState.value.isContinuationLoading || _uiState.value.isLoading || _uiState.value.isRefreshing) return
 
         viewModelScope.launch {
-            if (!userPreferencesRepository.advancedExplorePageFlow.first()) return@launch
             _uiState.update { it.copy(isContinuationLoading = true) }
             val continuationHome = withContext(Dispatchers.IO) {
                 runCatching { YouTube.home(continuation = continuation).getOrNull() }.getOrNull()
@@ -471,7 +489,8 @@ class ExploreViewModel @Inject constructor(
                     !title.contains("long listens") &&
                     !title.contains("local") &&
                     !title.contains("quick picks") &&
-                    !title.contains("quickpicks")
+                    !title.contains("quickpicks") &&
+                    section.items.isNotEmpty()
                 }
 
                 val currentRaw = _uiState.value.homePageSections

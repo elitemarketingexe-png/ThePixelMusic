@@ -131,6 +131,31 @@ class MusicRepositoryImpl @Inject constructor(
     @Volatile private var currentSongArtistPrefetchJob: Job? = null
     @Volatile private var currentSongArtistPrefetchSongId: Long? = null
     @Volatile private var telegramDownloadSyncObserverStarted = false
+    @Volatile private var hasCleanedStrayAlbums = false
+
+    private fun cleanupStrayExploredAlbumsOnce() {
+        if (hasCleanedStrayAlbums) return
+        hasCleanedStrayAlbums = true
+        repositoryScope.launch(Dispatchers.IO) {
+            try {
+                val likedAlbumIds = userPreferencesRepository.likedAlbumIdsFlow.first()
+                val albumKeys = musicDao.getAlbumMembershipKeys()
+                for (key in albumKeys) {
+                    val idStr = key.removePrefix("album_")
+                    val albumId = idStr.toLongOrNull() ?: continue
+                    val browseId = com.unshoo.pixelmusic.presentation.viewmodel.AlbumIdMapper.getBrowseId(context, albumId)
+                    val isLiked = (browseId != null && browseId in likedAlbumIds) || idStr in likedAlbumIds
+                    if (!isLiked && !musicDao.hasQualifyingSongForAlbum(albumId)) {
+                        musicDao.deleteNonQualifyingSongsForAlbum(albumId)
+                        musicDao.deleteLibraryMembershipKey(key)
+                    }
+                }
+                musicDao.deleteOrphanedAlbums()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to cleanup stray explored albums")
+            }
+        }
+    }
     private val telegramCacheManager: com.unshoo.pixelmusic.data.telegram.TelegramCacheManager
         get() = telegramCacheManagerProvider.get()
     override val telegramRepository: com.unshoo.pixelmusic.data.telegram.TelegramRepository
@@ -209,6 +234,7 @@ class MusicRepositoryImpl @Inject constructor(
         storageFilter: StorageFilter,
         minTracks: Int
     ): Flow<PagingData<Album>> {
+        cleanupStrayExploredAlbumsOnce()
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
             userPreferencesRepository.blockedDirectoriesFlow
@@ -529,6 +555,7 @@ class MusicRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getAlbums(storageFilter: StorageFilter, minTracks: Int): Flow<List<Album>> {
+        cleanupStrayExploredAlbumsOnce()
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
             userPreferencesRepository.blockedDirectoriesFlow

@@ -104,7 +104,7 @@ class FeedViewModel @Inject constructor(
             try {
                 val exploreLastFm = userPreferencesRepository.exploreLastfmEnabledFlow.first()
                 val username = if (exploreLastFm) userPreferencesRepository.lastfmUsernameFlow.first().takeIf(String::isNotBlank) else null
-                val data = repository.loadFeed(username) { update ->
+                val data = repository.loadFeed(username = username, forceRefresh = refreshing) { update ->
                     ensureActive()
                     _uiState.update { it.copy(feedData = update, isLoading = false) }
                 }

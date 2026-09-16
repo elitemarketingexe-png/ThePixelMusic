@@ -30,6 +30,7 @@ class FeedRepository @Inject constructor(
 
     suspend fun loadFeed(
         username: String? = null,
+        forceRefresh: Boolean = false,
         onUpdate: (FeedData) -> Unit = {},
     ): FeedData = coroutineScope {
         val exploreLastFmEnabled = runCatching { userPreferencesRepository.exploreLastfmEnabledFlow.first() }.getOrDefault(true)
@@ -42,8 +43,10 @@ class FeedRepository @Inject constructor(
         val connectionKey = if (isYtConnected) ytAccountName else "disconnected"
 
         val cacheKey = "${resolvedUsername.trim()}|$connectionKey"
-        val previous = cachedFeed?.takeIf { cachedKey == cacheKey }
-        previous?.let(onUpdate)
+        val previous = if (forceRefresh) null else cachedFeed?.takeIf { cachedKey == cacheKey }
+        if (!forceRefresh) {
+            previous?.let(onUpdate)
+        }
 
         val random = kotlin.random.Random(System.nanoTime())
 
@@ -76,7 +79,7 @@ class FeedRepository @Inject constructor(
         val recentTracksDef = async(Dispatchers.IO) { emptyList<RecentTrack>() }
         val friendsDef = async(Dispatchers.IO) { emptyList<FriendEntry>() }
         val tasteProfileDef = async(Dispatchers.IO) {
-            runCatching { tasteProfileProvider.get() }.getOrNull()
+            runCatching { tasteProfileProvider.get(forceRefresh = forceRefresh) }.getOrNull()
         }
         val lastFmTopAlbumsDef = async(Dispatchers.IO) { emptyList<FeedTopAlbum>() }
 
@@ -300,25 +303,35 @@ class FeedRepository @Inject constructor(
             .distinctBy { ArtistHelper.primaryArtist(it.artist).trim().lowercase() }.take(8)
             .map { FeedMix(title = "${ArtistHelper.primaryArtist(it.artist)} mix", seed = it) }
 
+        val previousHeavyKeys = previous?.heavyRotation.orEmpty().mapTo(mutableSetOf()) { it.key }
         val heavyCandidates = buildList {
             tasteProfile?.topTracksRaw?.forEachIndexed { i, t ->
                 val aff = ArtistHelper.splitArtists(t.artist).maxOfOrNull { affinity[it.trim().lowercase()] ?: 0.0 } ?: 0.0
-                add(t to (aff * 40 + 20.0 / (1 + i / 6.0)))
+                val jitter = random.nextDouble() * 25.0
+                val prevPenalty = if (t.key in previousHeavyKeys) 22.0 else 0.0
+                add(t to (aff * 40 + 20.0 / (1 + i / 6.0) + jitter - prevPenalty))
             }
             blend(ytRecentSongs, ytLikedSongs)
                 .distinctBy { it.artist.trim().lowercase() to it.title.trim().lowercase() }
                 .forEachIndexed { i, it ->
+                    val aff = affinity[ArtistHelper.primaryArtist(it.artist).trim().lowercase()] ?: 0.0
+                    val jitter = random.nextDouble() * 25.0
+                    val prevPenalty = if (it.videoId in previousHeavyKeys || it.title in previousHeavyKeys) 22.0 else 0.0
                     add(
                         GeneratedTrack(
                             it.title, it.artist, it.artworkUrl,
                             url = "https://www.youtube.com/watch?v=${it.videoId}", album = it.album,
-                        ) to (12.0 / (1 + i / 6.0) + (affinity[ArtistHelper.primaryArtist(it.artist).trim().lowercase()] ?: 0.0) * 30),
+                        ) to (12.0 / (1 + i / 6.0) + aff * 30 + jitter - prevPenalty),
                     )
                 }
         }.distinctBy { (t, _) -> t.key }
             .sortedByDescending { it.second }
             .map { it.first }
-        val heavyRotation = heavyCandidates.filter(::filterGenerated).distinctBy(GeneratedTrack::key).take(15)
+        val heavyRotation = diversify(
+            heavyCandidates.filter(::filterGenerated).distinctBy(GeneratedTrack::key),
+            GeneratedTrack::artist,
+            maxPerArtist = 2
+        ).take(15)
 
         val ytJumpCandidates = buildList {
             ytRecentSongs.forEach {

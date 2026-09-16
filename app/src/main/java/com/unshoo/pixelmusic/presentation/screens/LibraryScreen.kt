@@ -1218,6 +1218,11 @@ fun LibraryScreen(
                                 }
                             }
                         }
+                        val allSongsLazyPagingItems = libraryViewModel.songsPagingFlow.collectAsLazyPagingItems()
+                        val albumsLazyPagingItems = libraryViewModel.albumsPagingFlow.collectAsLazyPagingItems()
+                        val artistsLazyPagingItems = libraryViewModel.artistsPagingFlow.collectAsLazyPagingItems()
+                        val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
+                        val isLibraryLoading by libraryViewModel.isLoadingLibrary.collectAsStateWithLifecycle()
                         val hasCurrentSong by remember(playerViewModel) {
                             playerViewModel.stablePlayerState
                                 .map { state -> state.currentSong != null && state.currentSong != Song.emptySong() }
@@ -1626,9 +1631,6 @@ fun LibraryScreen(
                                 // spinner or latch.
                                 when (tabTitles.getOrNull(tabIndex)?.toLibraryTabIdOrNull()) {
                                     LibraryTabId.SONGS -> {
-                                        val allSongsLazyPagingItems = libraryViewModel.songsPagingFlow.collectAsLazyPagingItems()
-                                        val isLibraryLoading by libraryViewModel.isLoadingLibrary.collectAsStateWithLifecycle()
-
                                         LibrarySongsTab(
                                             songs = allSongsLazyPagingItems,
                                             isLoading = isLibraryLoading,
@@ -1653,7 +1655,6 @@ fun LibraryScreen(
                                         )
                                     }
                                     LibraryTabId.ALBUMS -> {
-                                        val albumsLazyPagingItems = libraryViewModel.albumsPagingFlow.collectAsLazyPagingItems()
                                         val isLoading = playerUiState.isLoadingLibraryCategories && albumsLazyPagingItems.itemCount == 0
 
                                         val stableOnAlbumClick: (Long) -> Unit = remember(navController) {
@@ -1684,7 +1685,6 @@ fun LibraryScreen(
                                     }
 
                                     LibraryTabId.ARTISTS -> {
-                                        val artistsLazyPagingItems = libraryViewModel.artistsPagingFlow.collectAsLazyPagingItems()
                                         val isLoading = playerUiState.isLoadingLibraryCategories && artistsLazyPagingItems.itemCount == 0
 
                                         val stableOnArtistClick: (Long) -> Unit = remember(navController) {
@@ -1728,9 +1728,6 @@ fun LibraryScreen(
                                     }
 
                                     LibraryTabId.LIKED -> {
-                                        val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
-                                        val isLibraryLoading by libraryViewModel.isLoadingLibrary.collectAsStateWithLifecycle()
-
                                         LibraryFavoritesTab(
                                             favoriteSongs = favoritePagingItems,
                                             isLoading = isLibraryLoading || (playerUiState.isLoadingLibraryCategories && favoritePagingItems.itemCount == 0),

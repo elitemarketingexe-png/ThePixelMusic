@@ -1266,15 +1266,7 @@ interface MusicDao {
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
             OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
             OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
-            -- PERF: reads append-only library_membership via covering PK index probes instead of
-            -- song_engagements, stopping InvalidationTracker feedback loop on every track play
-            OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
-            OR EXISTS (SELECT 1 FROM library_membership lm2 WHERE lm2.song_key = songs.content_uri_string)
             OR EXISTS (SELECT 1 FROM library_membership lm3 WHERE lm3.song_key = 'album_' || CAST(albums.id AS TEXT))
-            OR (
-                songs.artist_id IN (SELECT id FROM artists WHERE channel_id IS NOT NULL AND channel_id != '')
-                AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
-            )
         )
         AND (
             :filterMode = 0
@@ -1330,15 +1322,7 @@ interface MusicDao {
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
             OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
             OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
-            -- PERF: reads append-only library_membership via covering PK index probes instead of
-            -- song_engagements, stopping InvalidationTracker feedback loop on every track play
-            OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
-            OR EXISTS (SELECT 1 FROM library_membership lm2 WHERE lm2.song_key = songs.content_uri_string)
             OR EXISTS (SELECT 1 FROM library_membership lm3 WHERE lm3.song_key = 'album_' || CAST(albums.id AS TEXT))
-            OR (
-                songs.artist_id IN (SELECT id FROM artists WHERE channel_id IS NOT NULL AND channel_id != '')
-                AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
-            )
         )
         AND (
             :filterMode = 0
@@ -1407,15 +1391,7 @@ interface MusicDao {
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
             OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT))
             OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
-            -- PERF: reads append-only library_membership via covering PK index probes instead of
-            -- song_engagements, stopping InvalidationTracker feedback loop on every track play
-            OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
-            OR EXISTS (SELECT 1 FROM library_membership lm2 WHERE lm2.song_key = songs.content_uri_string)
             OR EXISTS (SELECT 1 FROM library_membership lm3 WHERE lm3.song_key = 'album_' || CAST(albums.id AS TEXT))
-            OR (
-                songs.artist_id IN (SELECT id FROM artists WHERE channel_id IS NOT NULL AND channel_id != '')
-                AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
-            )
         )
         AND (
             :filterMode = 0
@@ -1466,6 +1442,35 @@ interface MusicDao {
         limit: Int,
         offset: Int
     ): List<AlbumEntity>
+
+    @Query("""
+        SELECT EXISTS (
+            SELECT 1 FROM songs
+            WHERE album_id = :albumId
+              AND (
+                  source_type = 0
+                  OR is_favorite = 1
+                  OR (file_path IS NOT NULL AND file_path != '')
+                  OR EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT) OR ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
+              )
+        )
+    """)
+    suspend fun hasQualifyingSongForAlbum(albumId: Long): Boolean
+
+    @Query("SELECT song_key FROM library_membership WHERE song_key LIKE 'album_%'")
+    suspend fun getAlbumMembershipKeys(): List<String>
+
+    @Query("DELETE FROM library_membership WHERE song_key = :key")
+    suspend fun deleteLibraryMembershipKey(key: String)
+
+    @Query("""
+        DELETE FROM songs
+        WHERE album_id = :albumId
+          AND source_type != 0
+          AND is_favorite = 0
+          AND NOT EXISTS (SELECT 1 FROM playlist_songs ps WHERE ps.song_id = CAST(songs.id AS TEXT) OR ps.song_id = REPLACE(songs.content_uri_string, 'youtube://', 'youtube_'))
+    """)
+    suspend fun deleteNonQualifyingSongsForAlbum(albumId: Long)
 
     @Query("""
         SELECT

@@ -19,10 +19,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -30,7 +28,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +37,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -157,11 +153,11 @@ fun LibraryAlbumsTab(
     // Reduced prefetchCount from 10 to 4 to lower memory/IO pressure.
     LaunchedEffect(albums, gridState, listState, isListView) {
         if (isListView) {
-            snapshotFlow { listState.firstVisibleItemIndex }
+            snapshotFlow { listState.layoutInfo }
                 .debounce(150)
                 .distinctUntilChanged()
-                .collect {
-                    val visibleItemsInfo = listState.layoutInfo.visibleItemsInfo
+                .collect { layoutInfo ->
+                    val visibleItemsInfo = layoutInfo.visibleItemsInfo
                     if (visibleItemsInfo.isNotEmpty() && albums.itemCount > 0) {
                         val lastVisibleItemIndex = visibleItemsInfo.last().index
                         val totalItemsCount = albums.itemCount
@@ -190,11 +186,11 @@ fun LibraryAlbumsTab(
                     }
                 }
         } else {
-            snapshotFlow { gridState.firstVisibleItemIndex }
+            snapshotFlow { gridState.layoutInfo }
                 .debounce(150)
                 .distinctUntilChanged()
-                .collect {
-                    val visibleItemsInfo = gridState.layoutInfo.visibleItemsInfo
+                .collect { layoutInfo ->
+                    val visibleItemsInfo = layoutInfo.visibleItemsInfo
                     if (visibleItemsInfo.isNotEmpty() && albums.itemCount > 0) {
                         val lastVisibleItemIndex = visibleItemsInfo.last().index
                         val totalItemsCount = albums.itemCount
@@ -227,35 +223,11 @@ fun LibraryAlbumsTab(
 
     val refreshState = albums.loadState.refresh
     val reachedEndOfPagination = albums.loadState.append.endOfPaginationReached
-
-    val shouldLoadMore = remember(isListView) {
-        derivedStateOf {
-            val (totalItems, lastVisibleItem) = if (isListView) {
-                val info = listState.layoutInfo
-                info.totalItemsCount to (info.visibleItemsInfo.lastOrNull()?.index ?: 0)
-            } else {
-                val info = gridState.layoutInfo
-                info.totalItemsCount to (info.visibleItemsInfo.lastOrNull()?.index ?: 0)
-            }
-            totalItems > 0 && lastVisibleItem >= totalItems - 4
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore.value) {
-        if (shouldLoadMore.value) {
-            if (albums.loadState.append is LoadState.Error) {
-                albums.retry()
-            } else if (albums.itemCount > 0 && !reachedEndOfPagination) {
-                albums.get(albums.itemCount - 1)
-            }
-        }
-    }
-
     val shouldShowInitialLoading = albums.itemCount == 0 && (
         isLoading || refreshState is LoadState.Loading
     )
 
-    // Plain when-branching (no Crossfade) for instant response.
+    // Upstream PixelPlayerOSS pattern: plain when-branching (no Crossfade).
     // Crossfade double-composed the skeleton + content trees on every state swap,
     // which caused jank in the image grid and a visible 220ms fade on load.
     val pageTarget = when {
@@ -390,9 +362,7 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index ->
-                                        albums.peek(index)?.id ?: "album_placeholder_$index"
-                                    },
+                                    key = { index -> albums.peek(index)?.id ?: "album_placeholder_$index" },
                                     contentType = { "album_list_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -426,23 +396,6 @@ fun LibraryAlbumsTab(
                                             onClick = {},
                                             isLoading = true
                                         )
-                                    }
-                                }
-
-                                if (albums.loadState.append is LoadState.Loading) {
-                                    item(key = "albums_list_load_more_loader") {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 16.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(28.dp),
-                                                strokeWidth = 2.5.dp,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -483,9 +436,7 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index ->
-                                        albums.peek(index)?.id ?: "album_grid_placeholder_$index"
-                                    },
+                                    key = { index -> albums.peek(index)?.id ?: "album_grid_placeholder_$index" },
                                     contentType = { "album_grid_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -519,26 +470,6 @@ fun LibraryAlbumsTab(
                                             onClick = {},
                                             isLoading = true
                                         )
-                                    }
-                                }
-
-                                if (albums.loadState.append is LoadState.Loading) {
-                                    item(
-                                        key = "albums_grid_load_more_loader",
-                                        span = { GridItemSpan(2) }
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 16.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(28.dp),
-                                                strokeWidth = 2.5.dp,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -726,9 +657,7 @@ fun LibraryArtistsTab(
                         ) {
                             items(
                                 count = artists.itemCount,
-                                key = { index ->
-                                    artists.peek(index)?.id ?: "artist_placeholder_$index"
-                                },
+                                key = { index -> artists.peek(index)?.id ?: "artist_placeholder_$index" },
                                 contentType = { "artist" }
                             ) { index ->
                                 val artist = artists[index]

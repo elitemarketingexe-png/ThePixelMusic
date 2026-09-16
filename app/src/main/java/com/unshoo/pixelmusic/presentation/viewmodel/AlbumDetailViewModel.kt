@@ -246,42 +246,6 @@ class AlbumDetailViewModel @Inject constructor(
                         )
                     }
 
-                    // 1. Permanently store AlbumEntity
-                    val albumEntity = AlbumEntity(
-                        id = unifiedAlbumId,
-                        title = albumTitle,
-                        artistName = primaryArtistName,
-                        artistId = primaryArtistId,
-                        albumArtist = artistName,
-                        albumArtUriString = albumArt,
-                        songCount = songsModels.size,
-                        dateAdded = System.currentTimeMillis(),
-                        year = albumYear
-                    )
-                    musicRepository.insertAlbums(listOf(albumEntity))
-
-                    // 2. Permanently store enriched songs
-                    musicRepository.insertYoutubeSongs(songsModels)
-
-                    // 3. Mark songs and album in library_membership
-                    withContext(Dispatchers.IO) {
-                        val memberships = mutableListOf<LibraryMembershipEntity>()
-                        memberships.add(
-                            LibraryMembershipEntity(
-                                songKey = "album_$unifiedAlbumId",
-                                firstPlayedTimestamp = System.currentTimeMillis()
-                            )
-                        )
-                        songsModels.forEach { s ->
-                            val ytId = s.youtubeId ?: if (s.id.startsWith("youtube_")) s.id.removePrefix("youtube_") else null
-                            if (ytId != null) {
-                                memberships.add(LibraryMembershipEntity(songKey = "youtube://$ytId", firstPlayedTimestamp = System.currentTimeMillis()))
-                                memberships.add(LibraryMembershipEntity(songKey = s.id, firstPlayedTimestamp = System.currentTimeMillis()))
-                            }
-                        }
-                        engagementDao.insertLibraryMemberships(memberships)
-                    }
-
                     _uiState.value = AlbumDetailUiState(
                         album = albumModel,
                         songs = songsModels,

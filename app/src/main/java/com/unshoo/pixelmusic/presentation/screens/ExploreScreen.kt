@@ -238,8 +238,8 @@ fun ExploreScreen(
             totalItems > 0 && lastVisibleItem >= totalItems - 3
         }
     }
-    LaunchedEffect(shouldLoadMore.value, isAdvancedExplore) {
-        if (shouldLoadMore.value && isAdvancedExplore && exploreUiState.homePageContinuation != null && !exploreUiState.isContinuationLoading) {
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value && exploreUiState.homePageContinuation != null && !exploreUiState.isContinuationLoading) {
             exploreViewModel.loadMore()
         }
     }
@@ -357,7 +357,7 @@ fun ExploreScreen(
             }
         ) {
             val hasFeedContent = quickPicks.isNotEmpty() ||
-                (isAdvancedExplore && regionalSections.isNotEmpty()) ||
+                regionalSections.isNotEmpty() ||
                 artistsForYou.isNotEmpty() ||
                 jumpBackInTracks.isNotEmpty() ||
                 exploreUiState.libraryPlaylists.isNotEmpty() ||
@@ -804,7 +804,7 @@ fun ExploreScreen(
                     }
 
                     // 15. Advanced Explore / Homepage Sections (Similar Artists, Listen Again, Bento Mixes, Categories)
-                    if (isAdvancedExplore && regionalSections.isNotEmpty()) {
+                    if (regionalSections.isNotEmpty()) {
                         itemsIndexed(regionalSections, key = { idx, s -> "regional_section_${s.title}_$idx" }) { idx, section ->
                             val isSimilar = section.title.startsWith("Similar to", ignoreCase = true) ||
                                 section.title.contains("Fans also like", ignoreCase = true) ||
@@ -1244,6 +1244,7 @@ private fun TasteStrip(
 private fun FeedSectionHeader(
     title: String,
     subtitle: String? = null,
+    avatarUrl: String? = null,
     actionText: String? = null,
     actionIcon: ImageVector? = null,
     onActionClick: (() -> Unit)? = null,
@@ -1257,11 +1258,26 @@ private fun FeedSectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        if (!avatarUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .then(
+                        if (onActionClick != null) Modifier.clickable(onClick = onActionClick)
+                        else Modifier
+                    )
+            )
+        }
+
         Column(
             modifier = Modifier
                 .weight(1f)
                 .then(
-                    if (onActionClick != null) Modifier.clickable(onClick = onActionClick)
+                    if (onActionClick != null && actionText == null) Modifier.clickable(onClick = onActionClick)
                     else Modifier
                 )
         ) {
@@ -1354,6 +1370,21 @@ private fun FeedSectionHeader(
                     }
                     Text(actionText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 }
+            }
+        } else if (onActionClick != null && actionText == null) {
+            IconButton(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onActionClick()
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+                    contentDescription = "Navigate to $title",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -2683,39 +2714,45 @@ private fun RegionalExploreSection(
                 t.contains("forgotten") -> "Rediscover previous favorites"
                 t.contains("mixed for you") || t.contains("mix") -> "Personalized mixes tailored for you"
                 t.contains("quick") -> "Fast picks based on your recent activity"
-                else -> "From YouTube Music"
+                else -> null
             }
         }
     }
 
-    FeedSectionHeader(
-        title = section.title,
-        subtitle = subtitle,
-        actionText = if (songTracks.isNotEmpty()) "Play all" else null,
-        actionIcon = if (songTracks.isNotEmpty()) Icons.Filled.PlayArrow else null,
-        onActionClick = if (songTracks.isNotEmpty()) {
-            { feedViewModel.playTracksQueue(songTracks, 0, playerViewModel, section.title) }
-        } else {
-            section.endpoint?.browseId?.let { browseId ->
-                {
-                    when {
-                        browseId.startsWith("UC") || browseId.startsWith("FEmusic_artist") -> {
-                            navController.navigateSafely(Screen.ArtistDetail.createRoute(browseId))
-                        }
-                        browseId.startsWith("VL") || browseId.startsWith("PL") || browseId.startsWith("RD") || browseId.startsWith("FEmusic_playlist") -> {
-                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(browseId.removePrefix("VL")))
-                        }
-                        browseId.startsWith("MPRE") || browseId.startsWith("FEmusic_album") -> {
-                            navController.navigateSafely(Screen.AlbumDetail.createRoute(browseId))
-                        }
-                        else -> {
-                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(browseId))
-                        }
+    val navigationAction: (() -> Unit)? = remember(section.endpoint) {
+        section.endpoint?.browseId?.let { browseId ->
+            {
+                when {
+                    browseId.startsWith("UC") || browseId.startsWith("FEmusic_artist") -> {
+                        navController.navigateSafely(Screen.ArtistDetail.createRoute(browseId))
+                    }
+                    browseId.startsWith("VL") || browseId.startsWith("PL") || browseId.startsWith("RD") || browseId.startsWith("FEmusic_playlist") -> {
+                        navController.navigateSafely(Screen.PlaylistDetail.createRoute(browseId.removePrefix("VL")))
+                    }
+                    browseId.startsWith("MPRE") || browseId.startsWith("FEmusic_album") -> {
+                        navController.navigateSafely(Screen.AlbumDetail.createRoute(browseId))
+                    }
+                    else -> {
+                        navController.navigateSafely(Screen.PlaylistDetail.createRoute(browseId))
                     }
                 }
             }
+        }
+    }
+
+    val hasSongs = songTracks.isNotEmpty()
+    FeedSectionHeader(
+        title = section.title,
+        subtitle = subtitle,
+        avatarUrl = section.thumbnail,
+        actionText = if (hasSongs) "Play all" else null,
+        actionIcon = if (hasSongs) Icons.Filled.PlayArrow else null,
+        onActionClick = if (hasSongs) {
+            { feedViewModel.playTracksQueue(songTracks, 0, playerViewModel, section.title) }
+        } else {
+            navigationAction
         },
-        onShuffleClick = if (songTracks.isNotEmpty()) {
+        onShuffleClick = if (hasSongs && songTracks.size > 1) {
             { feedViewModel.shuffleTracksQueue(songTracks, playerViewModel, section.title) }
         } else null
     )
