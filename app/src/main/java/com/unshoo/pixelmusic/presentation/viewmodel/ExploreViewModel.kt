@@ -335,7 +335,10 @@ class ExploreViewModel @Inject constructor(
         }
 
         try {
-            // Stage 1: Fast initial and eager continuation batch fetch for YouTube Home
+            val isAdvancedExploreEnabled = userPreferencesRepository.advancedExplorePageFlow.first()
+            _uiState.update { it.copy(isAdvancedExploreEnabled = isAdvancedExploreEnabled) }
+
+            // Stage 1: Fast initial fetch for YouTube Home (single-call)
             val initialHome = withContext(Dispatchers.IO) {
                 runCatching { YouTube.home().getOrNull() }.getOrNull()
             }
@@ -346,8 +349,8 @@ class ExploreViewModel @Inject constructor(
                 var currentContinuation = initialHome.continuation
                 var continuationCount = 0
 
-                // Eagerly fetch up to 4 continuation batches in background to load all personalized homepage categories in one pass
-                while (!currentContinuation.isNullOrBlank() && continuationCount < 4) {
+                // Only eagerly fetch continuation batches if advanced explore page is enabled
+                while (isAdvancedExploreEnabled && !currentContinuation.isNullOrBlank() && continuationCount < 2) {
                     continuationCount++
                     val continuationBatch = withContext(Dispatchers.IO) {
                         runCatching { YouTube.home(continuation = currentContinuation).getOrNull() }.getOrNull()
@@ -364,7 +367,6 @@ class ExploreViewModel @Inject constructor(
                 val isYtConnected = cookies?.toRawCookie()?.let {
                     it.contains("SAPISID=") || it.contains("__Secure-3PAPISID=")
                 } == true
-                val isAdvancedExploreEnabled = !isYtConnected || userPreferencesRepository.advancedExplorePageFlow.first()
 
                 // Filter out undesirable sections in a single pass
                 val rawSections = combinedSections.filter { section ->
@@ -483,6 +485,7 @@ class ExploreViewModel @Inject constructor(
     fun loadMore() {
         val continuation = _uiState.value.homePageContinuation ?: return
         if (_uiState.value.isContinuationLoading || _uiState.value.isLoading || _uiState.value.isRefreshing) return
+        if (!_uiState.value.isAdvancedExploreEnabled) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isContinuationLoading = true) }

@@ -58,21 +58,13 @@ class FeedRepository @Inject constructor(
         fun filterRecent(t: RecentTrack): Boolean = !filterCoverAndLofi || !ContentFilterUtils.isCoverOrLofi(t, filterKeywords)
         fun filterGenerated(t: GeneratedTrack): Boolean = !filterCoverAndLofi || !ContentFilterUtils.isCoverOrLofi(t, filterKeywords)
 
-        val newReleasesDef = async(Dispatchers.IO) {
-            runCatching { innerTube.fetchNewReleases(authenticated = isYtConnected) }.getOrDefault(emptyList())
-        }
-        val chartsDef = async(Dispatchers.IO) { runCatching { innerTube.fetchCharts() }.getOrDefault(emptyList()).filter(::filterTrack) }
-        val homeMixesDef = async(Dispatchers.IO) { runCatching { innerTube.fetchHomeMixes() }.getOrDefault(emptyList()) }
-        val homeAlbumsDef = async(Dispatchers.IO) {
-            runCatching { innerTube.fetchHomeAlbums(limit = 12) }.getOrDefault(emptyList())
-        }
-        val homeSongsDef = async(Dispatchers.IO) {
-            if (isYtConnected) emptyList() else runCatching { innerTube.fetchHomeSongs() }.getOrDefault(emptyList()).filter(::filterTrack)
+        val homeDef = async(Dispatchers.IO) {
+            runCatching { unshoo.ianshulyadav.pixelmusic.innertube.YouTube.home().getOrNull() }.getOrNull()
         }
 
         val ytTasteDef = async(Dispatchers.IO) {
             if (isYtConnected) {
-                runCatching { innerTube.fetchTasteSignals(recentLimit = 40, likedLimit = 40, feedLimit = 60) }.getOrNull()
+                runCatching { innerTube.fetchTasteSignals(recentLimit = 30, likedLimit = 30, feedLimit = 40) }.getOrNull()
             } else null
         }
 
@@ -83,12 +75,78 @@ class FeedRepository @Inject constructor(
         }
         val lastFmTopAlbumsDef = async(Dispatchers.IO) { emptyList<FeedTopAlbum>() }
 
-        val releaseCandidates = newReleasesDef.await()
-        val charts = chartsDef.await()
-        val homePlaylists = homeMixesDef.await().filter {
-            it.id.startsWith("PL") || it.id.startsWith("RD") || it.id.startsWith("OLAK") || it.id == "LM"
+        val home = homeDef.await()
+        val sections = home?.sections.orEmpty()
+
+        val releaseCandidates = sections.filter { s ->
+            val t = s.title.lowercase()
+            t.contains("new release") || t.contains("new album") || t.contains("fresh") || t.contains("novedades")
+        }.flatMap { it.items }.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem>().map { album ->
+            YouTubePlaylistSummary(
+                id = album.browseId,
+                title = album.title,
+                author = album.artists?.firstOrNull()?.name ?: "Album",
+                artworkUrl = album.thumbnail
+            )
+        }.ifEmpty {
+            sections.flatMap { it.items }.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem>().take(10).map { album ->
+                YouTubePlaylistSummary(
+                    id = album.browseId,
+                    title = album.title,
+                    author = album.artists?.firstOrNull()?.name ?: "Album",
+                    artworkUrl = album.thumbnail
+                )
+            }
         }
-        val homeSongs = homeSongsDef.await()
+
+        val charts = sections.filter { s ->
+            val t = s.title.lowercase()
+            t.contains("trending") || t.contains("chart") || t.contains("top")
+        }.flatMap { it.items }.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem>().map { song ->
+            YouTubeMusicTrack(
+                videoId = song.id,
+                title = song.title,
+                artist = song.artists.firstOrNull()?.name ?: "Unknown artist",
+                album = song.album?.name,
+                artworkUrl = song.thumbnail
+            )
+        }.filter(::filterTrack)
+
+        val homePlaylists = sections.flatMap { it.items }
+            .filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.PlaylistItem>()
+            .filter { it.id.startsWith("PL") || it.id.startsWith("RD") || it.id.startsWith("OLAK") || it.id == "LM" }
+            .map { p ->
+                YouTubePlaylistSummary(
+                    id = p.id,
+                    title = p.title,
+                    author = p.author?.name ?: "Playlist",
+                    artworkUrl = p.thumbnail
+                )
+            }
+
+        val homeAlbums = sections.flatMap { it.items }
+            .filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem>()
+            .map { album ->
+                FeedAlbum(
+                    title = album.title,
+                    artist = album.artists?.firstOrNull()?.name ?: "Unknown artist",
+                    artworkUrl = album.thumbnail,
+                    browseId = album.browseId
+                )
+            }
+
+        val homeSongs = sections.filter { s ->
+            val t = s.title.lowercase()
+            t.contains("quick") || t.contains("listen") || t.contains("recommend") || t.contains("pick")
+        }.flatMap { it.items }.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem>().map { song ->
+            YouTubeMusicTrack(
+                videoId = song.id,
+                title = song.title,
+                artist = song.artists.firstOrNull()?.name ?: "Unknown artist",
+                album = song.album?.name,
+                artworkUrl = song.thumbnail
+            )
+        }.filter(::filterTrack)
         val recentTracks = recentTracksDef.await()
         val friends = friendsDef.await()
         val tasteProfile = tasteProfileDef.await()
@@ -437,7 +495,7 @@ class FeedRepository @Inject constructor(
                 }
             }.awaitAll().filterNotNull()
 
-        val homeAlbums = homeAlbumsDef.await()
+        val filteredHomeAlbums = homeAlbums
             .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }
 
         val personalAlbums = blend(ytRealAlbums, lastFmRealAlbums)
@@ -459,8 +517,8 @@ class FeedRepository @Inject constructor(
             }.awaitAll()
             .filter { ArtworkNormalizer.isRealImage(it.artworkUrl) }
             .take(12)
-        } else if (homeAlbums.isNotEmpty()) {
-            homeAlbums.take(12)
+        } else if (filteredHomeAlbums.isNotEmpty()) {
+            filteredHomeAlbums.take(12)
         } else {
             previous?.recentAlbums.orEmpty()
                 .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }

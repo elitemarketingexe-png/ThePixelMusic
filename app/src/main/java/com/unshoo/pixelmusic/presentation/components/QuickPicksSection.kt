@@ -148,7 +148,7 @@ fun QuickPicksSection(
         
         if (displayMode == QuickPicksDisplayMode.CARD) {
             val lazyListState = rememberLazyListState()
-            val limitSongs = remember(songs) { songs.distinctBy { it.id }.take(20) }
+            val limitSongs = remember(songs) { songs.take(20) }
             
             // Use snapshotFlow instead of LaunchedEffect(isScrollInProgress) so the
             // coroutine doesn't restart on every user touch — it just waits inside.
@@ -205,7 +205,7 @@ fun QuickPicksSection(
                 }
             }
         } else if (displayMode == QuickPicksDisplayMode.CARD_CLASSIC) {
-            val limitSongs = remember(songs) { songs.distinctBy { it.id }.take(20) }
+            val limitSongs = remember(songs) { songs.take(20) }
             val lazyListState = rememberLazyListState()
             val context = LocalContext.current
             
@@ -291,7 +291,6 @@ fun QuickPicksSection(
                                     model = song.albumArtUriString,
                                     contentDescription = song.title,
                                     contentScale = ContentScale.Crop,
-                                    targetSize = SmartImageLargeCardTargetSize,
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 
@@ -343,7 +342,7 @@ fun QuickPicksSection(
                 }
             }
         } else if (displayMode == QuickPicksDisplayMode.UNCONTAINED) {
-            val limitSongs = remember(songs) { songs.distinctBy { it.id }.take(20) }
+            val limitSongs = remember(songs) { songs.take(20) }
             val lazyListState = rememberLazyListState()
             
             LazyRow(
@@ -406,7 +405,6 @@ fun QuickPicksSection(
                                     model = song.albumArtUriString,
                                     contentDescription = song.title,
                                     contentScale = ContentScale.Crop,
-                                    targetSize = SmartImageLargeCardTargetSize,
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 
@@ -568,7 +566,6 @@ private fun QuickPickPortraitCard(
                 model = song.albumArtUriString,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                targetSize = SmartImageLargeCardTargetSize,
                 modifier = Modifier.fillMaxSize()
             )
             
@@ -844,7 +841,6 @@ private fun QuickPickClassicCard(
                     model = song.albumArtUriString,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    targetSize = SmartImageCardTargetSize,
                     modifier = Modifier.fillMaxSize()
                 )
                 
