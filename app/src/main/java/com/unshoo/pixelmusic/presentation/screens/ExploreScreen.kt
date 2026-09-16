@@ -213,7 +213,8 @@ fun ExploreScreen(
     val bottomPadding = if (currentSongId != null) MiniPlayerHeight + 16.dp else 16.dp
 
     val activeMoodChip = exploreUiState.activeMoodChip
-    val isAdvancedExplore = exploreUiState.isAdvancedExploreEnabled || activeMoodChip != null
+    val isYtConnected = state.feedData.isYtConnected
+    val isAdvancedExplore = !isYtConnected || exploreUiState.isAdvancedExploreEnabled || activeMoodChip != null
     val rawRegionalSections = if (activeMoodChip != null) {
         exploreUiState.explorePageSections
     } else {
@@ -237,8 +238,8 @@ fun ExploreScreen(
             totalItems > 0 && lastVisibleItem >= totalItems - 3
         }
     }
-    LaunchedEffect(shouldLoadMore.value, exploreUiState.isAdvancedExploreEnabled) {
-        if (shouldLoadMore.value && exploreUiState.isAdvancedExploreEnabled && exploreUiState.homePageContinuation != null && !exploreUiState.isContinuationLoading) {
+    LaunchedEffect(shouldLoadMore.value, isAdvancedExplore) {
+        if (shouldLoadMore.value && isAdvancedExplore && exploreUiState.homePageContinuation != null && !exploreUiState.isContinuationLoading) {
             exploreViewModel.loadMore()
         }
     }
@@ -292,13 +293,13 @@ fun ExploreScreen(
         }
     }
 
-    // Artists for you: Remote topArtists -> Local most played topArtists -> Local library artists
-    val artistsForYou = remember(state.feedData.topArtists, exploreUiState.localTopArtists, localArtists) {
-        if (state.feedData.topArtists.isNotEmpty()) {
+    // Artists for you: When isYtConnected -> Remote topArtists, otherwise -> Local most played topArtists -> Local library artists
+    val artistsForYou = remember(state.feedData.topArtists, exploreUiState.localTopArtists, localArtists, isYtConnected) {
+        if (isYtConnected && state.feedData.topArtists.isNotEmpty()) {
             state.feedData.topArtists
         } else if (exploreUiState.localTopArtists.isNotEmpty()) {
             exploreUiState.localTopArtists
-        } else {
+        } else if (localArtists.isNotEmpty()) {
             localArtists.sortedByDescending { it.songCount }.take(10).map { artist ->
                 FeedArtist(
                     name = artist.name,
@@ -306,25 +307,15 @@ fun ExploreScreen(
                     artworkUrl = artist.customImageUri ?: artist.imageUrl
                 )
             }
-        }
+        } else emptyList()
     }
 
-    // Jump back in: Remote jumpBackIn -> Local highly rotatory history -> Remote heavyRotation
-    val jumpBackInTracks = remember(state.feedData.jumpBackIn, exploreUiState.localHighlyRotatoryTracks, state.feedData.heavyRotation) {
-        if (state.feedData.jumpBackIn.isNotEmpty()) {
+    // Jump back in: Remote jumpBackIn (when logged in) -> Local highly rotatory history
+    val jumpBackInTracks = remember(state.feedData.jumpBackIn, exploreUiState.localHighlyRotatoryTracks, isYtConnected) {
+        if (isYtConnected && state.feedData.jumpBackIn.isNotEmpty()) {
             state.feedData.jumpBackIn
         } else if (exploreUiState.localHighlyRotatoryTracks.isNotEmpty()) {
             exploreUiState.localHighlyRotatoryTracks
-        } else if (state.feedData.heavyRotation.isNotEmpty()) {
-            state.feedData.heavyRotation.map { gen ->
-                RecentTrack(
-                    name = gen.name,
-                    artist = RecentTrackArtistRef(name = gen.artist),
-                    album = RecentTrackArtistRef(name = gen.album.orEmpty()),
-                    image = gen.artworkUrl?.let { listOf(ImageDto(it, "extralarge")) }.orEmpty(),
-                    url = gen.url
-                )
-            }
         } else emptyList()
     }
 
@@ -365,17 +356,18 @@ fun ExploreScreen(
                 )
             }
         ) {
-            val hasFeedContent = state.feedData.quickPicks.isNotEmpty() ||
-                state.feedData.topArtists.isNotEmpty() ||
-                state.feedData.newReleases.isNotEmpty() ||
-                quickPicks.isNotEmpty() ||
-                chartTracks.isNotEmpty() ||
-                newReleases.isNotEmpty() ||
+            val hasFeedContent = quickPicks.isNotEmpty() ||
                 (isAdvancedExplore && regionalSections.isNotEmpty()) ||
-                albumsForYou.isNotEmpty() ||
                 artistsForYou.isNotEmpty() ||
                 jumpBackInTracks.isNotEmpty() ||
-                exploreUiState.localRecentlyAddedSongs.isNotEmpty()
+                exploreUiState.libraryPlaylists.isNotEmpty() ||
+                (isYtConnected && (
+                    state.feedData.quickPicks.isNotEmpty() ||
+                    state.feedData.topArtists.isNotEmpty() ||
+                    state.feedData.newReleases.isNotEmpty() ||
+                    chartTracks.isNotEmpty() ||
+                    albumsForYou.isNotEmpty()
+                ))
 
             if (state.isLoading && !hasFeedContent) {
                 FeedLoadingSkeleton(contentPadding = PaddingValues(bottom = bottomPadding + paddingValuesParent.calculateBottomPadding()))
@@ -390,14 +382,16 @@ fun ExploreScreen(
                     verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
                     // 1. Hero Welcome & Infinite Radio Card
-                    item(key = "feed_hero") {
-                        FeedHeroSection(
-                            userName = state.feedData.userName,
-                            isYtConnected = state.feedData.isYtConnected,
-                            ytAccountName = state.feedData.ytAccountName,
-                            quickPicks = state.feedData.quickPicks,
-                            onPlayInfiniteRadio = { feedViewModel.playInfiniteRadio(playerViewModel) }
-                        )
+                    if (isYtConnected) {
+                        item(key = "feed_hero") {
+                            FeedHeroSection(
+                                userName = state.feedData.userName,
+                                isYtConnected = state.feedData.isYtConnected,
+                                ytAccountName = state.feedData.ytAccountName,
+                                quickPicks = state.feedData.quickPicks,
+                                onPlayInfiniteRadio = { feedViewModel.playInfiniteRadio(playerViewModel) }
+                            )
+                        }
                     }
 
 
@@ -417,7 +411,7 @@ fun ExploreScreen(
                     }
 
                     // 3. Taste Tags Strip
-                    if (state.feedData.tasteTags.isNotEmpty()) {
+                    if (isYtConnected && state.feedData.tasteTags.isNotEmpty()) {
                         item(key = "feed_taste_strip") {
                             TasteStrip(
                                 tags = state.feedData.tasteTags,
@@ -447,41 +441,43 @@ fun ExploreScreen(
                     }
 
                     // 5. Because you listen to X Section
-                    state.feedData.becauseYouListenTo?.takeIf { it.items.isNotEmpty() }?.let { section ->
-                        item(key = "because_you_listen_to") {
-                            FeedSectionHeader(
-                                title = section.title,
-                                subtitle = section.subtitle,
-                                actionText = "Play all",
-                                actionIcon = Icons.Filled.PlayArrow,
-                                onActionClick = {
-                                    feedViewModel.playTracksQueue(section.items, 0, playerViewModel, section.title)
-                                },
-                                onShuffleClick = {
-                                    feedViewModel.shuffleTracksQueue(section.items, playerViewModel, section.title)
-                                }
-                            )
-                            FeedMediaRow {
-                                itemsIndexed(section.items, key = { idx, t -> "because_${t.videoId}_$idx" }) { index, track ->
-                                    FeedTrackCard(
-                                        title = track.title,
-                                        subtitle = track.artist,
-                                        artworkUrl = track.artworkUrl,
-                                        isCurrentPlaying = isPlaying && currentSongId == "youtube_${track.videoId}",
-                                        onClick = {
-                                            feedViewModel.playTracksQueue(section.items, index, playerViewModel, section.title)
-                                        },
-                                        onMoreClick = {
-                                            playerViewModel.selectSongForInfo(track.toSong())
-                                        }
-                                    )
+                    if (isYtConnected) {
+                        state.feedData.becauseYouListenTo?.takeIf { it.items.isNotEmpty() }?.let { section ->
+                            item(key = "because_you_listen_to") {
+                                FeedSectionHeader(
+                                    title = section.title,
+                                    subtitle = section.subtitle,
+                                    actionText = "Play all",
+                                    actionIcon = Icons.Filled.PlayArrow,
+                                    onActionClick = {
+                                        feedViewModel.playTracksQueue(section.items, 0, playerViewModel, section.title)
+                                    },
+                                    onShuffleClick = {
+                                        feedViewModel.shuffleTracksQueue(section.items, playerViewModel, section.title)
+                                    }
+                                )
+                                FeedMediaRow {
+                                    itemsIndexed(section.items, key = { idx, t -> "because_${t.videoId}_$idx" }) { index, track ->
+                                        FeedTrackCard(
+                                            title = track.title,
+                                            subtitle = track.artist,
+                                            artworkUrl = track.artworkUrl,
+                                            isCurrentPlaying = isPlaying && currentSongId == "youtube_${track.videoId}",
+                                            onClick = {
+                                                feedViewModel.playTracksQueue(section.items, index, playerViewModel, section.title)
+                                            },
+                                            onMoreClick = {
+                                                playerViewModel.selectSongForInfo(track.toSong())
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
                     // 6. Fresh Finds Section
-                    if (state.feedData.freshFinds.isNotEmpty()) {
+                    if (isYtConnected && state.feedData.freshFinds.isNotEmpty()) {
                         item(key = "feed_fresh_finds") {
                             FeedSectionHeader(
                                 title = "Fresh finds",
@@ -520,7 +516,7 @@ fun ExploreScreen(
                         item(key = "feed_jump_back_in") {
                             FeedSectionHeader(
                                 title = "Jump back in",
-                                subtitle = if (state.feedData.jumpBackIn.isNotEmpty()) "From your recent history & scrobbles" else "From your highly rotatory history",
+                                subtitle = if (isYtConnected && state.feedData.jumpBackIn.isNotEmpty()) "From your recent history" else "From your highly rotatory history",
                                 actionText = "Play all",
                                 actionIcon = Icons.Filled.PlayArrow,
                                 onActionClick = {
@@ -552,7 +548,7 @@ fun ExploreScreen(
                     }
 
                     // 8. Mixes to Explore
-                    if (state.feedData.mixes.isNotEmpty()) {
+                    if (isYtConnected && state.feedData.mixes.isNotEmpty()) {
                         item(key = "feed_mixes") {
                             FeedSectionHeader(
                                 title = "Mixes to explore",
@@ -577,20 +573,22 @@ fun ExploreScreen(
                     }
 
                     // 9. Artist Spotlight Hero Card
-                    state.feedData.spotlight?.let { spotlight ->
-                        item(key = "feed_spotlight") {
-                            SpotlightHeroCard(
-                                spotlight = spotlight,
-                                onPlayRadio = {
-                                    feedViewModel.playArtistRadio(
-                                        FeedArtist(spotlight.artistName, spotlight.browseId, spotlight.artworkUrl),
-                                        playerViewModel
-                                    )
-                                },
-                                onOpenArtist = {
-                                    navController.navigateSafely(Screen.ArtistDetail.createRoute(spotlight.browseId ?: spotlight.artistName))
-                                }
-                            )
+                    if (isYtConnected) {
+                        state.feedData.spotlight?.let { spotlight ->
+                            item(key = "feed_spotlight") {
+                                SpotlightHeroCard(
+                                    spotlight = spotlight,
+                                    onPlayRadio = {
+                                        feedViewModel.playArtistRadio(
+                                            FeedArtist(spotlight.artistName, spotlight.browseId, spotlight.artworkUrl),
+                                            playerViewModel
+                                        )
+                                    },
+                                    onOpenArtist = {
+                                        navController.navigateSafely(Screen.ArtistDetail.createRoute(spotlight.browseId ?: spotlight.artistName))
+                                    }
+                                )
+                            }
                         }
                     }
 
@@ -651,7 +649,7 @@ fun ExploreScreen(
                     }
 
                     // 11. Heavy Rotation Section
-                    if (state.feedData.heavyRotation.isNotEmpty()) {
+                    if (isYtConnected && state.feedData.heavyRotation.isNotEmpty()) {
                         item(key = "feed_heavy_rotation") {
                             FeedSectionHeader(
                                 title = "Favorites to revisit",
@@ -682,7 +680,7 @@ fun ExploreScreen(
                     }
 
                     // 12. Albums for You (Real verified records & local album collection)
-                    if (albumsForYou.isNotEmpty()) {
+                    if (isYtConnected && albumsForYou.isNotEmpty()) {
                         item(key = "feed_albums") {
                             FeedSectionHeader(
                                 title = "Albums for you",
@@ -707,7 +705,7 @@ fun ExploreScreen(
                     }
 
                     // 13. Trending & Charts Section (Regional & Taste-boosted)
-                    if (chartTracks.isNotEmpty()) {
+                    if (isYtConnected && chartTracks.isNotEmpty()) {
                         item(key = "feed_charts") {
                             FeedSectionHeader(
                                 title = "Trending now",
@@ -741,7 +739,7 @@ fun ExploreScreen(
                     }
 
                     // 14. New Releases Section (Regional & Taste-boosted) OR Recently Added Fallback
-                    if (newReleases.isNotEmpty()) {
+                    if (isYtConnected && newReleases.isNotEmpty()) {
                         item(key = "feed_new_releases") {
                             FeedSectionHeader(
                                 title = "New releases",
@@ -770,7 +768,7 @@ fun ExploreScreen(
                                 }
                             }
                         }
-                    } else if (exploreUiState.localRecentlyAddedSongs.isNotEmpty()) {
+                    } else if (isYtConnected && exploreUiState.localRecentlyAddedSongs.isNotEmpty()) {
                         val recentSongs = exploreUiState.localRecentlyAddedSongs
                         item(key = "feed_recently_added") {
                             FeedSectionHeader(
@@ -856,25 +854,6 @@ fun ExploreScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                     strokeWidth = 2.5.dp
                                 )
-                            }
-                        }
-                    }
-
-                    // 16. Friends on Last.fm Section
-                    if (state.feedData.friends.isNotEmpty()) {
-                        item(key = "feed_friends") {
-                            FeedSectionHeader(
-                                title = "Listening circle",
-                                subtitle = "Friends and their favorite sounds"
-                            )
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                modifier = Modifier.padding(top = 10.dp)
-                            ) {
-                                items(state.feedData.friends, key = { it.name }) { friend ->
-                                    FriendAvatarCard(friend = friend)
-                                }
                             }
                         }
                     }

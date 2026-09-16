@@ -19,7 +19,6 @@ import javax.inject.Singleton
 @Singleton
 class FeedRepository @Inject constructor(
     private val innerTube: FeedInnerTubeApi,
-    private val lastFm: FeedLastFmRepository,
     private val tasteProfileProvider: FeedTasteProfileProvider,
     private val datastoreRepository: DatastoreRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
@@ -74,24 +73,12 @@ class FeedRepository @Inject constructor(
             } else null
         }
 
-        val recentTracksDef = async(Dispatchers.IO) {
-            if (resolvedUsername.isNotBlank()) {
-                runCatching { lastFm.fetchRecentTracks(username = resolvedUsername, limit = 30) }.getOrDefault(emptyList())
-            } else emptyList()
-        }
-        val friendsDef = async(Dispatchers.IO) {
-            if (resolvedUsername.isNotBlank()) {
-                runCatching { lastFm.fetchFriends(limit = 20) }.getOrDefault(emptyList())
-            } else emptyList()
-        }
+        val recentTracksDef = async(Dispatchers.IO) { emptyList<RecentTrack>() }
+        val friendsDef = async(Dispatchers.IO) { emptyList<FriendEntry>() }
         val tasteProfileDef = async(Dispatchers.IO) {
             runCatching { tasteProfileProvider.get() }.getOrNull()
         }
-        val lastFmTopAlbumsDef = async(Dispatchers.IO) {
-            if (resolvedUsername.isNotBlank()) {
-                runCatching { lastFm.fetchTopAlbums(username = resolvedUsername, limit = 20) }.getOrDefault(emptyList())
-            } else emptyList()
-        }
+        val lastFmTopAlbumsDef = async(Dispatchers.IO) { emptyList<FeedTopAlbum>() }
 
         val releaseCandidates = newReleasesDef.await()
         val charts = chartsDef.await()

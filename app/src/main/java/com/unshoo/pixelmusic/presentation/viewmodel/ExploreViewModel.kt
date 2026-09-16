@@ -10,6 +10,7 @@ import com.unshoo.pixelmusic.data.model.Playlist
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.preferences.PlaylistPreferencesRepository
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+import com.unshoo.pixelmusic.data.remote.youtube.DatastoreRepository
 import com.unshoo.pixelmusic.data.remote.youtube.toNativeSong
 import com.unshoo.pixelmusic.data.stats.PlaybackStatsRepository
 import com.unshoo.pixelmusic.presentation.model.ExploreChipUiModel
@@ -53,7 +54,7 @@ data class ExploreUiState(
     val homePageSections: List<HomePage.Section> = emptyList(),
     val homePageContinuation: String? = null,
     val newReleaseAlbums: List<AlbumItem> = emptyList(),
-    val chartsPage: ChartsPage? = null,
+    val chartsPage: unshoo.ianshulyadav.pixelmusic.innertube.pages.ChartsPage? = null,
     val error: String? = null,
     val selectedFilter: String = "All",
     val recentMixes: List<Playlist> = emptyList(),
@@ -75,6 +76,7 @@ class ExploreViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val musicDao: MusicDao,
     private val listeningStatsTracker: ListeningStatsTracker,
+    private val datastoreRepository: DatastoreRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -330,7 +332,11 @@ class ExploreViewModel @Inject constructor(
             }
 
             if (home != null) {
-                val isAdvancedExploreEnabled = userPreferencesRepository.advancedExplorePageFlow.first()
+                val cookies = runCatching { datastoreRepository.cookies.first() }.getOrNull()
+                val isYtConnected = cookies?.toRawCookie()?.let {
+                    it.contains("SAPISID=") || it.contains("__Secure-3PAPISID=")
+                } == true
+                val isAdvancedExploreEnabled = !isYtConnected || userPreferencesRepository.advancedExplorePageFlow.first()
                 val currentContinuation = if (isAdvancedExploreEnabled) home.continuation else null
 
                 // Filter out undesirable sections in a single pass
