@@ -38,8 +38,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.filled.Album
@@ -119,7 +122,9 @@ import com.unshoo.pixelmusic.data.feed.FeedQuickTile
 import com.unshoo.pixelmusic.data.feed.FeedSpotlight
 import com.unshoo.pixelmusic.data.feed.FriendEntry
 import com.unshoo.pixelmusic.data.feed.GeneratedTrack
+import com.unshoo.pixelmusic.data.feed.ImageDto
 import com.unshoo.pixelmusic.data.feed.RecentTrack
+import com.unshoo.pixelmusic.data.feed.RecentTrackArtistRef
 import com.unshoo.pixelmusic.data.feed.YouTubeMusicTrack
 import com.unshoo.pixelmusic.data.feed.YouTubePlaylistSummary
 import com.unshoo.pixelmusic.data.feed.toSong
@@ -141,8 +146,15 @@ import com.unshoo.pixelmusic.presentation.viewmodel.PlayerSheetState
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.QuickPicksViewModel
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
+import com.unshoo.pixelmusic.ui.theme.ShapeCache
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
+import unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.ArtistItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.PlaylistItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.YTItem
+import unshoo.ianshulyadav.pixelmusic.innertube.pages.HomePage
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -167,15 +179,20 @@ fun ExploreScreen(
     val exploreUiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
     val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
     val quickPicksDisplayMode by playerViewModel.quickPicksDisplayMode.collectAsStateWithLifecycle()
+    val localAlbums by playerViewModel.albumsFlow.collectAsStateWithLifecycle()
+    val localArtists by playerViewModel.artistsFlow.collectAsStateWithLifecycle()
 
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val isPlaying by remember { derivedStateOf { stablePlayerState.isPlaying } }
     val currentSongId by remember { derivedStateOf { stablePlayerState.currentSong?.id } }
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, feedViewModel) {
+    DisposableEffect(lifecycleOwner, feedViewModel, exploreViewModel) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) feedViewModel.onVisible()
+            if (event == Lifecycle.Event.ON_START) {
+                feedViewModel.onVisible()
+                exploreViewModel.loadData()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -195,6 +212,122 @@ fun ExploreScreen(
 
     val bottomPadding = if (currentSongId != null) MiniPlayerHeight + 16.dp else 16.dp
 
+    val activeMoodChip = exploreUiState.activeMoodChip
+    val isAdvancedExplore = exploreUiState.isAdvancedExploreEnabled || activeMoodChip != null
+    val rawRegionalSections = if (activeMoodChip != null) {
+        exploreUiState.explorePageSections
+    } else {
+        exploreUiState.homePageSections
+    }
+    val regionalSections = remember(rawRegionalSections) {
+        rawRegionalSections.filter { section ->
+            val title = section.title.lowercase()
+            !title.contains("new music videos") &&
+            !title.contains("quick picks") &&
+            !title.contains("quickpicks") &&
+            !title.contains("local") &&
+            section.items.isNotEmpty()
+        }
+    }
+
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val totalItems = listState.layoutInfo.totalItemsCount
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItems > 0 && lastVisibleItem >= totalItems - 3
+        }
+    }
+    LaunchedEffect(shouldLoadMore.value, exploreUiState.isAdvancedExploreEnabled) {
+        if (shouldLoadMore.value && exploreUiState.isAdvancedExploreEnabled && exploreUiState.homePageContinuation != null && !exploreUiState.isContinuationLoading) {
+            exploreViewModel.loadMore()
+        }
+    }
+
+    val chartTracks = remember(state.feedData.charts, exploreUiState.chartsPage) {
+        if (state.feedData.charts.isNotEmpty()) {
+            state.feedData.charts
+        } else {
+            exploreUiState.chartsPage?.sections?.flatMap { it.items }
+                ?.filterIsInstance<SongItem>()
+                ?.map { songItem ->
+                    YouTubeMusicTrack(
+                        videoId = songItem.id,
+                        title = songItem.title,
+                        artist = songItem.artists.firstOrNull()?.name ?: "Unknown artist",
+                        album = songItem.album?.name,
+                        artworkUrl = songItem.thumbnail
+                    )
+                }.orEmpty()
+        }
+    }
+
+    val newReleases = remember(state.feedData.newReleases, exploreUiState.newReleaseAlbums) {
+        if (state.feedData.newReleases.isNotEmpty()) {
+            state.feedData.newReleases
+        } else {
+            exploreUiState.newReleaseAlbums.map { album ->
+                YouTubePlaylistSummary(
+                    id = album.browseId,
+                    title = album.title,
+                    author = album.artists?.firstOrNull()?.name ?: "Album",
+                    artworkUrl = album.thumbnail
+                )
+            }
+        }
+    }
+
+    // Albums for you: Remote verified records -> Local album collection
+    val albumsForYou = remember(state.feedData.recentAlbums, localAlbums) {
+        if (state.feedData.recentAlbums.isNotEmpty()) {
+            state.feedData.recentAlbums
+        } else {
+            localAlbums.take(15).map { local ->
+                FeedAlbum(
+                    title = local.title,
+                    artist = local.artist,
+                    artworkUrl = local.albumArtUriString,
+                    browseId = local.id.toString()
+                )
+            }
+        }
+    }
+
+    // Artists for you: Remote topArtists -> Local most played topArtists -> Local library artists
+    val artistsForYou = remember(state.feedData.topArtists, exploreUiState.localTopArtists, localArtists) {
+        if (state.feedData.topArtists.isNotEmpty()) {
+            state.feedData.topArtists
+        } else if (exploreUiState.localTopArtists.isNotEmpty()) {
+            exploreUiState.localTopArtists
+        } else {
+            localArtists.sortedByDescending { it.songCount }.take(10).map { artist ->
+                FeedArtist(
+                    name = artist.name,
+                    browseId = null,
+                    artworkUrl = artist.customImageUri ?: artist.imageUrl
+                )
+            }
+        }
+    }
+
+    // Jump back in: Remote jumpBackIn -> Local highly rotatory history -> Remote heavyRotation
+    val jumpBackInTracks = remember(state.feedData.jumpBackIn, exploreUiState.localHighlyRotatoryTracks, state.feedData.heavyRotation) {
+        if (state.feedData.jumpBackIn.isNotEmpty()) {
+            state.feedData.jumpBackIn
+        } else if (exploreUiState.localHighlyRotatoryTracks.isNotEmpty()) {
+            exploreUiState.localHighlyRotatoryTracks
+        } else if (state.feedData.heavyRotation.isNotEmpty()) {
+            state.feedData.heavyRotation.map { gen ->
+                RecentTrack(
+                    name = gen.name,
+                    artist = RecentTrackArtistRef(name = gen.artist),
+                    album = RecentTrackArtistRef(name = gen.album.orEmpty()),
+                    image = gen.artworkUrl?.let { listOf(ImageDto(it, "extralarge")) }.orEmpty(),
+                    url = gen.url
+                )
+            }
+        } else emptyList()
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -213,6 +346,7 @@ fun ExploreScreen(
                     feedViewModel.refresh()
                     quickPicksViewModel.refresh(force = true)
                     exploreViewModel.loadData(forceRefresh = true)
+                    exploreViewModel.loadChartsIfNeeded(forceRefresh = true)
                     kotlinx.coroutines.delay(1000)
                     isManualRefreshing = false
                 }
@@ -234,7 +368,14 @@ fun ExploreScreen(
             val hasFeedContent = state.feedData.quickPicks.isNotEmpty() ||
                 state.feedData.topArtists.isNotEmpty() ||
                 state.feedData.newReleases.isNotEmpty() ||
-                quickPicks.isNotEmpty()
+                quickPicks.isNotEmpty() ||
+                chartTracks.isNotEmpty() ||
+                newReleases.isNotEmpty() ||
+                (isAdvancedExplore && regionalSections.isNotEmpty()) ||
+                albumsForYou.isNotEmpty() ||
+                artistsForYou.isNotEmpty() ||
+                jumpBackInTracks.isNotEmpty() ||
+                exploreUiState.localRecentlyAddedSongs.isNotEmpty()
 
             if (state.isLoading && !hasFeedContent) {
                 FeedLoadingSkeleton(contentPadding = PaddingValues(bottom = bottomPadding + paddingValuesParent.calculateBottomPadding()))
@@ -260,6 +401,20 @@ fun ExploreScreen(
                     }
 
 
+
+                    // 2. Regional Mood Chips
+                    if (exploreUiState.moodChips.isNotEmpty()) {
+                        item(key = "feed_mood_strip") {
+                            MoodStrip(
+                                chips = exploreUiState.moodChips,
+                                activeChip = exploreUiState.activeMoodChip,
+                                onChipClick = { chip ->
+                                    val newChip = if (exploreUiState.activeMoodChip?.title == chip.title) null else chip
+                                    exploreViewModel.selectMoodChip(newChip)
+                                }
+                            )
+                        }
+                    }
 
                     // 3. Taste Tags Strip
                     if (state.feedData.tasteTags.isNotEmpty()) {
@@ -361,23 +516,34 @@ fun ExploreScreen(
                     }
 
                     // 7. Jump Back In Section
-                    if (state.feedData.jumpBackIn.isNotEmpty()) {
+                    if (jumpBackInTracks.isNotEmpty()) {
                         item(key = "feed_jump_back_in") {
                             FeedSectionHeader(
                                 title = "Jump back in",
-                                subtitle = "From your recent history & scrobbles",
+                                subtitle = if (state.feedData.jumpBackIn.isNotEmpty()) "From your recent history & scrobbles" else "From your highly rotatory history",
                                 actionText = "Play all",
                                 actionIcon = Icons.Filled.PlayArrow,
                                 onActionClick = {
-                                    feedViewModel.playRecentQueue(state.feedData.jumpBackIn, 0, playerViewModel)
+                                    val allLocal = jumpBackInTracks.mapNotNull { exploreUiState.localSongs[it.url] }
+                                    if (allLocal.isNotEmpty()) {
+                                        playerViewModel.playSongs(allLocal, allLocal.first(), queueName = "Jump Back In")
+                                    } else {
+                                        feedViewModel.playRecentQueue(jumpBackInTracks, 0, playerViewModel)
+                                    }
                                 }
                             )
                             FeedMediaRow {
-                                itemsIndexed(state.feedData.jumpBackIn, key = { idx, t -> "jump_${t.name}_$idx" }) { index, track ->
+                                itemsIndexed(jumpBackInTracks, key = { idx, t -> "jump_${t.name}_$idx" }) { index, track ->
                                     RecentTrackCard(
                                         track = track,
                                         onClick = {
-                                            feedViewModel.playRecentQueue(state.feedData.jumpBackIn, index, playerViewModel)
+                                            val localSong = exploreUiState.localSongs[track.url]
+                                            if (localSong != null) {
+                                                val allLocal = jumpBackInTracks.mapNotNull { exploreUiState.localSongs[it.url] }
+                                                playerViewModel.playSongs(allLocal, localSong, queueName = "Jump Back In")
+                                            } else {
+                                                feedViewModel.playRecentQueue(jumpBackInTracks, index, playerViewModel)
+                                            }
                                         }
                                     )
                                 }
@@ -429,18 +595,18 @@ fun ExploreScreen(
                     }
 
                     // 10. Top Artists Carousel
-                    if (state.feedData.topArtists.isNotEmpty()) {
+                    if (artistsForYou.isNotEmpty()) {
                         item(key = "feed_top_artists") {
                             FeedSectionHeader(
                                 title = "Artists for you",
-                                subtitle = "Your most replayed musicians"
+                                subtitle = if (state.feedData.topArtists.isNotEmpty()) "Your most replayed musicians" else "Most played artists from your library"
                             )
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 modifier = Modifier.padding(top = 10.dp)
                             ) {
-                                itemsIndexed(state.feedData.topArtists, key = { idx, a -> "artist_${a.name}_$idx" }) { index, artist ->
+                                itemsIndexed(artistsForYou, key = { idx, a -> "artist_${a.name}_$idx" }) { index, artist ->
                                     ArtistAvatarCard(
                                         artist = artist,
                                         isTop = index < 3,
@@ -515,22 +681,22 @@ fun ExploreScreen(
                         }
                     }
 
-                    // 12. Albums for You (Real verified records)
-                    if (state.feedData.recentAlbums.isNotEmpty()) {
+                    // 12. Albums for You (Real verified records & local album collection)
+                    if (albumsForYou.isNotEmpty()) {
                         item(key = "feed_albums") {
                             FeedSectionHeader(
                                 title = "Albums for you",
-                                subtitle = "Verified records from your top artists"
+                                subtitle = if (state.feedData.recentAlbums.isNotEmpty()) "Verified records from your top artists" else "From your local album collection"
                             )
                             FeedMediaRow {
-                                items(state.feedData.recentAlbums, key = { it.browseId ?: it.title }) { album ->
+                                items(albumsForYou, key = { it.browseId ?: it.title }) { album ->
                                     FeedPlaylistCard(
                                         title = album.title,
                                         subtitle = album.artist,
                                         artworkUrl = album.artworkUrl,
                                         onClick = {
                                             val id = album.browseId
-                                            if (!id.isNullOrBlank() && (id.startsWith("MPRE") || id.startsWith("OLAK"))) {
+                                            if (!id.isNullOrBlank()) {
                                                 navController.navigateSafely(Screen.AlbumDetail.createRoute(id))
                                             }
                                         }
@@ -540,19 +706,19 @@ fun ExploreScreen(
                         }
                     }
 
-                    // 13. Trending & Charts Section
-                    if (state.feedData.charts.isNotEmpty()) {
+                    // 13. Trending & Charts Section (Regional & Taste-boosted)
+                    if (chartTracks.isNotEmpty()) {
                         item(key = "feed_charts") {
                             FeedSectionHeader(
                                 title = "Trending now",
-                                subtitle = "Top chart hits today",
+                                subtitle = "Top chart hits in your region",
                                 actionText = "Play all",
                                 actionIcon = Icons.Filled.PlayArrow,
                                 onActionClick = {
-                                    feedViewModel.playTracksQueue(state.feedData.charts, 0, playerViewModel, "Top Charts")
+                                    feedViewModel.playTracksQueue(chartTracks, 0, playerViewModel, "Top Charts")
                                 },
                                 onShuffleClick = {
-                                    feedViewModel.shuffleTracksQueue(state.feedData.charts, playerViewModel, "Top Charts")
+                                    feedViewModel.shuffleTracksQueue(chartTracks, playerViewModel, "Top Charts")
                                 }
                             )
                             LazyRow(
@@ -560,13 +726,13 @@ fun ExploreScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 modifier = Modifier.padding(top = 10.dp)
                             ) {
-                                itemsIndexed(state.feedData.charts.take(15), key = { idx, t -> "chart_${t.videoId}_$idx" }) { index, track ->
+                                itemsIndexed(chartTracks.take(15), key = { idx, t -> "chart_${t.videoId}_$idx" }) { index, track ->
                                     ChartTrackCard(
                                         rank = index + 1,
                                         track = track,
                                         isCurrentPlaying = isPlaying && currentSongId == "youtube_${track.videoId}",
                                         onClick = {
-                                            feedViewModel.playTracksQueue(state.feedData.charts, index, playerViewModel, "Top Charts")
+                                            feedViewModel.playTracksQueue(chartTracks, index, playerViewModel, "Top Charts")
                                         }
                                     )
                                 }
@@ -574,8 +740,8 @@ fun ExploreScreen(
                         }
                     }
 
-                    // 14. New Releases Section
-                    if (state.feedData.newReleases.isNotEmpty()) {
+                    // 14. New Releases Section (Regional & Taste-boosted) OR Recently Added Fallback
+                    if (newReleases.isNotEmpty()) {
                         item(key = "feed_new_releases") {
                             FeedSectionHeader(
                                 title = "New releases",
@@ -587,7 +753,7 @@ fun ExploreScreen(
                                 }
                             )
                             FeedMediaRow {
-                                items(state.feedData.newReleases, key = { it.id }) { release ->
+                                items(newReleases, key = { it.id }) { release ->
                                     FeedPlaylistCard(
                                         title = release.title,
                                         subtitle = release.author ?: "Album",
@@ -602,6 +768,94 @@ fun ExploreScreen(
                                         }
                                     )
                                 }
+                            }
+                        }
+                    } else if (exploreUiState.localRecentlyAddedSongs.isNotEmpty()) {
+                        val recentSongs = exploreUiState.localRecentlyAddedSongs
+                        item(key = "feed_recently_added") {
+                            FeedSectionHeader(
+                                title = "Recently added",
+                                subtitle = "Latest tracks from your library & downloads",
+                                actionText = "Play all",
+                                actionIcon = Icons.Filled.PlayArrow,
+                                onActionClick = {
+                                    playerViewModel.playSongs(recentSongs, recentSongs.first(), queueName = "Recently Added")
+                                },
+                                onShuffleClick = {
+                                    playerViewModel.playSongsShuffled(recentSongs, queueName = "Recently Added")
+                                }
+                            )
+                            FeedMediaRow {
+                                itemsIndexed(recentSongs, key = { idx, song -> "recent_added_${song.id}_$idx" }) { index, song ->
+                                    FeedTrackCard(
+                                        title = song.title,
+                                        subtitle = song.displayArtist,
+                                        artworkUrl = song.albumArtUriString,
+                                        badgeText = "RECENT",
+                                        isCurrentPlaying = isPlaying && currentSongId == song.id,
+                                        onClick = {
+                                            playerViewModel.showAndPlaySong(song, recentSongs, "Recently Added")
+                                        },
+                                        onMoreClick = {
+                                            playerViewModel.selectSongForInfo(song)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 15. Advanced Explore / Homepage Sections (Similar Artists, Listen Again, Bento Mixes, Categories)
+                    if (isAdvancedExplore && regionalSections.isNotEmpty()) {
+                        itemsIndexed(regionalSections, key = { idx, s -> "regional_section_${s.title}_$idx" }) { idx, section ->
+                            val isSimilar = section.title.startsWith("Similar to", ignoreCase = true) ||
+                                section.title.contains("Fans also like", ignoreCase = true) ||
+                                section.title.contains("Similar", ignoreCase = true) ||
+                                (section.items.isNotEmpty() && section.items.all { it is ArtistItem })
+                            val isBento = !isSimilar && isBentoSection(section.title, section.items.size)
+
+                            when {
+                                isBento -> {
+                                    LibrarySwipeableCarousel(
+                                        section = section,
+                                        navController = navController,
+                                        playerViewModel = playerViewModel,
+                                        feedViewModel = feedViewModel
+                                    )
+                                }
+                                isSimilar -> {
+                                    SimilarArtistsCarousel(
+                                        section = section,
+                                        navController = navController
+                                    )
+                                }
+                                else -> {
+                                    RegionalExploreSection(
+                                        section = section,
+                                        navController = navController,
+                                        playerViewModel = playerViewModel,
+                                        feedViewModel = feedViewModel,
+                                        currentSongId = currentSongId,
+                                        isPlaying = isPlaying
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (exploreUiState.isContinuationLoading) {
+                        item(key = "home_continuation_loader") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(28.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    strokeWidth = 2.5.dp
+                                )
                             }
                         }
                     }
@@ -2103,6 +2357,447 @@ fun LibraryPlaylistCard(
                             color = badgeText
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoodStrip(
+    chips: List<HomePage.Chip>,
+    activeChip: HomePage.Chip?,
+    onChipClick: (HomePage.Chip) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        FeedSectionHeader(
+            title = "Explore moods",
+            subtitle = "Curated sounds by vibe & activity"
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 10.dp)
+        ) {
+            items(chips, key = { it.title }) { chip ->
+                val isSelected = activeChip?.title == chip.title
+                Surface(
+                    onClick = { onChipClick(chip) },
+                    shape = CircleShape,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Text(
+                        text = chip.title,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun isBentoSection(title: String, itemSize: Int): Boolean {
+    val t = title.lowercase()
+    return itemSize >= 4 && (
+        t.contains("featured") ||
+        t.contains("supermix") ||
+        t.contains("curated") ||
+        t.contains("mixed for you") ||
+        t.contains("forgotten favorites") ||
+        t.contains("forgotten")
+    )
+}
+
+@Composable
+private fun SimilarArtistsCarousel(
+    section: HomePage.Section,
+    navController: NavController
+) {
+    val artists = remember(section.items) { section.items.filterIsInstance<ArtistItem>() }
+    if (artists.isEmpty()) return
+
+    FeedSectionHeader(
+        title = section.title,
+        subtitle = section.label ?: "Similar artists & recommendations"
+    )
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(top = 8.dp)
+    ) {
+        itemsIndexed(artists, key = { idx, artist -> "sim_${section.title}_${artist.id}_$idx" }) { _, artist ->
+            ArtistAvatarCard(
+                artist = FeedArtist(
+                    name = artist.title,
+                    browseId = artist.id,
+                    artworkUrl = artist.thumbnail
+                ),
+                isTop = false,
+                onClick = {
+                    navController.navigateSafely(Screen.ArtistDetail.createRoute(artist.id))
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibrarySwipeableCarousel(
+    section: HomePage.Section,
+    navController: NavController,
+    playerViewModel: PlayerViewModel,
+    feedViewModel: FeedViewModel
+) {
+    val items = remember(section.items) { section.items.take(6) }
+    if (items.isEmpty()) return
+    val pagerState = rememberPagerState(pageCount = { items.size })
+    val scope = rememberCoroutineScope()
+    val songItems = remember(items) { items.filterIsInstance<SongItem>() }
+    val songTracks = remember(songItems) {
+        songItems.map { s ->
+            YouTubeMusicTrack(
+                videoId = s.id,
+                title = s.title,
+                artist = s.artists.firstOrNull()?.name ?: "Unknown artist",
+                album = s.album?.name,
+                artworkUrl = s.thumbnail
+            )
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        FeedSectionHeader(
+            title = section.title,
+            subtitle = section.label ?: "Curated mix for your taste",
+            actionText = if (songTracks.isNotEmpty()) "Play all" else null,
+            actionIcon = if (songTracks.isNotEmpty()) Icons.Filled.PlayArrow else null,
+            onActionClick = if (songTracks.isNotEmpty()) {
+                { feedViewModel.playTracksQueue(songTracks, 0, playerViewModel, section.title) }
+            } else null
+        )
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+            pageSpacing = 12.dp,
+            beyondViewportPageCount = 1
+        ) { page ->
+            val item = items[page]
+            LibraryCarouselCard(
+                item = item,
+                onClick = {
+                    when (item) {
+                        is SongItem -> {
+                            val track = songTracks.firstOrNull { it.videoId == item.id } ?: YouTubeMusicTrack(
+                                videoId = item.id,
+                                title = item.title,
+                                artist = item.artists.firstOrNull()?.name ?: "Unknown artist",
+                                album = item.album?.name,
+                                artworkUrl = item.thumbnail
+                            )
+                            val idx = songTracks.indexOfFirst { it.videoId == item.id }
+                            if (idx >= 0) {
+                                feedViewModel.playTracksQueue(songTracks, idx, playerViewModel, section.title)
+                            } else {
+                                playerViewModel.showAndPlaySong(track.toSong(), listOf(track.toSong()), section.title)
+                            }
+                        }
+                        is AlbumItem -> navController.navigateSafely(Screen.AlbumDetail.createRoute(item.browseId))
+                        is ArtistItem -> navController.navigateSafely(Screen.ArtistDetail.createRoute(item.id))
+                        is PlaylistItem -> navController.navigateSafely(Screen.PlaylistDetail.createRoute(item.id))
+                    }
+                }
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(items.size) { page ->
+                val isSelected = pagerState.currentPage == page
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .height(6.dp)
+                        .width(if (isSelected) 20.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                        .clickable { scope.launch { pagerState.animateScrollToPage(page) } }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryCarouselCard(
+    item: YTItem,
+    onClick: () -> Unit
+) {
+    val title = when (item) {
+        is SongItem -> item.title
+        is AlbumItem -> item.title
+        is ArtistItem -> item.title
+        is PlaylistItem -> item.title
+    }
+    val subtitle = when (item) {
+        is SongItem -> item.artists.joinToString { it.name }
+        is AlbumItem -> item.artists?.joinToString { it.name } ?: ""
+        is ArtistItem -> "Artist"
+        is PlaylistItem -> item.songCountText ?: ""
+    }
+    val thumbnail: String? = when (item) {
+        is SongItem -> item.thumbnail
+        is AlbumItem -> item.thumbnail
+        is ArtistItem -> item.thumbnail
+        is PlaylistItem -> item.thumbnail
+    }
+    val badgeLabel = when (item) {
+        is PlaylistItem -> if (item.shuffleEndpoint != null) "MIX" else null
+        is AlbumItem -> "ALBUM"
+        else -> null
+    }
+
+    val colorScheme = MaterialTheme.colorScheme
+    val isDarkTheme = isSystemInDarkTheme()
+    val animatedBgColor = rememberDominantCardColor(
+        imageUrl = thumbnail,
+        baseColor = colorScheme.surfaceContainer,
+        isDarkTheme = isDarkTheme,
+        darkBlendFraction = 0.35f,
+        lightBlendFraction = 0.52f
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(196.dp)
+            .clickable(onClick = onClick),
+        shape = ShapeCache.smooth28,
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = animatedBgColor
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (!thumbnail.isNullOrBlank()) {
+                SmartImage(
+                    model = thumbnail,
+                    contentDescription = title,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.55f),
+                    contentScale = ContentScale.Crop
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                animatedBgColor,
+                                animatedBgColor,
+                                animatedBgColor.copy(alpha = 0.85f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.68f)
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (badgeLabel != null) {
+                    Surface(
+                        shape = ShapeCache.smooth10,
+                        color = colorScheme.primaryContainer.copy(alpha = 0.88f)
+                    ) {
+                        Text(
+                            text = badgeLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.8.sp,
+                            color = colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RegionalExploreSection(
+    section: HomePage.Section,
+    navController: NavController,
+    playerViewModel: PlayerViewModel,
+    feedViewModel: FeedViewModel,
+    currentSongId: String?,
+    isPlaying: Boolean
+) {
+    val songs = remember(section.items) { section.items.filterIsInstance<SongItem>() }
+    val songTracks = remember(songs) {
+        songs.map { s ->
+            YouTubeMusicTrack(
+                videoId = s.id,
+                title = s.title,
+                artist = s.artists.firstOrNull()?.name ?: "Unknown artist",
+                album = s.album?.name,
+                artworkUrl = s.thumbnail
+            )
+        }
+    }
+
+    val subtitle = remember(section.title, section.label) {
+        if (!section.label.isNullOrBlank()) {
+            section.label
+        } else {
+            val t = section.title.lowercase()
+            when {
+                t.contains("listen again") -> "Pick up where you left off"
+                t.contains("forgotten") -> "Rediscover previous favorites"
+                t.contains("mixed for you") || t.contains("mix") -> "Personalized mixes tailored for you"
+                t.contains("quick") -> "Fast picks based on your recent activity"
+                else -> "From YouTube Music"
+            }
+        }
+    }
+
+    FeedSectionHeader(
+        title = section.title,
+        subtitle = subtitle,
+        actionText = if (songTracks.isNotEmpty()) "Play all" else null,
+        actionIcon = if (songTracks.isNotEmpty()) Icons.Filled.PlayArrow else null,
+        onActionClick = if (songTracks.isNotEmpty()) {
+            { feedViewModel.playTracksQueue(songTracks, 0, playerViewModel, section.title) }
+        } else {
+            section.endpoint?.browseId?.let { browseId ->
+                {
+                    when {
+                        browseId.startsWith("UC") || browseId.startsWith("FEmusic_artist") -> {
+                            navController.navigateSafely(Screen.ArtistDetail.createRoute(browseId))
+                        }
+                        browseId.startsWith("VL") || browseId.startsWith("PL") || browseId.startsWith("RD") || browseId.startsWith("FEmusic_playlist") -> {
+                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(browseId.removePrefix("VL")))
+                        }
+                        browseId.startsWith("MPRE") || browseId.startsWith("FEmusic_album") -> {
+                            navController.navigateSafely(Screen.AlbumDetail.createRoute(browseId))
+                        }
+                        else -> {
+                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(browseId))
+                        }
+                    }
+                }
+            }
+        },
+        onShuffleClick = if (songTracks.isNotEmpty()) {
+            { feedViewModel.shuffleTracksQueue(songTracks, playerViewModel, section.title) }
+        } else null
+    )
+
+    FeedMediaRow {
+        itemsIndexed(section.items, key = { idx, item -> "regional_${section.title}_${item.id}_$idx" }) { index, item ->
+            when (item) {
+                is SongItem -> {
+                    val track = songTracks.firstOrNull { it.videoId == item.id } ?: YouTubeMusicTrack(
+                        videoId = item.id,
+                        title = item.title,
+                        artist = item.artists.firstOrNull()?.name ?: "Unknown artist",
+                        album = item.album?.name,
+                        artworkUrl = item.thumbnail
+                    )
+                    val songIdx = songTracks.indexOfFirst { it.videoId == item.id }
+                    FeedTrackCard(
+                        title = track.title,
+                        subtitle = track.artist,
+                        artworkUrl = track.artworkUrl,
+                        isCurrentPlaying = isPlaying && currentSongId == "youtube_${track.videoId}",
+                        onClick = {
+                            if (songIdx >= 0) {
+                                feedViewModel.playTracksQueue(songTracks, songIdx, playerViewModel, section.title)
+                            } else {
+                                playerViewModel.showAndPlaySong(track.toSong(), listOf(track.toSong()), section.title)
+                            }
+                        },
+                        onMoreClick = {
+                            playerViewModel.selectSongForInfo(track.toSong())
+                        }
+                    )
+                }
+                is AlbumItem -> {
+                    FeedPlaylistCard(
+                        title = item.title,
+                        subtitle = item.artists?.firstOrNull()?.name ?: "Album",
+                        artworkUrl = item.thumbnail,
+                        onClick = {
+                            navController.navigateSafely(Screen.AlbumDetail.createRoute(item.browseId))
+                        }
+                    )
+                }
+                is PlaylistItem -> {
+                    FeedPlaylistCard(
+                        title = item.title,
+                        subtitle = item.author?.name ?: "Playlist",
+                        artworkUrl = item.thumbnail,
+                        onClick = {
+                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(item.id))
+                        }
+                    )
+                }
+                is ArtistItem -> {
+                    ArtistAvatarCard(
+                        artist = FeedArtist(item.title, item.id, item.thumbnail),
+                        isTop = false,
+                        onClick = {
+                            navController.navigateSafely(Screen.ArtistDetail.createRoute(item.id))
+                        }
+                    )
                 }
             }
         }

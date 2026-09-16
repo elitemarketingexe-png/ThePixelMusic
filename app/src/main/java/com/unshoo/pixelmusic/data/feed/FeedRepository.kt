@@ -57,14 +57,12 @@ class FeedRepository @Inject constructor(
         fun filterGenerated(t: GeneratedTrack): Boolean = !filterCoverAndLofi || !ContentFilterUtils.isCoverOrLofi(t, filterKeywords)
 
         val newReleasesDef = async(Dispatchers.IO) {
-            if (isYtConnected) runCatching { innerTube.fetchNewReleases(authenticated = true) }.getOrDefault(emptyList())
-            else emptyList()
+            runCatching { innerTube.fetchNewReleases(authenticated = isYtConnected) }.getOrDefault(emptyList())
         }
         val chartsDef = async(Dispatchers.IO) { runCatching { innerTube.fetchCharts() }.getOrDefault(emptyList()).filter(::filterTrack) }
         val homeMixesDef = async(Dispatchers.IO) { runCatching { innerTube.fetchHomeMixes() }.getOrDefault(emptyList()) }
         val homeAlbumsDef = async(Dispatchers.IO) {
-            if (isYtConnected) runCatching { innerTube.fetchHomeAlbums(limit = 12) }.getOrDefault(emptyList())
-            else emptyList()
+            runCatching { innerTube.fetchHomeAlbums(limit = 12) }.getOrDefault(emptyList())
         }
         val homeSongsDef = async(Dispatchers.IO) {
             if (isYtConnected) emptyList() else runCatching { innerTube.fetchHomeSongs() }.getOrDefault(emptyList()).filter(::filterTrack)
@@ -288,6 +286,7 @@ class FeedRepository @Inject constructor(
             }.awaitAll().flatten()
 
         val newReleases: List<YouTubePlaylistSummary> = (matchedReleases + artistReleases)
+            .ifEmpty { releaseCandidates }
             .ifEmpty { previous?.newReleases.orEmpty() }
             .distinctBy { it.id }.shuffled(random).take(15)
 
@@ -441,28 +440,28 @@ class FeedRepository @Inject constructor(
         val homeAlbums = homeAlbumsDef.await()
             .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }
 
-        val recentAlbums = if (homeAlbums.isNotEmpty()) {
+        val personalAlbums = blend(ytRealAlbums, lastFmRealAlbums)
+            .distinctBy { "${it.artist.trim().lowercase()}_${it.title.trim().lowercase()}" }
+            .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") }
+
+        val recentAlbums = if (personalAlbums.isNotEmpty()) {
+            personalAlbums.take(20).map { album ->
+                async(Dispatchers.IO) {
+                    if (ArtworkNormalizer.isRealImage(album.artworkUrl)) {
+                        album
+                    } else albumArtworkRequests.withPermit {
+                        val pageArt = album.browseId?.takeIf(String::isNotBlank)?.let { id ->
+                            runCatching { innerTube.fetchAlbumPage(id) }.getOrNull()?.artworkUrl
+                        }?.takeIf(ArtworkNormalizer::isRealImage)
+                        album.copy(artworkUrl = pageArt ?: album.artworkUrl)
+                    }
+                }
+            }.awaitAll()
+            .filter { ArtworkNormalizer.isRealImage(it.artworkUrl) }
+            .take(12)
+        } else if (homeAlbums.isNotEmpty()) {
             homeAlbums.take(12)
         } else {
-            blend(ytRealAlbums, lastFmRealAlbums)
-                .distinctBy { "${it.artist.trim().lowercase()}_${it.title.trim().lowercase()}" }
-                .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") }
-                .take(20)
-                .map { album ->
-                    async(Dispatchers.IO) {
-                        if (ArtworkNormalizer.isRealImage(album.artworkUrl)) {
-                            album
-                        } else albumArtworkRequests.withPermit {
-                            val pageArt = album.browseId?.takeIf(String::isNotBlank)?.let { id ->
-                                runCatching { innerTube.fetchAlbumPage(id) }.getOrNull()?.artworkUrl
-                            }?.takeIf(ArtworkNormalizer::isRealImage)
-                            album.copy(artworkUrl = pageArt ?: album.artworkUrl)
-                        }
-                    }
-                }.awaitAll()
-                .filter { ArtworkNormalizer.isRealImage(it.artworkUrl) }
-                .take(12)
-        }.ifEmpty {
             previous?.recentAlbums.orEmpty()
                 .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }
                 .take(12)

@@ -2263,7 +2263,7 @@ constructor(
 
     val contentLanguageFlow: Flow<String> =
         dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.CONTENT_LANGUAGE] ?: "en"
+            preferences[PreferencesKeys.CONTENT_LANGUAGE] ?: if (java.util.Locale.getDefault().country == "IN") "en-IN" else java.util.Locale.getDefault().toLanguageTag().ifBlank { "en" }
         }.distinctUntilChanged()
 
     suspend fun setContentLanguage(language: String) {
@@ -2274,7 +2274,7 @@ constructor(
 
     val contentCountryFlow: Flow<String> =
         dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.CONTENT_COUNTRY] ?: "US"
+            preferences[PreferencesKeys.CONTENT_COUNTRY] ?: java.util.Locale.getDefault().country.ifBlank { "IN" }
         }.distinctUntilChanged()
 
     suspend fun setContentCountry(country: String) {

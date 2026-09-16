@@ -145,7 +145,7 @@ data class SettingsUiState(
     val playerStreamClient: PlayerStreamClient = PlayerStreamClient.ANDROID_VR,
     val pureYtMusicOnly: Boolean = false,
     val contentLanguage: String = "en",
-    val contentCountry: String = "US",
+    val contentCountry: String = java.util.Locale.getDefault().country.ifBlank { "IN" },
     val playlistSuggestionSource: PlaylistSuggestionSource = PlaylistSuggestionSource.BOTH,
     val hideExplicit: Boolean = false,
     val hideVideo: Boolean = false,

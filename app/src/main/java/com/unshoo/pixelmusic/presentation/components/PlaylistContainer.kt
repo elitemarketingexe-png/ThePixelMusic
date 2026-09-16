@@ -69,8 +69,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -268,6 +271,29 @@ fun PlaylistItems(
         pendingPlaylistSortScrollReset = false
     }
 
+    val initialPlaylistBatch = 30
+    var visiblePlaylistLimit by remember(filteredPlaylists) {
+        mutableIntStateOf(minOf(initialPlaylistBatch, filteredPlaylists.size))
+    }
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val totalItems = listState.layoutInfo.totalItemsCount
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItems > 0 && lastVisibleItem >= totalItems - 4
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value && visiblePlaylistLimit < filteredPlaylists.size) {
+            visiblePlaylistLimit = minOf(visiblePlaylistLimit + 25, filteredPlaylists.size)
+        }
+    }
+
+    val playlistsToRender = remember(filteredPlaylists, visiblePlaylistLimit) {
+        if (filteredPlaylists.size <= initialPlaylistBatch) filteredPlaylists
+        else filteredPlaylists.take(visiblePlaylistLimit)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
@@ -285,7 +311,7 @@ fun PlaylistItems(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
         ) {
-            itemsIndexed(filteredPlaylists, key = { index, playlist -> "${playlist.id}_$index" }) { _, playlist ->
+            itemsIndexed(playlistsToRender, key = { index, playlist -> "${playlist.id}_$index" }) { _, playlist ->
                 val rememberedOnClick = remember(playlist.id) {
                     {
                         if (isAddingToPlaylist && currentSong != null && selectedPlaylists != null) {
@@ -317,6 +343,23 @@ fun PlaylistItems(
                     onLongPress = { onPlaylistLongPress(playlist) },
                     onPlaylistSelectionToggle = { onPlaylistSelectionToggle(playlist) }
                 )
+            }
+
+            if (visiblePlaylistLimit < filteredPlaylists.size) {
+                item(key = "playlists_load_more_loader") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            strokeWidth = 2.5.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
         

@@ -56,6 +56,8 @@ import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.components.ExpressiveScrollBar
 import com.unshoo.pixelmusic.presentation.components.songFastScrollLabel
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.CircularProgressIndicator
 
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -190,6 +192,24 @@ fun LibrarySongsTab(
     val refreshState = songs.loadState.refresh
     val reachedEndOfPagination = songs.loadState.append.endOfPaginationReached
 
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val totalItems = listState.layoutInfo.totalItemsCount
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItems > 0 && lastVisibleItem >= totalItems - 4
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value) {
+            if (songs.loadState.append is LoadState.Error) {
+                songs.retry()
+            } else if (songs.itemCount > 0 && !reachedEndOfPagination) {
+                songs.get(songs.itemCount - 1)
+            }
+        }
+    }
+
     when {
         refreshState is LoadState.Error && songs.itemCount == 0 -> {
             val error = refreshState.error
@@ -298,6 +318,23 @@ fun LibrarySongsTab(
                                         onMoreOptionsClick = {},
                                         onClick = {}
                                      )
+                                }
+                            }
+
+                            if (songs.loadState.append is LoadState.Loading) {
+                                item(key = "songs_load_more_loader") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(28.dp),
+                                            strokeWidth = 2.5.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }

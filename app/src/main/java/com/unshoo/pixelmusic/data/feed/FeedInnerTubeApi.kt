@@ -154,13 +154,16 @@ class FeedInnerTubeApi @Inject constructor(
         }
     }
 
-    private suspend fun browseRoot(browseId: String, authenticated: Boolean): JsonObject {
+    private suspend fun browseRoot(browseId: String, authenticated: Boolean, params: String? = null): JsonObject {
         val config = getWebConfig()
         return post(
             url = "$MUSIC_API/browse?key=${config.apiKey}&prettyPrint=false",
             body = buildJsonObject {
                 put("context", makeContext("WEB_REMIX", config.clientVersion, config.visitorData))
                 put("browseId", browseId)
+                if (!params.isNullOrBlank()) {
+                    put("params", params)
+                }
             },
             authenticated = authenticated,
         )
@@ -178,31 +181,70 @@ class FeedInnerTubeApi @Inject constructor(
         )
     }
 
-    private fun makeContext(clientName: String, clientVersion: String, visitorData: String?): JsonObject =
-        buildJsonObject {
+    private fun makeContext(clientName: String, clientVersion: String, visitorData: String?): JsonObject {
+        val currentLocale = unshoo.ianshulyadav.pixelmusic.innertube.YouTube.locale
+        val gl = currentLocale.gl.ifBlank { "IN" }
+        val hl = currentLocale.hl.ifBlank { "en" }
+        return buildJsonObject {
             put("client", buildJsonObject {
                 put("clientName", clientName)
                 put("clientVersion", clientVersion)
-                put("hl", "en")
-                put("gl", "US")
+                put("hl", hl)
+                put("gl", gl)
                 if (!visitorData.isNullOrBlank()) {
                     put("visitorData", visitorData)
                 }
             })
         }
+    }
 
     suspend fun fetchNewReleases(authenticated: Boolean = ytAuth.connection.value.isConnected): List<YouTubePlaylistSummary> = withContext(Dispatchers.IO) {
-        if (!authenticated) return@withContext emptyList()
-        runCatching {
-            val root = browseRoot(YT_NEW_RELEASES_BROWSE_ID, authenticated = true)
+        val items = runCatching {
+            val root = browseRoot(YT_NEW_RELEASES_BROWSE_ID, authenticated = authenticated)
             parsePlaylistRenderers(root)
+        }.getOrDefault(emptyList())
+
+        if (items.isNotEmpty()) return@withContext items
+
+        runCatching {
+            unshoo.ianshulyadav.pixelmusic.innertube.YouTube.newReleaseAlbums().getOrNull()?.map { album ->
+                YouTubePlaylistSummary(
+                    id = album.browseId,
+                    title = album.title,
+                    author = album.artists?.firstOrNull()?.name ?: "Album",
+                    artworkUrl = album.thumbnail
+                )
+            }.orEmpty()
         }.getOrDefault(emptyList())
     }
 
     suspend fun fetchCharts(): List<YouTubeMusicTrack> = withContext(Dispatchers.IO) {
-        runCatching {
+        val tracksWithParams = runCatching {
+            val root = browseRoot(YT_CHARTS_BROWSE_ID, authenticated = false, params = "ggMGCgQIgAQ%3D")
+            parseSongRenderers(root)
+        }.getOrDefault(emptyList())
+        if (tracksWithParams.isNotEmpty()) return@withContext tracksWithParams
+
+        val tracksRegular = runCatching {
             val root = browseRoot(YT_CHARTS_BROWSE_ID, authenticated = false)
             parseSongRenderers(root)
+        }.getOrDefault(emptyList())
+        if (tracksRegular.isNotEmpty()) return@withContext tracksRegular
+
+        runCatching {
+            val currentGl = unshoo.ianshulyadav.pixelmusic.innertube.YouTube.locale.gl.ifBlank { "IN" }
+            val chartsPage = unshoo.ianshulyadav.pixelmusic.innertube.YouTube.getChartsPage(currentGl).getOrNull()
+            chartsPage?.sections?.flatMap { it.items }
+                ?.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem>()
+                ?.map { songItem ->
+                    YouTubeMusicTrack(
+                        videoId = songItem.id,
+                        title = songItem.title,
+                        artist = songItem.artists.firstOrNull()?.name ?: "Unknown artist",
+                        album = songItem.album?.name,
+                        artworkUrl = songItem.thumbnail
+                    )
+                }.orEmpty()
         }.getOrDefault(emptyList())
     }
 
@@ -224,9 +266,22 @@ class FeedInnerTubeApi @Inject constructor(
 
     suspend fun fetchHomeAlbums(limit: Int = 12): List<FeedAlbum> = withContext(Dispatchers.IO) {
         val isAuth = ytAuth.connection.value.isConnected
-        runCatching {
+        val homeAlbums = runCatching {
             val root = browseRoot(YT_HOME_BROWSE_ID, authenticated = isAuth)
             parseHomeAlbums(root, limit)
+        }.getOrDefault(emptyList())
+
+        if (homeAlbums.isNotEmpty()) return@withContext homeAlbums
+
+        runCatching {
+            unshoo.ianshulyadav.pixelmusic.innertube.YouTube.newReleaseAlbums().getOrNull()?.take(limit)?.map { album ->
+                FeedAlbum(
+                    title = album.title,
+                    artist = album.artists?.firstOrNull()?.name ?: "Unknown artist",
+                    artworkUrl = album.thumbnail,
+                    browseId = album.browseId
+                )
+            }.orEmpty()
         }.getOrDefault(emptyList())
     }
 

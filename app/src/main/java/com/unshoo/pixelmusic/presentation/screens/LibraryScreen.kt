@@ -99,6 +99,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -3551,6 +3552,29 @@ fun LibraryFoldersTab(
         val songsToShow = remember(activeFolder, currentSortOption) {
             sortSongsForFolderView(activeFolder?.songs ?: emptyList(), currentSortOption)
         }.toImmutableList()
+
+        val initialFolderSongBatch = 50
+        var visibleFolderSongLimit by remember(songsToShow) {
+            mutableIntStateOf(minOf(initialFolderSongBatch, songsToShow.size))
+        }
+        val shouldLoadMore = remember {
+            derivedStateOf {
+                val totalItems = listState.layoutInfo.totalItemsCount
+                val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                totalItems > 0 && lastVisibleItem >= totalItems - 4
+            }
+        }
+
+        LaunchedEffect(shouldLoadMore.value) {
+            if (shouldLoadMore.value && visibleFolderSongLimit < songsToShow.size) {
+                visibleFolderSongLimit = minOf(visibleFolderSongLimit + 40, songsToShow.size)
+            }
+        }
+
+        val songsToRender = remember(songsToShow, visibleFolderSongLimit) {
+            if (songsToShow.size <= initialFolderSongBatch) songsToShow
+            else songsToShow.take(visibleFolderSongLimit)
+        }
         val currentSong = folderPlayerState.currentSong
         val currentSongId = currentSong?.id
         val currentSongIndexInSongs = remember(songsToShow, currentSongId) {
@@ -3730,7 +3754,7 @@ fun LibraryFoldersTab(
                                     }
                                 }
 
-                                items(songsToShow, key = { it.id }, contentType = { "song" }) { song ->
+                                items(songsToRender, key = { it.id }, contentType = { "song" }) { song ->
                                     EnhancedSongListItem(
                                         song = song,
                                         isPlaying = folderPlayerState.currentSongId == song.id && folderPlayerState.isPlaying,
@@ -3748,6 +3772,23 @@ fun LibraryFoldersTab(
                                             }
                                         }
                                     )
+                                }
+
+                                if (visibleFolderSongLimit < songsToShow.size) {
+                                    item(key = "folders_load_more_loader") {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 16.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(28.dp),
+                                                strokeWidth = 2.5.dp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
