@@ -157,6 +157,7 @@ data class SettingsUiState(
     val ytAvatarUrl: String = "",
     val performanceModeEnabled: Boolean = false,
     val audioOffloadEnabled: Boolean = false,
+    val deduplicateQueueEntries: Boolean = true,
     val preferTelegramAlternative: Boolean = false,
     val telegramUseOnlineAlbumArt: Boolean = false,
     val lastfmSession: String = "",
@@ -866,6 +867,12 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.deduplicateQueueEntriesFlow.collect { enabled ->
+                _uiState.update { it.copy(deduplicateQueueEntries = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.telegramUseOnlineAlbumArtFlow.collect { enabled ->
                 _uiState.update { it.copy(telegramUseOnlineAlbumArt = enabled) }
             }
@@ -1139,6 +1146,12 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun isAtRoot(): Boolean = fileExplorerStateHolder.isAtRoot()
 
     fun explorerRoot(): File = fileExplorerStateHolder.rootDirectory()
+
+    fun setDeduplicateQueueEntries(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDeduplicateQueueEntries(enabled)
+        }
+    }
 
     fun setPreferTelegramAlternative(enabled: Boolean) {
         viewModelScope.launch {

@@ -104,10 +104,22 @@ class SongDownloadWorker(
                         }
                     }
 
-                val audioPath =
-                    DownloadHelper.downloadAudio(
-                        appContext, song,
-                    )
+                val songKey = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(song.title, song.artist)
+                val localMatching = if (songKey != null) {
+                    musicDao.getSongsBySourceType(0).firstOrNull { localSong ->
+                        localSong.filePath.isNotBlank() && File(localSong.filePath).length() > 0L &&
+                            com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(localSong.title, localSong.artistName) == songKey
+                    }
+                } else null
+
+                val isExistingLocal = localMatching != null
+                val audioPath = if (localMatching != null) {
+                    Timber.i("Song '${song.title}' already exists in local storage at ${localMatching.filePath}. Skipping network download.")
+                    localMatching.filePath
+                } else {
+                    DownloadHelper.downloadAudio(appContext, song)
+                }
+
                 val thumbnailPath =
                     DownloadHelper.downloadImage(
                         appContext,
@@ -116,14 +128,14 @@ class SongDownloadWorker(
                     )
 
                 val updatedSong = song.copy(
-                    thumbnailPath = thumbnailPath?.path,
+                    thumbnailPath = thumbnailPath?.path ?: localMatching?.albumArtUriString,
                     audioFilePath = audioPath,
-                    album = fullSong?.album ?: song.album,
+                    album = fullSong?.album ?: song.album ?: localMatching?.albumName,
                     albumBrowseId = fullSong?.albumBrowseId ?: song.albumBrowseId,
                 )
                 localSongRepository.create(updatedSong)
 
-                if (audioPath != null) {
+                if (audioPath != null && !isExistingLocal) {
                     embedAudioMetadata(
                         audioPath = audioPath,
                         title = updatedSong.title,

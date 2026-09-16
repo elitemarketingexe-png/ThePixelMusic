@@ -362,6 +362,8 @@ class PlayerViewModel @Inject constructor(
         initialValue = "SUBSCRIBED"
     )
 
+    val isOnline: StateFlow<Boolean> = connectivityStateHolder.isOnline
+
     val searchSource: StateFlow<com.unshoo.pixelmusic.data.preferences.SearchSource> = userPreferencesRepository.searchSourceFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -5343,20 +5345,18 @@ class PlayerViewModel @Inject constructor(
                             }
                         }
                         
-                        // Offline check for Telegram songs
-                        if (song?.contentUriString?.startsWith("telegram:") == true) {
-                            ensureTelegramPlaybackObserversStarted()
-                            val isOnline = connectivityStateHolder.isOnline.value
-                            if (!isOnline) {
-                                val fileId = song.telegramFileId
-                                if (fileId != null) {
-                                    val isCached = musicRepository.telegramRepository.isFileCached(fileId)
-                                    if (!isCached) {
-                                        playerCtrl.pause()
-                                        _showNoInternetDialog.emit(Unit)
-                                    }
-                                }
+                        // Offline check for transitioned song
+                        val isOnline = connectivityStateHolder.isOnline.value
+                        if (!isOnline && song != null && !com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, song)) {
+                            val isTelegramCached = if (song.telegramFileId != null) {
+                                musicRepository.telegramRepository.isFileCached(song.telegramFileId)
+                            } else false
+                            if (!isTelegramCached) {
+                                playerCtrl.pause()
+                                _showNoInternetDialog.emit(Unit)
                             }
+                        } else if (song?.contentUriString?.startsWith("telegram:") == true) {
+                            ensureTelegramPlaybackObserversStarted()
                         }
 
                         val resolvedDuration = if (song != null) {
@@ -5550,35 +5550,43 @@ class PlayerViewModel @Inject constructor(
                 return@launch
             }
 
-            // Adjust startSong if it was filtered out
-            val validStartSong =
-                validSongs.firstOrNull { it.id == startSong.id } ?: validSongs.first()
+            // Deduplicate queue if prefer alternatives or queue deduplication is enabled
+            val preferAlternatives = userPreferencesRepository.preferTelegramAlternativeFlow.first()
+            val deduplicateQueue = userPreferencesRepository.deduplicateQueueEntriesFlow.first()
+            val (deduplicatedSongs, resolvedStartId) = if (deduplicateQueue || preferAlternatives) {
+                com.unshoo.pixelmusic.utils.OfflineAudioResolver.deduplicateQueue(validSongs, startSong.id)
+            } else {
+                Pair(validSongs, startSong.id)
+            }
 
-            // Offline check for the starting song if it is a Telegram song
+            // Offline filtering: when offline, only 100% verified offline songs can play
+            val isOnline = connectivityStateHolder.isOnline.value
+            val playableSongs = if (!isOnline) {
+                deduplicatedSongs.filter {
+                    com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) ||
+                        (it.telegramFileId != null && musicRepository.telegramRepository.isFileCached(it.telegramFileId))
+                }
+            } else {
+                deduplicatedSongs
+            }
+
+            if (playableSongs.isEmpty()) {
+                clearPreparingSongIfMatching()
+                _showNoInternetDialog.tryEmit(Unit)
+                return@launch
+            }
+
+            // Adjust startSong
+            val validStartSong =
+                playableSongs.firstOrNull { it.id == resolvedStartId } ?: playableSongs.first()
+
             if (validStartSong.contentUriString.startsWith("telegram:")) {
                 ensureTelegramPlaybackObserversStarted()
-                val isOnline = connectivityStateHolder.isOnline.value
-                val fileId = validStartSong.telegramFileId
-                
-                Timber.d("Offline Check: fileId=$fileId, contentUri=${validStartSong.contentUriString}, isOnline=$isOnline")
-
-                if (!isOnline) {
-                     if (fileId != null) {
-                          val isCached = musicRepository.telegramRepository.isFileCached(fileId)
-                          Timber.d("Offline Check: isCached=$isCached")
-                          throwIfDirectPlaybackRequestIsStale(requestToken)
-                          if (!isCached) {
-                              Timber.w("Blocked playback: Offline and not cached.")
-                              _showNoInternetDialog.tryEmit(Unit)
-                              return@launch
-                          }
-                     }
-                }
             }
 
             // Store the original order so we can "unshuffle" later if the user turns shuffle off
-            queueStateHolder.setOriginalQueueOrder(validSongs)
-            queueStateHolder.saveOriginalQueueState(validSongs, queueName)
+            queueStateHolder.setOriginalQueueOrder(playableSongs)
+            queueStateHolder.saveOriginalQueueState(playableSongs, queueName)
 
             // Check if the user wants shuffle to be persistent across different albums
             val isPersistent = userPreferencesRepository.persistentShuffleEnabledFlow.first()
@@ -5596,14 +5604,14 @@ class PlayerViewModel @Inject constructor(
                 // Shuffle the list but ensure the chosen song starts first at index 0 and all other songs follow
                 withContext(Dispatchers.Default) {
                     QueueUtils.buildAnchoredShuffleQueueSuspending(
-                        validSongs,
-                        validSongs.indexOfFirst { it.id == validStartSong.id }.coerceAtLeast(0),
+                        playableSongs,
+                        playableSongs.indexOfFirst { it.id == validStartSong.id }.coerceAtLeast(0),
                         startAtZero = true
                     )
                 }
             } else {
                 // Otherwise, just use the normal sequential order
-                validSongs
+                playableSongs
             }
             throwIfDirectPlaybackRequestIsStale(requestToken)
 
@@ -5623,14 +5631,37 @@ class PlayerViewModel @Inject constructor(
         startAtZero: Boolean = true
     ) {
         cancelPendingFullQueuePlayback()
-        val cappedSongs = if (songsToPlay.size > 500) {
-            songsToPlay.shuffled().take(500)
-        } else {
-            songsToPlay
-        }
         val requestToken = beginDirectPlaybackRequest()
         directPlaybackJob = viewModelScope.launch {
             try {
+                val preferAlternatives = userPreferencesRepository.preferTelegramAlternativeFlow.first()
+                val deduplicateQueue = userPreferencesRepository.deduplicateQueueEntriesFlow.first()
+                val deduplicatedSongs = if (deduplicateQueue || preferAlternatives) {
+                    com.unshoo.pixelmusic.utils.OfflineAudioResolver.deduplicateQueue(songsToPlay).first
+                } else {
+                    songsToPlay
+                }
+
+                val isOnline = connectivityStateHolder.isOnline.value
+                val playableSongs = if (!isOnline) {
+                    deduplicatedSongs.filter {
+                        com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) ||
+                            (it.telegramFileId != null && musicRepository.telegramRepository.isFileCached(it.telegramFileId))
+                    }
+                } else {
+                    deduplicatedSongs
+                }
+
+                if (playableSongs.isEmpty()) {
+                    _showNoInternetDialog.tryEmit(Unit)
+                    return@launch
+                }
+
+                val cappedSongs = if (playableSongs.size > 500) {
+                    playableSongs.shuffled().take(500)
+                } else {
+                    playableSongs
+                }
                 val result = queueStateHolder.prepareShuffledQueueSuspending(cappedSongs, queueName, startAtZero)
                 throwIfDirectPlaybackRequestIsStale(requestToken)
                 if (result == null) {
@@ -5825,44 +5856,81 @@ class PlayerViewModel @Inject constructor(
         startSongId: String,
         playlistId: String?
     ): PreparedPlaybackQueue = withContext(Dispatchers.IO) {
-        val preferTelegram = userPreferencesRepository.preferTelegramAlternativeFlow.first()
-        val telegramByKey = if (preferTelegram && songsToPlay.any { it.contentUriString.startsWith("youtube://") || it.youtubeId != null }) {
-            musicRepository.getTelegramSongsOnce()
+        val preferAlternatives = userPreferencesRepository.preferTelegramAlternativeFlow.first()
+        val deduplicateQueue = userPreferencesRepository.deduplicateQueueEntriesFlow.first()
+
+        val (effectiveSongs, effectiveStartId) = if (deduplicateQueue || preferAlternatives) {
+            com.unshoo.pixelmusic.utils.OfflineAudioResolver.deduplicateQueue(songsToPlay, startSongId)
+        } else {
+            Pair(songsToPlay, startSongId)
+        }
+
+        val (localByKey, telegramByKey) = if (preferAlternatives && effectiveSongs.any { it.contentUriString.startsWith("youtube://") || it.youtubeId != null }) {
+            val localMap = musicRepository.getLocalSongsOnce()
+                .asSequence()
+                .filter { localSong ->
+                    com.unshoo.pixelmusic.utils.OfflineAudioResolver.getOfflineAudioFile(context, localSong) != null ||
+                        localSong.contentUriString.startsWith("content://")
+                }
+                .mapNotNull { localSong ->
+                    val key = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(localSong.title, localSong.artist)
+                    key?.let { it to localSong }
+                }
+                .toMap()
+
+            val telegramMap = musicRepository.getTelegramSongsOnce()
                 .asSequence()
                 .filter { it.contentUriString.startsWith("telegram://") }
                 .mapNotNull { telegramSong ->
-                    val key = telegramAlternativeKey(telegramSong.title, telegramSong.artist)
+                    val key = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(telegramSong.title, telegramSong.artist)
                     key?.let { it to telegramSong }
                 }
                 .toMap()
+
+            Pair(localMap, telegramMap)
         } else {
-            emptyMap()
+            Pair(emptyMap(), emptyMap())
         }
 
         if (telegramByKey.isNotEmpty()) {
             ensureTelegramPlaybackObserversStarted()
         }
 
-        val mediaItems = ArrayList<MediaItem>(songsToPlay.size)
+        val mediaItems = ArrayList<MediaItem>(effectiveSongs.size)
         var startIndex = 0
         var foundStartIndex = false
 
-        songsToPlay.forEachIndexed { index, song ->
-            if (!foundStartIndex && song.id == startSongId) {
+        effectiveSongs.forEachIndexed { index, song ->
+            if (!foundStartIndex && song.id == effectiveStartId) {
                 startIndex = index
                 foundStartIndex = true
             }
 
             val baseItem = buildPlaybackMediaItem(song, playlistId)
-            val telegramAlternative = telegramAlternativeKey(song.title, song.artist)?.let(telegramByKey::get)
-            mediaItems += if (telegramAlternative != null) {
-                // Stream audio from Telegram, but keep the YouTube MediaMetadata/artwork/title so
-                // the queue/full-player visuals remain the online YouTube Music version.
-                baseItem.buildUpon()
-                    .setUri(Uri.parse(telegramAlternative.contentUriString))
-                    .build()
-            } else {
-                baseItem
+            val key = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(song.title, song.artist)
+            val localAlternative = key?.let(localByKey::get)
+            val telegramAlternative = if (localAlternative == null) key?.let(telegramByKey::get) else null
+
+            mediaItems += when {
+                localAlternative != null -> {
+                    val offlineFile = com.unshoo.pixelmusic.utils.OfflineAudioResolver.getOfflineAudioFile(context, localAlternative)
+                    if (offlineFile != null) {
+                        dualPlayerEngine.registerLocalPath(baseItem.mediaId, offlineFile.absolutePath)
+                        baseItem.buildUpon()
+                            .setUri(Uri.fromFile(offlineFile))
+                            .build()
+                    } else {
+                        baseItem.buildUpon()
+                            .setUri(Uri.parse(localAlternative.contentUriString))
+                            .build()
+                    }
+                }
+                telegramAlternative != null -> {
+                    baseItem.buildUpon()
+                        .setUri(Uri.parse(telegramAlternative.contentUriString))
+                        .build()
+                }
+                else -> baseItem
             }
         }
 
@@ -5871,15 +5939,6 @@ class PlayerViewModel @Inject constructor(
             startIndex = startIndex
         )
     }
-
-    private fun telegramAlternativeKey(title: String, artist: String): String? {
-        val normalizedTitle = title.normalizeMetadataText()
-        val normalizedArtist = artist.normalizeMetadataText()
-        if (normalizedTitle.isNullOrBlank() || normalizedArtist.isNullOrBlank()) return null
-        return "${normalizedTitle.lowercase(Locale.ROOT)}|${normalizedArtist.lowercase(Locale.ROOT)}"
-    }
-
-
 
     private suspend fun internalPlaySongs(
         songsToPlay: List<Song>,
@@ -6148,21 +6207,35 @@ class PlayerViewModel @Inject constructor(
 
         var finalUri = originalUri
         if (scheme == "youtube") {
-            // First check if preferTelegramAlternative is enabled
-            val preferTelegram = userPreferencesRepository.preferTelegramAlternativeFlow.first()
-            if (preferTelegram) {
-                val normalizedTitle = song.title.normalizeMetadataText()
-                val normalizedArtist = song.artist.normalizeMetadataText()
-                if (!normalizedTitle.isNullOrBlank() && !normalizedArtist.isNullOrBlank()) {
+            // First check if preferAlternatives is enabled
+            val preferAlternatives = userPreferencesRepository.preferTelegramAlternativeFlow.first()
+            if (preferAlternatives) {
+                val normalizedKey = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(song.title, song.artist)
+                if (normalizedKey != null) {
+                    // Priority 1: Local device file
+                    val localSongs = musicRepository.getLocalSongsOnce()
+                    val matchingLocal = localSongs.firstOrNull {
+                        com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(it.title, it.artist) == normalizedKey &&
+                            (com.unshoo.pixelmusic.utils.OfflineAudioResolver.getOfflineAudioFile(context, it) != null || it.contentUriString.startsWith("content://"))
+                    }
+                    if (matchingLocal != null) {
+                        val localFile = com.unshoo.pixelmusic.utils.OfflineAudioResolver.getOfflineAudioFile(context, matchingLocal)
+                        if (localFile != null && localFile.exists()) {
+                            Log.i("PlayerViewModel", "Substituting YouTube song with matching Local alternative: ${matchingLocal.title} by ${matchingLocal.artist}")
+                            dualPlayerEngine.registerLocalPath(originalUri.toString(), localFile.absolutePath)
+                            return mediaItem.buildUpon().setUri(Uri.fromFile(localFile)).build()
+                        } else if (matchingLocal.contentUriString.startsWith("content://")) {
+                            return mediaItem.buildUpon().setUri(Uri.parse(matchingLocal.contentUriString)).build()
+                        }
+                    }
+
+                    // Priority 2: Telegram alternative
                     val telegramSongs = musicRepository.getTelegramSongsOnce()
                     val matchingTelegram = telegramSongs.firstOrNull {
-                        val tTitle = it.title.normalizeMetadataText()
-                        val tArtist = it.artist.normalizeMetadataText()
-                        !tTitle.isNullOrBlank() && !tArtist.isNullOrBlank() &&
-                                tTitle.equals(normalizedTitle, ignoreCase = true) &&
-                                tArtist.equals(normalizedArtist, ignoreCase = true)
+                        val tKey = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(it.title, it.artist)
+                        tKey == normalizedKey && it.contentUriString.startsWith("telegram://")
                     }
-                    if (matchingTelegram != null && matchingTelegram.contentUriString.startsWith("telegram://")) {
+                    if (matchingTelegram != null) {
                         Log.i("PlayerViewModel", "Substituting YouTube song with matching Telegram alternative: ${matchingTelegram.title} by ${matchingTelegram.artist}")
                         ensureTelegramPlaybackObserversStarted()
                         finalUri = Uri.parse(matchingTelegram.contentUriString)
@@ -6170,6 +6243,7 @@ class PlayerViewModel @Inject constructor(
                 }
             }
 
+            // Priority 3: Check downloaded YouTube audio file on disk
             if (finalUri.scheme == "youtube") {
                 val videoId = finalUri.toString().substringAfter("youtube://")
                 val ytSong = try {

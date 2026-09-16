@@ -1036,6 +1036,10 @@ class MusicRepositoryImpl @Inject constructor(
         musicDao.getSongsBySourceType(SourceType.TELEGRAM).map { it.toSong() }
     }
 
+    override suspend fun getLocalSongsOnce(): List<Song> = withContext(Dispatchers.IO) {
+        musicDao.getSongsBySourceType(SourceType.LOCAL).map { it.toSong() }
+    }
+
 
 
     @OptIn(ExperimentalCoroutinesApi::class)

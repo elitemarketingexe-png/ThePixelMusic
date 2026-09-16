@@ -87,6 +87,7 @@ class PlaylistDownloadWorker(
                 )
 
                 val currentDownloadedSize = playlistRepository.getPlaylistById(Constants.Downloads.DOWNLOADED_PLAYLIST_ID)?.songs?.size ?: 0
+                val localSongs = musicDao.getSongsBySourceType(0).filter { it.filePath.isNotBlank() && File(it.filePath).length() > 0L }
 
                 playlist.songs.mapIndexed { index, song ->
                     async {
@@ -103,8 +104,19 @@ class PlaylistDownloadWorker(
                                         }
                                     }
 
-                                val audioPath =
+                                val songKey = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(song.title, song.artist)
+                                val localMatching = if (songKey != null) localSongs.firstOrNull {
+                                    com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(it.title, it.artistName) == songKey
+                                } else null
+
+                                val isExistingLocal = localMatching != null
+                                val audioPath = if (localMatching != null) {
+                                    Timber.i("Song '${song.title}' already exists in local storage at ${localMatching.filePath}. Skipping network download.")
+                                    localMatching.filePath
+                                } else {
                                     DownloadHelper.downloadAudio(appContext, song)
+                                }
+
                                 val thumbnailPath =
                                     DownloadHelper.downloadImage(
                                         appContext,
@@ -113,15 +125,15 @@ class PlaylistDownloadWorker(
                                     )
 
                                 val updatedSong = song.copy(
-                                    thumbnailPath = thumbnailPath?.path,
+                                    thumbnailPath = thumbnailPath?.path ?: localMatching?.albumArtUriString,
                                     audioFilePath = audioPath,
-                                    album = fullSong?.album ?: song.album,
+                                    album = fullSong?.album ?: song.album ?: localMatching?.albumName,
                                     albumBrowseId = fullSong?.albumBrowseId ?: song.albumBrowseId,
                                 )
 
                                 localSongRepository.create(updatedSong)
 
-                                if (audioPath != null) {
+                                if (audioPath != null && !isExistingLocal) {
                                     embedAudioMetadata(
                                         audioPath = audioPath,
                                         title = updatedSong.title,

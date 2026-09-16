@@ -174,25 +174,41 @@ fun HomeScreen(
     val isBenchmarkMode = remember {
         (context as? android.app.Activity)?.intent?.getBooleanExtra("is_benchmark", false) ?: false
     }
+    val isOnline by playerViewModel.isOnline.collectAsStateWithLifecycle()
     val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val accountsUiState by accountsViewModel.uiState.collectAsStateWithLifecycle()
     val exploreUiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
-    val discoverYoutubeSongs = remember(exploreUiState.homePageSections) {
-        exploreUiState.homePageSections
-            .filter { section ->
-                val title = section.title
-                title.contains("daily discover", ignoreCase = true) ||
-                (title.contains("discover", ignoreCase = true) && title.contains("daily", ignoreCase = true))
-            }
-            .flatMap { section ->
-                section.items.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem>()
-                    .map { songItem -> songItem.toNativeSong() }
-            }
-            .distinctBy { it.id }
+    val discoverYoutubeSongs = remember(exploreUiState.homePageSections, isOnline) {
+        if (!isOnline) {
+            emptyList()
+        } else {
+            exploreUiState.homePageSections
+                .filter { section ->
+                    val title = section.title
+                    title.contains("daily discover", ignoreCase = true) ||
+                    (title.contains("discover", ignoreCase = true) && title.contains("daily", ignoreCase = true))
+                }
+                .flatMap { section ->
+                    section.items.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem>()
+                        .map { songItem -> songItem.toNativeSong() }
+                }
+                .distinctBy { it.id }
+        }
     }
     val dailyMixSongsRaw by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
-    val mergedDailyMixSongs = remember(dailyMixSongsRaw, discoverYoutubeSongs) {
-        (dailyMixSongsRaw + discoverYoutubeSongs).distinctBy { it.id }.toImmutableList()
+    val dailyMixSongs = remember(dailyMixSongsRaw, isOnline) {
+        if (!isOnline) {
+            dailyMixSongsRaw.filter { com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) }.toImmutableList()
+        } else {
+            dailyMixSongsRaw
+        }
+    }
+    val mergedDailyMixSongs = remember(dailyMixSongs, discoverYoutubeSongs, isOnline) {
+        if (!isOnline) {
+            dailyMixSongs
+        } else {
+            (dailyMixSongs + discoverYoutubeSongs).distinctBy { it.id }.toImmutableList()
+        }
     }
     val userName = remember(accountsUiState.userName) {
         val rawName = accountsUiState.userName
@@ -218,7 +234,6 @@ fun HomeScreen(
             null
         }
     }
-    val dailyMixSongs = dailyMixSongsRaw  // reuse the already-collected state from line 176
     val curatedYourMixSongs by playerViewModel.yourMixSongs.collectAsStateWithLifecycle()
     val homeMixPreviewSongs by playerViewModel.homeMixPreviewSongs.collectAsStateWithLifecycle()
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
@@ -227,11 +242,16 @@ fun HomeScreen(
     val usesFallbackHomeMix = remember(curatedYourMixSongs, dailyMixSongs) {
         curatedYourMixSongs.isEmpty() && dailyMixSongs.isEmpty()
     }
-    val yourMixSongs = remember(curatedYourMixSongs, dailyMixSongs, homeMixPreviewSongs) {
-        when {
+    val yourMixSongs = remember(curatedYourMixSongs, dailyMixSongs, homeMixPreviewSongs, isOnline) {
+        val baseList = when {
             dailyMixSongs.isNotEmpty() -> dailyMixSongs
             curatedYourMixSongs.isNotEmpty() -> curatedYourMixSongs
             else -> homeMixPreviewSongs
+        }
+        if (!isOnline) {
+            baseList.filter { com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) }.toImmutableList()
+        } else {
+            baseList
         }
     }
     var homePlaceholderRefreshGeneration by rememberSaveable { mutableIntStateOf(0) }
@@ -275,7 +295,13 @@ fun HomeScreen(
             maxItems = 64
         )
     }
-    val recentlyPlayedSongs = latestRecentlyPlayedSongs
+    val recentlyPlayedSongs = remember(latestRecentlyPlayedSongs, isOnline) {
+        if (!isOnline) {
+            latestRecentlyPlayedSongs.filter { com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it.song) }
+        } else {
+            latestRecentlyPlayedSongs
+        }
+    }
 
     val recentlyPlayedQueue = remember(recentlyPlayedSongs) {
         recentlyPlayedSongs.map { it.song }.toImmutableList()
@@ -319,7 +345,14 @@ fun HomeScreen(
     LocalContext.current
 
     val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
-    val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
+    val quickPicksRaw by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
+    val quickPicks = remember(quickPicksRaw, isOnline) {
+        if (!isOnline) {
+            quickPicksRaw.filter { com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) }
+        } else {
+            quickPicksRaw
+        }
+    }
     val artistReleases by favoriteArtistReleasesViewModel.releases.collectAsStateWithLifecycle()
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -596,7 +629,7 @@ fun HomeScreen(
                     }
                 }
 
-                if (artistReleases.isNotEmpty()) {
+                if (isOnline && artistReleases.isNotEmpty()) {
                     item(
                         key = "favorite_artist_releases_section",
                         contentType = "favorite_artist_releases_section"

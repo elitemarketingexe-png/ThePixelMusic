@@ -1205,6 +1205,13 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_deduplicate_queue_title),
+                                    subtitle = stringResource(R.string.setcat_deduplicate_queue_desc),
+                                    checked = uiState.deduplicateQueueEntries,
+                                    onCheckedChange = { settingsViewModel.setDeduplicateQueueEntries(it) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_filter_list_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
+                                SwitchSettingItem(
                                     title = stringResource(R.string.setcat_prefer_telegram_alternative_title),
                                     subtitle = stringResource(R.string.setcat_prefer_telegram_alternative_desc),
                                     checked = uiState.preferTelegramAlternative,

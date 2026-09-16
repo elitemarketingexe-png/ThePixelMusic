@@ -36,9 +36,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudDownload
+import com.unshoo.pixelmusic.presentation.viewmodel.DownloadFilterMode
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Deselect
 import androidx.compose.material.icons.rounded.Download
@@ -206,6 +210,7 @@ fun CloudDownloadsScreen(
                         },
                         onTogglePause = { viewModel.togglePauseDownloads() },
                         onCancelAll = { viewModel.cancelAllActiveDownloads() },
+                        onToggleFilterMode = { viewModel.toggleFilterMode() },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
@@ -533,12 +538,14 @@ private fun StorageSummaryCard(
     onShuffleAll: () -> Unit,
     onTogglePause: () -> Unit,
     onCancelAll: () -> Unit,
+    onToggleFilterMode: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val formattedStorage = remember(uiState.storageUsedBytes) {
         Formatter.formatShortFileSize(context, uiState.storageUsedBytes)
     }
+    val isAllOffline = uiState.filterMode == DownloadFilterMode.ALL_OFFLINE
 
     Card(
         shape = RoundedCornerShape(28.dp),
@@ -563,7 +570,7 @@ private fun StorageSummaryCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = stringResource(R.string.cloud_downloads_storage_used),
+                        text = if (isAllOffline) "All Offline Storage" else stringResource(R.string.cloud_downloads_storage_used),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -574,11 +581,15 @@ private fun StorageSummaryCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(
-                            R.string.cloud_downloads_storage_summary,
-                            uiState.totalCompletedCount,
-                            uiState.totalCount
-                        ),
+                        text = if (isAllOffline) {
+                            "${uiState.totalCompletedCount} offline songs"
+                        } else {
+                            stringResource(
+                                R.string.cloud_downloads_storage_summary,
+                                uiState.totalCompletedCount,
+                                uiState.totalCount
+                            )
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -589,15 +600,26 @@ private fun StorageSummaryCard(
                 Box(
                     modifier = Modifier
                         .size(54.dp)
-                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        .clip(CircleShape)
+                        .background(
+                            if (isAllOffline) MaterialTheme.colorScheme.secondaryContainer 
+                            else MaterialTheme.colorScheme.primaryContainer
+                        )
+                        .clickable(onClick = onToggleFilterMode),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CloudDownload,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(28.dp)
-                    )
+                    AnimatedContent(
+                        targetState = isAllOffline,
+                        label = "FilterIconToggleAnim"
+                    ) { allMode ->
+                        Icon(
+                            imageVector = if (allMode) Icons.Rounded.AllInclusive else Icons.Rounded.CloudDownload,
+                            contentDescription = if (allMode) "All offline audio" else "Downloaded only",
+                            tint = if (allMode) MaterialTheme.colorScheme.onSecondaryContainer 
+                                   else MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
 

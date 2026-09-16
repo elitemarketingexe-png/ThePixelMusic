@@ -374,8 +374,10 @@
     <string name="setcat_auto_queue_enabled_desc">Automatically refill queue with related tracks when remaining count is low.</string>
     <string name="setcat_avoid_repetitive_songs_title">Avoid Repetitive Songs</string>
     <string name="setcat_avoid_repetitive_songs_desc">Filter out recently played or highly rotated tracks from the dynamic queue.</string>
-    <string name="setcat_prefer_telegram_alternative_title">Prefer Telegram Alternatives</string>
-    <string name="setcat_prefer_telegram_alternative_desc">When playing a song from YouTube, automatically try to stream or play the matching Telegram alternative (matched by exact title and artist) if available in highest quality.</string>
+    <string name="setcat_deduplicate_queue_title">Deduplicate Queue Entries</string>
+    <string name="setcat_deduplicate_queue_desc">Eliminate duplicate or triplicate entries in the playback queue when identical songs exist across local storage, Telegram, or YouTube.</string>
+    <string name="setcat_prefer_telegram_alternative_title">Prefer Alternatives (Local &amp; Telegram)</string>
+    <string name="setcat_prefer_telegram_alternative_desc">When playing a song, automatically stream matching local device audio first, then Telegram alternatives if available, falling back to YouTube. Avoids duplicate entries in playback queue.</string>
 
     <!-- Last.fm Integration -->
     <string name="lastfm_integration">Last.fm Integration</string>

@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -52,6 +53,11 @@ data class ActiveDownloadDisplayItem(
     val workId: String? = null
 )
 
+enum class DownloadFilterMode {
+    DOWNLOADED_ONLY,
+    ALL_OFFLINE
+}
+
 data class CloudDownloadsUiState(
     val completedDownloads: List<CloudDownloadedSongItem> = emptyList(),
     val activeDownloads: List<ActiveDownloadDisplayItem> = emptyList(),
@@ -62,7 +68,8 @@ data class CloudDownloadsUiState(
     val selectedSongIds: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
     val isDownloadsPaused: Boolean = false,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val filterMode: DownloadFilterMode = DownloadFilterMode.DOWNLOADED_ONLY
 )
 
 @HiltViewModel
@@ -77,6 +84,7 @@ class CloudDownloadsViewModel @Inject constructor(
     private val appDatabase = AppDatabase.getInstance(context)
     private val selectedSongIdsFlow = MutableStateFlow<Set<String>>(emptySet())
     private val isDownloadsPausedFlow = MutableStateFlow(false)
+    private val filterModeFlow = MutableStateFlow(DownloadFilterMode.DOWNLOADED_ONLY)
     private var pausedActiveDownloads: List<ActiveDownloadDisplayItem> = emptyList()
 
     private val playlistWorksFlow = workManager.getWorkInfosByTagFlow(
@@ -88,14 +96,35 @@ class CloudDownloadsViewModel @Inject constructor(
     private val localSongsFlow = appDatabase.songRepository().observeDownloadedSongs()
     private val cloudDownloadsFlow = repository.observeAll()
 
+    fun toggleFilterMode() {
+        filterModeFlow.update { if (it == DownloadFilterMode.DOWNLOADED_ONLY) DownloadFilterMode.ALL_OFFLINE else DownloadFilterMode.DOWNLOADED_ONLY }
+    }
+
+    private data class UiControlsState(
+        val selectedIds: Set<String>,
+        val isPaused: Boolean,
+        val filterMode: DownloadFilterMode
+    )
+
+    private val uiControlsFlow = combine(
+        selectedSongIdsFlow,
+        isDownloadsPausedFlow,
+        filterModeFlow
+    ) { ids, paused, mode ->
+        UiControlsState(ids, paused, mode)
+    }
+
     val uiState: StateFlow<CloudDownloadsUiState> = combine(
         playlistWorksFlow,
         songWorksFlow,
         localSongsFlow,
         cloudDownloadsFlow,
-        combine(selectedSongIdsFlow, isDownloadsPausedFlow) { ids, paused -> ids to paused }
-    ) { playlistWorks, songWorks, localSongs, cloudDownloads, (selectedIds, isPaused) ->
+        uiControlsFlow
+    ) { playlistWorks, songWorks, localSongs, cloudDownloads, controls ->
         withContext(Dispatchers.IO) {
+            val filterMode = controls.filterMode
+            val selectedIds = controls.selectedIds
+            val isPaused = controls.isPaused
             val activeItems = ArrayList<ActiveDownloadDisplayItem>()
             val failed = ArrayList<OfflineDownload>()
             val completedItems = ArrayList<CloudDownloadedSongItem>()
@@ -250,12 +279,42 @@ class CloudDownloadsViewModel @Inject constructor(
                 }
             }
 
+            // 5. Process local device storage songs if in ALL_OFFLINE mode
+            if (filterMode == DownloadFilterMode.ALL_OFFLINE) {
+                val localEntities = musicDao.getSongsBySourceType(0) // SourceType.LOCAL
+                for (localEntity in localEntities) {
+                    val path = localEntity.filePath
+                    val file = if (path.isNotBlank()) File(path) else null
+                    if (file != null && file.isFile && file.length() > 0L) {
+                        val fileSize = file.length()
+                        val nativeSong = localEntity.toSong()
+                        completedItems.add(
+                            CloudDownloadedSongItem(
+                                song = nativeSong,
+                                download = OfflineDownload(
+                                    downloadId = nativeSong.id,
+                                    sourceUri = nativeSong.contentUriString,
+                                    status = OfflineDownloadStatus.COMPLETE,
+                                    bytesDownloaded = fileSize,
+                                    totalBytes = fileSize,
+                                    localPath = file.absolutePath,
+                                    errorMessage = null,
+                                    title = nativeSong.title,
+                                    provider = "local"
+                                ),
+                                fileSizeBytes = fileSize
+                            )
+                        )
+                    }
+                }
+            }
+
             // Deduplicate completed items by song id or path
             val uniqueCompleted = completedItems
                 .distinctBy { it.song.id }
                 .sortedByDescending { it.song.dateAdded }
 
-            val totalUsedBytes = calculateStorageUsed(context, uniqueCompleted)
+            val totalUsedBytes = calculateStorageUsed(context, uniqueCompleted, filterMode == DownloadFilterMode.ALL_OFFLINE)
 
             var activeRemainingSongs = 0
             for (activeItem in activeItems) {
@@ -284,7 +343,8 @@ class CloudDownloadsViewModel @Inject constructor(
                 selectedSongIds = validSelectedIds,
                 isSelectionMode = validSelectedIds.isNotEmpty(),
                 isDownloadsPaused = isPaused,
-                isLoading = false
+                isLoading = false,
+                filterMode = filterMode
             )
         }
     }.stateIn(
@@ -295,8 +355,12 @@ class CloudDownloadsViewModel @Inject constructor(
 
     private fun calculateStorageUsed(
         context: Context,
-        completedItems: List<CloudDownloadedSongItem>
+        completedItems: List<CloudDownloadedSongItem>,
+        isAllOffline: Boolean
     ): Long {
+        if (isAllOffline) {
+            return completedItems.sumOf { it.fileSizeBytes }
+        }
         var totalBytes = 0L
         try {
             val audioDir = PixelMusicHelper.getDownloadDirectory(

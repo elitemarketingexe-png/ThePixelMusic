@@ -77,6 +77,7 @@ class ExploreViewModel @Inject constructor(
     private val musicDao: MusicDao,
     private val listeningStatsTracker: ListeningStatsTracker,
     private val datastoreRepository: DatastoreRepository,
+    private val connectivityStateHolder: ConnectivityStateHolder,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -253,10 +254,14 @@ class ExploreViewModel @Inject constructor(
         }
     }
 
-    private fun restoreFromCache() {
+    private suspend fun restoreFromCache() {
         try {
             if (cacheFile.exists()) {
-                if (cacheFile.length() > 512 * 1024) {
+                if (!connectivityStateHolder.isOnline.value) {
+                    loadOfflineExploreData()
+                    return
+                }
+                if (System.currentTimeMillis() - cacheFile.lastModified() > 24 * 60 * 60 * 1000L) {
                     cacheFile.delete()
                     return
                 }
@@ -309,6 +314,10 @@ class ExploreViewModel @Inject constructor(
     }
 
     private suspend fun loadDataInternal(forceRefresh: Boolean) {
+        if (!connectivityStateHolder.isOnline.value) {
+            loadOfflineExploreData()
+            return
+        }
         if (!forceRefresh && hasFetchedFromNetwork && _sectionsState.value.isNotEmpty()) {
             return
         }
@@ -562,6 +571,68 @@ class ExploreViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun loadOfflineExploreData() = withContext(Dispatchers.IO) {
+        _isLoadingState.value = false
+        _isRefreshingState.value = false
+        _errorState.value = null
+
+        val downloadedSongs = runCatching {
+            com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                .songRepository().getDownloadedSongs().map { it.toNativeSong() }
+        }.getOrDefault(emptyList()).filter {
+            com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it)
+        }
+
+        val localEntities = musicDao.getSongsBySourceType(0) // SourceType.LOCAL
+        val localSongs = localEntities.map { it.toSong() }.filter {
+            com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it)
+        }
+
+        val allOfflineSongs = com.unshoo.pixelmusic.utils.OfflineAudioResolver.deduplicateQueue(downloadedSongs + localSongs).first
+        val localMap = allOfflineSongs.associateBy { it.id }
+
+        val offlineSongItems = allOfflineSongs.take(30).map { song ->
+            SongItem(
+                id = song.id,
+                title = song.title,
+                artists = listOf(unshoo.ianshulyadav.pixelmusic.innertube.models.Artist(name = song.artist, id = null)),
+                album = song.album.takeIf { it.isNotBlank() }?.let { unshoo.ianshulyadav.pixelmusic.innertube.models.Album(name = it, id = null) },
+                duration = (song.duration / 1000).toInt(),
+                thumbnail = song.albumArtUriString.orEmpty(),
+                explicit = false,
+                endpoint = null
+            )
+        }
+
+        val offlineSection = if (offlineSongItems.isNotEmpty()) {
+            HomePage.Section(
+                title = "Offline Tracks",
+                label = "Downloaded & Local Music",
+                thumbnail = null,
+                endpoint = null,
+                items = offlineSongItems
+            )
+        } else null
+
+        val rawSections = listOfNotNull(offlineSection)
+        val uiSections = rawSections.map { it.toUiModel() }
+
+        _sectionsState.value = uiSections
+        _moodChipsState.value = emptyList()
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                isRefreshing = false,
+                homePageSections = rawSections,
+                explorePageSections = emptyList(),
+                newReleaseAlbums = emptyList(),
+                moodChips = emptyList(),
+                localSongs = localMap,
+                localRecentlyAddedSongs = allOfflineSongs.take(20)
+            )
         }
     }
 

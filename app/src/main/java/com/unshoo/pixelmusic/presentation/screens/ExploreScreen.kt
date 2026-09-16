@@ -175,9 +175,18 @@ fun ExploreScreen(
         navController.navigateToTopLevelSafely(Screen.Home.route)
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isOnline by playerViewModel.isOnline.collectAsStateWithLifecycle()
     val state by feedViewModel.uiState.collectAsStateWithLifecycle()
     val exploreUiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
-    val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
+    val quickPicksRaw by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
+    val quickPicks = remember(quickPicksRaw, isOnline) {
+        if (!isOnline) {
+            quickPicksRaw.filter { com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) }
+        } else {
+            quickPicksRaw
+        }
+    }
     val quickPicksDisplayMode by playerViewModel.quickPicksDisplayMode.collectAsStateWithLifecycle()
     val localAlbums by playerViewModel.albumsFlow.collectAsStateWithLifecycle()
     val localArtists by playerViewModel.artistsFlow.collectAsStateWithLifecycle()
@@ -220,14 +229,18 @@ fun ExploreScreen(
     } else {
         exploreUiState.homePageSections
     }
-    val regionalSections = remember(rawRegionalSections) {
-        rawRegionalSections.filter { section ->
-            val title = section.title.lowercase()
-            !title.contains("new music videos") &&
-            !title.contains("quick picks") &&
-            !title.contains("quickpicks") &&
-            !title.contains("local") &&
-            section.items.isNotEmpty()
+    val regionalSections = remember(rawRegionalSections, isOnline) {
+        if (!isOnline) {
+            emptyList()
+        } else {
+            rawRegionalSections.filter { section ->
+                val title = section.title.lowercase()
+                !title.contains("new music videos") &&
+                !title.contains("quick picks") &&
+                !title.contains("quickpicks") &&
+                !title.contains("local") &&
+                section.items.isNotEmpty()
+            }
         }
     }
 
@@ -244,8 +257,10 @@ fun ExploreScreen(
         }
     }
 
-    val chartTracks = remember(state.feedData.charts, exploreUiState.chartsPage) {
-        if (state.feedData.charts.isNotEmpty()) {
+    val chartTracks = remember(state.feedData.charts, exploreUiState.chartsPage, isOnline) {
+        if (!isOnline) {
+            emptyList()
+        } else if (state.feedData.charts.isNotEmpty()) {
             state.feedData.charts
         } else {
             exploreUiState.chartsPage?.sections?.flatMap { it.items }
@@ -262,8 +277,10 @@ fun ExploreScreen(
         }
     }
 
-    val newReleases = remember(state.feedData.newReleases, exploreUiState.newReleaseAlbums) {
-        if (state.feedData.newReleases.isNotEmpty()) {
+    val newReleases = remember(state.feedData.newReleases, exploreUiState.newReleaseAlbums, isOnline) {
+        if (!isOnline) {
+            emptyList()
+        } else if (state.feedData.newReleases.isNotEmpty()) {
             state.feedData.newReleases
         } else {
             exploreUiState.newReleaseAlbums.map { album ->
@@ -278,8 +295,8 @@ fun ExploreScreen(
     }
 
     // Albums for you: Remote verified records -> Local album collection
-    val albumsForYou = remember(state.feedData.recentAlbums, localAlbums) {
-        if (state.feedData.recentAlbums.isNotEmpty()) {
+    val albumsForYou = remember(state.feedData.recentAlbums, localAlbums, isOnline) {
+        if (isOnline && state.feedData.recentAlbums.isNotEmpty()) {
             state.feedData.recentAlbums
         } else {
             localAlbums.take(15).map { local ->
@@ -294,8 +311,8 @@ fun ExploreScreen(
     }
 
     // Artists for you: When isYtConnected -> Remote topArtists, otherwise -> Local most played topArtists -> Local library artists
-    val artistsForYou = remember(state.feedData.topArtists, exploreUiState.localTopArtists, localArtists, isYtConnected) {
-        if (isYtConnected && state.feedData.topArtists.isNotEmpty()) {
+    val artistsForYou = remember(state.feedData.topArtists, exploreUiState.localTopArtists, localArtists, isYtConnected, isOnline) {
+        if (isOnline && isYtConnected && state.feedData.topArtists.isNotEmpty()) {
             state.feedData.topArtists
         } else if (exploreUiState.localTopArtists.isNotEmpty()) {
             exploreUiState.localTopArtists
@@ -311,8 +328,8 @@ fun ExploreScreen(
     }
 
     // Jump back in: Remote jumpBackIn (when logged in) -> Local highly rotatory history
-    val jumpBackInTracks = remember(state.feedData.jumpBackIn, exploreUiState.localHighlyRotatoryTracks, isYtConnected) {
-        if (isYtConnected && state.feedData.jumpBackIn.isNotEmpty()) {
+    val jumpBackInTracks = remember(state.feedData.jumpBackIn, exploreUiState.localHighlyRotatoryTracks, isYtConnected, isOnline) {
+        if (isOnline && isYtConnected && state.feedData.jumpBackIn.isNotEmpty()) {
             state.feedData.jumpBackIn
         } else if (exploreUiState.localHighlyRotatoryTracks.isNotEmpty()) {
             exploreUiState.localHighlyRotatoryTracks

@@ -353,6 +353,7 @@ constructor(
         val SEARCH_SOURCE = stringPreferencesKey("search_source")
         val PERFORMANCE_MODE_ENABLED = booleanPreferencesKey("performance_mode_enabled")
         val AUDIO_OFFLOAD_ENABLED = booleanPreferencesKey("audio_offload_enabled")
+        val DEDUPLICATE_QUEUE_ENTRIES = booleanPreferencesKey("deduplicate_queue_entries")
         val PREFER_TELEGRAM_ALTERNATIVE = booleanPreferencesKey("prefer_telegram_alternative")
         val TELEGRAM_USE_ONLINE_ALBUM_ART = booleanPreferencesKey("telegram_use_online_album_art")
         val LASTFM_SESSION = stringPreferencesKey("lastfm_session")
@@ -378,6 +379,17 @@ constructor(
         val YOUTUBE_SYNC_LISTENING_ACTIVITY = booleanPreferencesKey("youtube_sync_listening_activity")
         val YOUTUBE_PERSONALIZED_EXPLORE = booleanPreferencesKey("youtube_personalized_explore")
         val YOUTUBE_PERSONALIZED_QUEUE = booleanPreferencesKey("youtube_personalized_queue")
+    }
+
+    val deduplicateQueueEntriesFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DEDUPLICATE_QUEUE_ENTRIES] ?: true
+        }.distinctUntilChanged()
+
+    suspend fun setDeduplicateQueueEntries(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DEDUPLICATE_QUEUE_ENTRIES] = enabled
+        }
     }
 
     val preferTelegramAlternativeFlow: Flow<Boolean> =
