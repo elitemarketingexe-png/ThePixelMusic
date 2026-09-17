@@ -18,6 +18,8 @@ import com.unshoo.pixelmusic.data.repository.ArtistImageRepository
 import com.unshoo.pixelmusic.data.telegram.TelegramRepository
 import com.unshoo.pixelmusic.presentation.viewmodel.LibraryStateHolder
 import com.unshoo.pixelmusic.presentation.viewmodel.ThemeStateHolder
+import com.unshoo.pixelmusic.data.service.player.DualPlayerEngine
+import com.unshoo.pixelmusic.ui.glancewidget.AlbumArtBitmapCache
 import com.unshoo.pixelmusic.utils.AlbumArtCacheManager
 import com.unshoo.pixelmusic.utils.AlbumArtUtils
 import com.unshoo.pixelmusic.utils.CrashHandler
@@ -56,6 +58,9 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
 
     @Inject
     lateinit var themeStateHolder: dagger.Lazy<ThemeStateHolder>
+
+    @Inject
+    lateinit var dualPlayerEngine: dagger.Lazy<DualPlayerEngine>
 
     @Inject
     lateinit var artistImageRepository: dagger.Lazy<ArtistImageRepository>
@@ -336,7 +341,12 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         }
 
         if (isUiHidden || isBackground) {
+            AlbumArtBitmapCache.evictAll()
             startupScope.launch { BotGuardTokenGenerator.onAppBackgrounded() }
+        }
+
+        if (isBackground) {
+            dualPlayerEngine.get().releaseIdleAuxiliaryPlayer()
         }
 
         libraryStateHolder.get().trimMemory(level)

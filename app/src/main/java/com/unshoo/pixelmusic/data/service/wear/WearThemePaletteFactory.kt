@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import com.unshoo.pixelmusic.shared.WearThemePalette
+import com.unshoo.pixelmusic.utils.toSoftwareBitmap
 import kotlin.math.max
 import kotlin.math.min
 
@@ -183,8 +184,9 @@ private fun bestContrastWearContent(background: Color): Int {
 }
 
 private fun extractWearSeedColor(bitmap: Bitmap): Int {
-    val width = bitmap.width
-    val height = bitmap.height
+    val safeBitmap = bitmap.toSoftwareBitmap()
+    val width = safeBitmap.width
+    val height = safeBitmap.height
     if (width <= 0 || height <= 0) return Color(0xFF6C3AD8).toArgb()
 
     val step = max(1, min(width, height) / 24)
@@ -197,7 +199,7 @@ private fun extractWearSeedColor(bitmap: Bitmap): Int {
     while (y < height) {
         var x = 0
         while (x < width) {
-            val pixel = bitmap.getPixel(x, y)
+            val pixel = safeBitmap.getPixel(x, y)
             val alpha = AndroidColor.alpha(pixel)
             if (alpha >= 28) {
                 val red = AndroidColor.red(pixel)

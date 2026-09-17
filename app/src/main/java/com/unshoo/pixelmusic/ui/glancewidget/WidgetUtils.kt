@@ -19,6 +19,10 @@ object AlbumArtBitmapCache {
 
     fun getBitmap(key: String): Bitmap? = lruCache.get(key)
 
+    fun evictAll() {
+        lruCache.evictAll()
+    }
+
     fun putBitmap(key: String, bitmap: Bitmap) {
         if (getBitmap(key) == null) {
             lruCache.put(key, bitmap)

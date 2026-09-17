@@ -135,7 +135,7 @@ class DualPlayerEngine @Inject constructor(
     private var preparedPlayerUsesWindowedQueue = false
 
     private lateinit var playerA: ExoPlayer
-    private lateinit var playerB: ExoPlayer
+    private var playerB: ExoPlayer? = null
 
     private val onPlayerSwappedListeners = mutableListOf<(Player) -> Unit>()
     private val onNextPlayerPreparedListeners = mutableListOf<(Player) -> Unit>()
@@ -182,21 +182,21 @@ class DualPlayerEngine @Inject constructor(
                 Timber.tag("TransitionDebug").d("AudioFocus LOSS. Pausing.")
                 isFocusLossPause = false
                 playerA.playWhenReady = false
-                playerB.playWhenReady = false
+                playerB?.playWhenReady = false
                 abandonAudioFocus()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 Timber.tag("TransitionDebug").d("AudioFocus LOSS_TRANSIENT. Pausing.")
-                isFocusLossPause = playerA.playWhenReady || (transitionRunning && playerB.playWhenReady)
+                isFocusLossPause = playerA.playWhenReady || (transitionRunning && (playerB?.playWhenReady == true))
                 playerA.playWhenReady = false
-                playerB.playWhenReady = false
+                playerB?.playWhenReady = false
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 Timber.tag("TransitionDebug").d("AudioFocus GAIN. Resuming if paused by loss.")
                 if (isFocusLossPause) {
                     isFocusLossPause = false
                     playerA.playWhenReady = true
-                    if (transitionRunning) playerB.playWhenReady = true
+                    if (transitionRunning) playerB?.playWhenReady = true
                 }
             }
         }
@@ -634,7 +634,7 @@ class DualPlayerEngine @Inject constructor(
 
     private fun applyAudioOffloadToActivePlayers() {
         if (::playerA.isInitialized) applyAudioOffload(playerA)
-        if (::playerB.isInitialized) applyAudioOffload(playerB)
+        playerB?.let { applyAudioOffload(it) }
     }
 
     private fun applyAudioOffload(player: ExoPlayer) {
@@ -658,6 +658,30 @@ class DualPlayerEngine @Inject constructor(
                 runCatching { player.javaClass.getMethod(name, Boolean::class.javaPrimitiveType) }.getOrNull()
             }
             ?.let { method -> runCatching { method.invoke(player, schedulingEnabled) } }
+    }
+
+    /**
+     * Releases the auxiliary player when it is idle to save significant native audio
+     * allocations and buffers under memory pressure.
+     */
+    fun releaseIdleAuxiliaryPlayer() {
+        if (isReleased || transitionRunning) return
+        val auxiliaryPlayer = playerB ?: return
+        if (auxiliaryPlayer.isPlaying) return
+        playerB = null
+        try {
+            auxiliaryPlayer.release()
+        } catch (e: Exception) {
+            Timber.tag("DualPlayerEngine").w(e, "Failed to release idle auxiliary player")
+        }
+    }
+
+    private fun getOrCreateAuxiliaryPlayer(): ExoPlayer {
+        val existing = playerB
+        if (existing != null) return existing
+        val newPlayer = buildPlayer()
+        playerB = newPlayer
+        return newPlayer
     }
 
     init {
@@ -700,8 +724,8 @@ class DualPlayerEngine @Inject constructor(
             onPlayerAboutToBeReleasedListener?.invoke(playerA)
             try { playerA.release() } catch (e: Exception) { /* Ignore */ }
         }
-        if (::playerB.isInitialized) {
-            try { playerB.release() } catch (e: Exception) { /* Ignore */ }
+        playerB?.let {
+            try { it.release() } catch (e: Exception) { /* Ignore */ }
         }
 
         playerA = buildPlayer()
@@ -745,7 +769,7 @@ class DualPlayerEngine @Inject constructor(
                 audioFocusRequest = request
                 isFocusLossPause = true
                 playerA.playWhenReady = false
-                if (transitionRunning) playerB.playWhenReady = false
+                if (transitionRunning) playerB?.playWhenReady = false
             }
             else -> {
                 Timber.tag("TransitionDebug").w("AudioFocus Request Failed: $result")
@@ -815,9 +839,7 @@ class DualPlayerEngine @Inject constructor(
         
         try {
             playerA.setWakeMode(mode)
-            if (::playerB.isInitialized) {
-                playerB.setWakeMode(mode)
-            }
+            playerB?.setWakeMode(mode)
             currentWakeMode = mode
             Timber.tag("DualPlayerEngine").d("Wake mode updated to %d (sleepingForOffload=%b)", mode, isSleepingForOffload)
         } catch (e: Exception) {
@@ -868,7 +890,7 @@ class DualPlayerEngine @Inject constructor(
         playerA.removeAudioOffloadListener(masterAudioOffloadListener)
         onPlayerAboutToBeReleasedListener?.invoke(playerA)
         playerA.release()
-        playerB.release()
+        playerB?.release()
 
         playerA = buildPlayer()
         playerB = buildPlayer()
@@ -884,8 +906,8 @@ class DualPlayerEngine @Inject constructor(
             playerA.setMediaItems(mediaItems, currentIndex, positionMs)
             playerA.repeatMode = repeatMode
             playerA.shuffleModeEnabled = shuffleMode
-            playerB.repeatMode = repeatMode
-            playerB.shuffleModeEnabled = shuffleMode
+            playerB?.repeatMode = repeatMode
+            playerB?.shuffleModeEnabled = shuffleMode
             playerA.prepare()
             playerA.playWhenReady = desiredPlayWhenReady
             applyWakeModeForCurrentItem()
@@ -1437,8 +1459,9 @@ class DualPlayerEngine @Inject constructor(
             }
             val resolvedItem = resolveMediaItem(mediaItem)
 
-            playerB.stop()
-            playerB.clearMediaItems()
+            val auxPlayer = getOrCreateAuxiliaryPlayer()
+            auxPlayer.stop()
+            auxPlayer.clearMediaItems()
 
             if (targetIndex != C.INDEX_UNSET && snapshot.isNotEmpty()) {
                 val count = snapshot.size
@@ -1450,32 +1473,32 @@ class DualPlayerEngine @Inject constructor(
                 }
                 preparedWindowStartIndex = start
                 preparedPlayerUsesWindowedQueue = count > MAX_AUXILIARY_TIMELINE_ITEMS
-                playerB.setMediaItems(windowItems, targetIndex - start, startPositionMs)
+                auxPlayer.setMediaItems(windowItems, targetIndex - start, startPositionMs)
             } else {
                 // Fallback for single item if not found in current timeline
                 resetPreparedWindowState()
-                playerB.setMediaItem(resolvedItem)
-                playerB.seekTo(startPositionMs)
+                auxPlayer.setMediaItem(resolvedItem)
+                auxPlayer.seekTo(startPositionMs)
             }
 
-            playerB.repeatMode = playerA.repeatMode
-            playerB.shuffleModeEnabled = playerA.shuffleModeEnabled
-            if (playerA.shuffleModeEnabled && playerB.mediaItemCount > 0) {
-                playerB.setShuffleOrder(
+            auxPlayer.repeatMode = playerA.repeatMode
+            auxPlayer.shuffleModeEnabled = playerA.shuffleModeEnabled
+            if (playerA.shuffleModeEnabled && auxPlayer.mediaItemCount > 0) {
+                auxPlayer.setShuffleOrder(
                     androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(
-                        IntArray(playerB.mediaItemCount) { it },
+                        IntArray(auxPlayer.mediaItemCount) { it },
                         System.currentTimeMillis()
                     )
                 )
             }
 
-            playerB.prepare()
-            playerB.volume = 0f
-            playerB.pause()
+            auxPlayer.prepare()
+            auxPlayer.volume = 0f
+            auxPlayer.pause()
 
             // Notify listeners (MusicService) to prefetch and prepare ReplayGain for
             // playerB without prematurely publishing playerB to MediaSession.
-            onNextPlayerPreparedListeners.forEach { it(playerB) }
+            onNextPlayerPreparedListeners.forEach { it(auxPlayer) }
         } catch (e: Exception) {
             resetPreparedWindowState()
             Timber.tag("TransitionDebug").e(e, "Failed to prepare next player")
@@ -1483,8 +1506,9 @@ class DualPlayerEngine @Inject constructor(
     }
 
     fun getPreparedNextMediaId(): String? {
-        if (::playerB.isInitialized && playerB.mediaItemCount > 0) {
-            return playerB.currentMediaItem?.mediaId
+        val auxPlayer = playerB ?: return null
+        if (auxPlayer.mediaItemCount > 0) {
+            return auxPlayer.currentMediaItem?.mediaId
         }
         return null
     }
@@ -1493,11 +1517,13 @@ class DualPlayerEngine @Inject constructor(
         transitionJob?.cancel()
         transitionRunning = false
         resetPreparedWindowState()
-        if (::playerB.isInitialized && playerB.mediaItemCount > 0) {
-            try {
-                playerB.stop()
-                playerB.clearMediaItems()
-            } catch (e: Exception) { /* Ignore */ }
+        playerB?.let { auxPlayer ->
+            if (auxPlayer.mediaItemCount > 0) {
+                try {
+                    auxPlayer.stop()
+                    auxPlayer.clearMediaItems()
+                } catch (e: Exception) { /* Ignore */ }
+            }
         }
         if (::playerA.isInitialized) {
             playerA.volume = 1f
@@ -1518,7 +1544,7 @@ class DualPlayerEngine @Inject constructor(
                 }
                 playerA.volume = 1f
                 setPauseAtEndOfMediaItems(false)
-                if (::playerB.isInitialized) playerB.stop()
+                playerB?.stop()
             } finally {
                 transitionRunning = false
                 onTransitionFinishedListeners.forEach { it() }
@@ -1527,14 +1553,15 @@ class DualPlayerEngine @Inject constructor(
     }
 
     private suspend fun performOverlapTransition(settings: TransitionSettings) {
-        if (playerB.mediaItemCount == 0) {
+        val auxPlayer = playerB
+        if (auxPlayer == null || auxPlayer.mediaItemCount == 0) {
             playerA.volume = 1f
             setPauseAtEndOfMediaItems(false)
             return
         }
 
         // Ensure playerB's stream URI is still fresh before crossfading (e.g. if paused/idle for >15 min)
-        playerB.currentMediaItem?.let { bItem ->
+        auxPlayer.currentMediaItem?.let { bItem ->
             val bUri = bItem.localConfiguration?.uri
             if (bUri != null && (bUri.scheme == "http" || bUri.scheme == "https")) {
                 val origUriStr = bItem.mediaMetadata.extras?.getString("com.unshoo.pixelmusic.external.CONTENT_URI") ?: bUri.toString()
@@ -1551,11 +1578,11 @@ class DualPlayerEngine @Inject constructor(
                                 }
                                 resolved
                             }
-                            val bIdx = playerB.currentMediaItemIndex
-                            val bPos = playerB.currentPosition
-                            playerB.replaceMediaItem(bIdx, freshItem)
-                            playerB.seekTo(bIdx, bPos)
-                            playerB.prepare()
+                            val bIdx = auxPlayer.currentMediaItemIndex
+                            val bPos = auxPlayer.currentPosition
+                            auxPlayer.replaceMediaItem(bIdx, freshItem)
+                            auxPlayer.seekTo(bIdx, bPos)
+                            auxPlayer.prepare()
                         } catch (e: Exception) {
                             Timber.tag("TransitionDebug").w(e, "Failed to refresh playerB stale stream before crossfade")
                         }
@@ -1564,15 +1591,15 @@ class DualPlayerEngine @Inject constructor(
             }
         }
 
-        if (playerB.playbackState == Player.STATE_IDLE) playerB.prepare()
-        if (playerB.playbackState != Player.STATE_READY) {
-            val isReady = if (playerB.playbackState == Player.STATE_BUFFERING) {
-                awaitPlayerReady(playerB, 3000L)
+        if (auxPlayer.playbackState == Player.STATE_IDLE) auxPlayer.prepare()
+        if (auxPlayer.playbackState != Player.STATE_READY) {
+            val isReady = if (auxPlayer.playbackState == Player.STATE_BUFFERING) {
+                awaitPlayerReady(auxPlayer, 3000L)
             } else {
                 false
             }
             if (!isReady) {
-                Timber.tag("TransitionDebug").w("playerB not ready for transition (state=%d). Aborting and falling back to playerA.", playerB.playbackState)
+                Timber.tag("TransitionDebug").w("playerB not ready for transition (state=%d). Aborting and falling back to playerA.", auxPlayer.playbackState)
                 playerA.volume = 1f
                 setPauseAtEndOfMediaItems(false)
                 
@@ -1591,13 +1618,13 @@ class DualPlayerEngine @Inject constructor(
         }
 
         val outgoingStartVolume = playerA.volume.coerceIn(0f, 1f)
-        playerB.volume = 0f
+        auxPlayer.volume = 0f
         if (!playerA.isPlaying && playerA.playbackState == Player.STATE_READY) playerA.play()
-        playerB.playWhenReady = true
-        playerB.play()
+        auxPlayer.playWhenReady = true
+        auxPlayer.play()
 
         val outgoingPlayer = playerA
-        val incomingPlayer = playerB
+        val incomingPlayer = auxPlayer
 
         // Snapshot once, right before the fade starts, instead of re-reading the
         // shared mutable field on every ~32ms loop tick below. incomingTrackReplayGainVolume
@@ -1654,7 +1681,7 @@ class DualPlayerEngine @Inject constructor(
         resetPreparedWindowState()
 
         playerA.pauseAtEndOfMediaItems = false
-        playerB.pauseAtEndOfMediaItems = false
+        playerB?.pauseAtEndOfMediaItems = false
         playerA.addListener(masterPlayerListener)
         playerA.addAnalyticsListener(masterPlayerListener)
         playerA.addAudioOffloadListener(masterAudioOffloadListener)
@@ -1669,9 +1696,9 @@ class DualPlayerEngine @Inject constructor(
         onPlayerSwappedListeners.forEach { it(playerA) }
         _activeAudioSessionId.value = playerA.audioSessionId
 
-        playerB.pause()
-        playerB.stop()
-        playerB.clearMediaItems()
+        playerB?.pause()
+        playerB?.stop()
+        playerB?.clearMediaItems()
 
         setPauseAtEndOfMediaItems(false)
     }
@@ -1806,7 +1833,8 @@ class DualPlayerEngine @Inject constructor(
             onPlayerAboutToBeReleasedListener?.invoke(playerA)
             playerA.release()
         }
-        if (::playerB.isInitialized) playerB.release()
+        playerB?.release()
+        playerB = null
         isReleased = true
     }
 }
