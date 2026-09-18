@@ -55,6 +55,7 @@ import androidx.paging.LoadState
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.components.ExpressiveScrollBar
 import com.unshoo.pixelmusic.presentation.components.songFastScrollLabel
+import com.unshoo.pixelmusic.presentation.utils.pagedKey
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.CircularProgressIndicator
@@ -276,9 +277,7 @@ fun LibrarySongsTab(
                         ) {
                             items(
                                 count = songs.itemCount,
-                                key = { index ->
-                                    songs.peek(index)?.id ?: "song_placeholder_$index"
-                                },
+                                key = { index -> pagedKey("song", songs.peek(index)?.id, index) },
                                 contentType = { index ->
                                     if (songs.peek(index) != null) "song" else "placeholder"
                                 }

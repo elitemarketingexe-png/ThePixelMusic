@@ -138,6 +138,7 @@ import com.unshoo.pixelmusic.presentation.components.SmartImage
 import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
 import com.unshoo.pixelmusic.presentation.navigation.navigateToTopLevelSafely
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.presentation.utils.rememberDominantCardColor
 import com.unshoo.pixelmusic.presentation.viewmodel.ExploreViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.FeedUiState
@@ -282,21 +283,23 @@ fun ExploreScreen(
         } else if (state.feedData.newReleases.isNotEmpty()) {
             state.feedData.newReleases
         } else {
-            exploreUiState.newReleaseAlbums.map { album ->
-                YouTubePlaylistSummary(
-                    id = album.browseId,
-                    title = album.title,
-                    author = album.artists?.firstOrNull()?.name ?: "Album",
-                    artworkUrl = album.thumbnail
-                )
-            }
+            exploreUiState.newReleaseAlbums
+                .distinctBy { it.browseId }
+                .map { album ->
+                    YouTubePlaylistSummary(
+                        id = album.browseId,
+                        title = album.title,
+                        author = album.artists?.firstOrNull()?.name ?: "Album",
+                        artworkUrl = album.thumbnail
+                    )
+                }
         }
     }
 
     // Albums for you: Remote verified records -> Local album collection
     val albumsForYou = remember(state.feedData.recentAlbums, localAlbums, isOnline) {
         if (isOnline && state.feedData.recentAlbums.isNotEmpty()) {
-            state.feedData.recentAlbums
+            state.feedData.recentAlbums.distinctBy { it.browseId ?: it.title }
         } else {
             localAlbums.take(15).map { local ->
                 FeedAlbum(
@@ -1069,7 +1072,7 @@ private fun TasteStrip(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(top = 10.dp)
         ) {
-            items(tags, key = { it }) { tag ->
+            itemsUnique(tags, key = { it }) { tag ->
                 Surface(
                     onClick = { onTagClick(tag) },
                     shape = CircleShape,

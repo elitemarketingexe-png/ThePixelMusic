@@ -59,6 +59,7 @@ import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.QuickPicksViewModel
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -134,7 +135,7 @@ fun QuickPicksAllScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(vertical = 8.dp)
                 ) {
-                    items(categories, key = { it }) { category ->
+                    itemsUnique(categories, key = { it }) { category ->
                         FilterChip(
                             selected = selectedCategory == category,
                             onClick = { quickPicksViewModel.setCategory(category) },

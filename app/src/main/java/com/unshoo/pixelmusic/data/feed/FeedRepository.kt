@@ -497,10 +497,15 @@ class FeedRepository @Inject constructor(
 
         val filteredHomeAlbums = homeAlbums
             .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }
+            .distinctBy { it.browseId }
 
+        // browseId is what the feed row keys by, so it must be the last dedupe key:
+        // the same record reaches us from the YT artist page and the Last.fm match with
+        // different artist/title spellings, which artist_title dedupe lets through.
         val personalAlbums = blend(ytRealAlbums, lastFmRealAlbums)
             .distinctBy { "${it.artist.trim().lowercase()}_${it.title.trim().lowercase()}" }
             .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") }
+            .distinctBy { it.browseId }
 
         val recentAlbums = if (personalAlbums.isNotEmpty()) {
             personalAlbums.take(20).map { album ->
@@ -516,12 +521,14 @@ class FeedRepository @Inject constructor(
                 }
             }.awaitAll()
             .filter { ArtworkNormalizer.isRealImage(it.artworkUrl) }
+            .distinctBy { it.browseId }
             .take(12)
         } else if (filteredHomeAlbums.isNotEmpty()) {
             filteredHomeAlbums.take(12)
         } else {
             previous?.recentAlbums.orEmpty()
                 .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }
+                .distinctBy { it.browseId }
                 .take(12)
         }
 

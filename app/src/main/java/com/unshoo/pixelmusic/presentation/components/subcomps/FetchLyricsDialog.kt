@@ -56,6 +56,7 @@ import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.repository.LyricsSearchResult
 import com.unshoo.pixelmusic.presentation.viewmodel.LyricsSearchUiState
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.utils.ProviderText
 import com.unshoo.pixelmusic.utils.shapes.RoundedStarShape
 
@@ -322,7 +323,7 @@ private fun PickResultContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
-        items(results, key = { it.record.id }) { result ->
+        itemsUnique(results, key = { it.record.id }) { result ->
             ResultItemCard(result = result, onClick = { onPickResult(result) })
         }
 

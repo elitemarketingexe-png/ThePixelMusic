@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.presentation.components.SmartImage
 import com.unshoo.pixelmusic.data.preferences.QuickPicksDisplayMode
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import kotlin.math.absoluteValue
@@ -174,7 +175,7 @@ fun QuickPicksSection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(limitSongs, key = { it.id }) { song ->
+                itemsUnique(limitSongs, key = { it.id }) { song ->
                     QuickPickPortraitCard(
                         song = song,
                         isPlaying = song.id == currentSongId,
@@ -248,7 +249,7 @@ fun QuickPicksSection(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(limitSongs, key = { it.id }) { song ->
+                itemsUnique(limitSongs, key = { it.id }) { song ->
                     Column(
                         modifier = Modifier
                             .width(cardSize)
@@ -351,7 +352,7 @@ fun QuickPicksSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(limitSongs, key = { it.id }) { song ->
+                itemsUnique(limitSongs, key = { it.id }) { song ->
                     val uncontainedCardSize = 150.dp
                     Column(
                         modifier = Modifier

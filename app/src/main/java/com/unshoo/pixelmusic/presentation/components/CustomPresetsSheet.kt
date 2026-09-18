@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.data.equalizer.EqualizerPreset
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,7 +90,7 @@ fun CustomPresetsSheet(
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 400.dp)
                 ) {
-                    items(presets, key = { it.name }) { preset ->
+                    itemsUnique(presets, key = { it.name }) { preset ->
                         CustomPresetItem(
                             preset = preset,
                             isPinned = pinnedPresetsNames.contains(preset.name),

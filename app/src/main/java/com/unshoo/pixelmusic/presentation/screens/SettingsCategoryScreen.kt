@@ -199,6 +199,7 @@ import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.viewmodel.LyricsRefreshProgress
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.SettingsViewModel
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -3226,7 +3227,7 @@ private fun ImportFileSelectionDialog(
                                         }
                                     }
                                 } else {
-                                    items(backupHistory, key = { it.uri }) { entry ->
+                                    itemsUnique(backupHistory, key = { it.uri }) { entry ->
                                         BackupHistoryCard(
                                             entry = entry,
                                             context = context,

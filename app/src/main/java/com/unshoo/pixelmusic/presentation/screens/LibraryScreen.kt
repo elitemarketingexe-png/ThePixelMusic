@@ -264,6 +264,7 @@ import androidx.paging.LoadState
 import com.unshoo.pixelmusic.presentation.components.ExpressiveScrollBar
 import com.unshoo.pixelmusic.presentation.components.LibrarySortBottomSheet
 import com.unshoo.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.data.service.wear.PhoneWatchTransferState
 import com.unshoo.pixelmusic.shared.WearTransferProgress
 import java.io.File
@@ -3735,14 +3736,14 @@ fun LibraryFoldersTab(
                                     top = 0.dp                            )
                             ) {
                                 if (showPlaylistCards) {
-                                    items(itemsToShow, key = { it.path }, contentType = { "folder_card" }) { folder ->
+                                    itemsUnique(itemsToShow, key = { it.path }, contentType = { "folder_card" }) { folder ->
                                         FolderPlaylistItem(
                                             folder = folder,
                                             onClick = { onFolderAsPlaylistClick(folder) }
                                         )
                                     }
                                 } else {
-                                    items(itemsToShow, key = { it.path }, contentType = { "folder_list" }) { folder ->
+                                    itemsUnique(itemsToShow, key = { it.path }, contentType = { "folder_list" }) { folder ->
                                         FolderListItem(
                                             folder = folder,
                                             folderArtworkPreference = folderArtworkPreference,
@@ -3751,7 +3752,7 @@ fun LibraryFoldersTab(
                                     }
                                 }
 
-                                items(songsToRender, key = { it.id }, contentType = { "song" }) { song ->
+                                itemsUnique(songsToRender, key = { it.id }, contentType = { "song" }) { song ->
                                     EnhancedSongListItem(
                                         song = song,
                                         isPlaying = folderPlayerState.currentSongId == song.id && folderPlayerState.isPlaying,

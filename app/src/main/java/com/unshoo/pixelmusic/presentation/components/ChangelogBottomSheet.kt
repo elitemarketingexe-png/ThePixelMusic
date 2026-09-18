@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.components.subcomps.SineWaveLine
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.ui.theme.ExpTitleTypography
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
@@ -124,7 +125,7 @@ fun ChangelogBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
-                items(changelog, key = { it.version }) { version ->
+                itemsUnique(changelog, key = { it.version }) { version ->
                     ChangelogVersionItem(version = version)
                 }
             }

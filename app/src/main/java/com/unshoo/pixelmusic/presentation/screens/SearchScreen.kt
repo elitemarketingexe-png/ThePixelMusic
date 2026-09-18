@@ -85,6 +85,7 @@ import com.unshoo.pixelmusic.data.model.Artist
 import com.unshoo.pixelmusic.data.model.Playlist
 import com.unshoo.pixelmusic.data.model.SearchFilterType
 import com.unshoo.pixelmusic.data.model.SearchHistoryItem
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.data.model.SearchResultItem
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.remote.youtube.toNativeSong
@@ -698,7 +699,7 @@ fun SearchHistoryList(
                 top = 2.dp,
             )
         ) {
-            items(historyItems, key = { "history_${it.id ?: it.query}" }, contentType = { "search_history" }) { item ->
+            itemsUnique(historyItems, key = { "history_${it.id ?: it.query}" }, contentType = { "search_history" }) { item ->
                 SearchHistoryListItem(
                     item = item,
                     onHistoryClick = onHistoryClick,

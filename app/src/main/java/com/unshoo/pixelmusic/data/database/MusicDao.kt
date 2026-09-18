@@ -1066,7 +1066,7 @@ interface MusicDao {
             )
         )
         AND songs_fts MATCH :matchQuery
-        ORDER BY songs.title ASC
+        ORDER BY songs.title ASC, songs.id ASC
     """)
     fun searchSongsPaginatedMatch(
         matchQuery: String,
@@ -1237,7 +1237,7 @@ interface MusicDao {
         SELECT * FROM songs
         WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs))
         AND genre LIKE :genreName
-        ORDER BY title ASC
+        ORDER BY title ASC, id ASC
     """)
     fun getSongsByGenrePaginated(
         genreName: String,

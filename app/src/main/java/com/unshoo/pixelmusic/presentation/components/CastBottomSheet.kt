@@ -135,6 +135,7 @@ import androidx.mediarouter.media.MediaRouter
 import com.unshoo.pixelmusic.presentation.screens.TabAnimation
 import com.unshoo.pixelmusic.presentation.viewmodel.BluetoothAudioDeviceState
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import android.content.pm.PackageManager
@@ -878,7 +879,7 @@ private fun CastDevicesTabContent(
                 EmptyDeviceState()
             }
         } else {
-            items(state.devices, key = { it.id }) { device ->
+            itemsUnique(state.devices, key = { it.id }) { device ->
                 CastDeviceRow(
                     device = device,
                     onSelect = { onSelectDevice(device.id) },

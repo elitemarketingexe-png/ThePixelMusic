@@ -50,6 +50,7 @@ import com.unshoo.pixelmusic.presentation.navigation.navigateSafelyReplacing
 import com.unshoo.pixelmusic.presentation.viewmodel.SmartMixViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.SmartMixUiState
 import com.unshoo.pixelmusic.presentation.viewmodel.LastFmTrack
+import com.unshoo.pixelmusic.presentation.utils.itemsUnique
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
@@ -671,7 +672,7 @@ private fun PeriodSelectionSection(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        items(items = periods, key = { it.first }) { (id, label) ->
+        itemsUnique(periods, key = { it.first }) { (id, label) ->
             val active = selectedPeriod == id
             FilterChip(
                 selected = active,

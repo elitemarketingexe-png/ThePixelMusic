@@ -70,6 +70,7 @@ import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.components.PlaylistContainer
 import com.unshoo.pixelmusic.presentation.components.albumFastScrollLabel
 import com.unshoo.pixelmusic.presentation.components.artistFastScrollLabel
+import com.unshoo.pixelmusic.presentation.utils.pagedKey
 import com.unshoo.pixelmusic.presentation.viewmodel.ColorSchemePair
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.PlaylistUiState
@@ -362,7 +363,7 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index -> albums.peek(index)?.id ?: "album_placeholder_$index" },
+                                    key = { index -> pagedKey("album", albums.peek(index)?.id, index) },
                                     contentType = { "album_list_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -436,7 +437,7 @@ fun LibraryAlbumsTab(
                             ) {
                                 items(
                                     count = albums.itemCount,
-                                    key = { index -> albums.peek(index)?.id ?: "album_grid_placeholder_$index" },
+                                    key = { index -> pagedKey("album_grid", albums.peek(index)?.id, index) },
                                     contentType = { "album_grid_item" }
                                 ) { index ->
                                     val album = albums[index]
@@ -657,7 +658,7 @@ fun LibraryArtistsTab(
                         ) {
                             items(
                                 count = artists.itemCount,
-                                key = { index -> artists.peek(index)?.id ?: "artist_placeholder_$index" },
+                                key = { index -> pagedKey("artist", artists.peek(index)?.id, index) },
                                 contentType = { "artist" }
                             ) { index ->
                                 val artist = artists[index]
