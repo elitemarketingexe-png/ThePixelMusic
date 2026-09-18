@@ -343,7 +343,7 @@ dependencies {
     implementation(libs.tdlib)
 
     // UI Utilities & Performance
-    implementation("androidx.metrics:metrics-performance:1.0.0-beta01")
+    implementation("androidx.metrics:metrics-performance:1.0.0")
 
     implementation(libs.timber)
     // Gemini uses our lightweight REST client. Avoid the deprecated official SDK because
