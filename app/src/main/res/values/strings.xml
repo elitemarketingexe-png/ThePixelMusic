@@ -277,4 +277,5 @@
     <string name="cloud_download_play_selected">Play selected</string>
     <string name="cloud_download_play_all">Play all</string>
     <string name="cloud_download_shuffle_all">Shuffle all</string>
+    <string name="in_your_library">In your library</string>
 </resources>

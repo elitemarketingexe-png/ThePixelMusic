@@ -289,8 +289,9 @@ fun ArtistDetailScreen(
                     val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
 
                     val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
-                    LaunchedEffect(albumSections) {
-                        val currentKeys = albumSections.map { it.collapseKey() }.toSet()
+                    val effectiveLocalSections = if (!isOnlineArtist) albumSections else uiState.localAlbumSections
+                    LaunchedEffect(effectiveLocalSections) {
+                        val currentKeys = effectiveLocalSections.map { it.collapseKey() }.toSet()
                         currentKeys.forEach { key ->
                             if (expandedSections[key] == null) {
                                 expandedSections[key] = true
@@ -496,9 +497,19 @@ fun ArtistDetailScreen(
                             }
                         }
 
-                        // ─── Local Album Sections (Local Artists only) ───
-                        if (!isOnlineArtist) {
-                            albumSections.forEachIndexed { index, section ->
+                        // ─── Local Album Sections (Local Artists or verified local library songs for online artists) ───
+                        if (effectiveLocalSections.isNotEmpty()) {
+                            if (isOnlineArtist) {
+                                item(key = "local_library_header", contentType = "section_header") {
+                                    ArtistSectionHeaderWithSeeAll(
+                                        title = stringResource(R.string.in_your_library),
+                                        icon = Icons.Rounded.MusicNote,
+                                        showSeeAll = false,
+                                        onSeeAllClick = {}
+                                    )
+                                }
+                            }
+                            effectiveLocalSections.forEachIndexed { index, section ->
                                 if (section.songs.isEmpty()) return@forEachIndexed
 
                                 val sectionKey = section.collapseKey()
@@ -781,7 +792,7 @@ private fun ArtistSectionHeaderWithSeeAll(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     showSeeAll: Boolean,
-    onSeeAllClick: () -> Unit,
+    onSeeAllClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(

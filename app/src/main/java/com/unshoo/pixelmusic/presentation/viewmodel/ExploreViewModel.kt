@@ -225,19 +225,27 @@ class ExploreViewModel @Inject constructor(
 
                     val artistFrequency = history
                         .mapNotNull { it.artist?.takeIf(String::isNotBlank) }
-                        .filter { !it.equals("Unknown artist", ignoreCase = true) }
-                        .groupingBy { it.trim() }
+                        .map { it.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim() }
+                        .filter {
+                            val lower = it.lowercase(java.util.Locale.ROOT)
+                            lower !in setOf("unknown", "unknown artist", "<unknown>", "various artists", "various")
+                        }
+                        .groupingBy { it.lowercase(java.util.Locale.ROOT) }
                         .eachCount()
                         .entries
                         .sortedByDescending { it.value }
                         .take(10)
 
                     val topLocalArtists = artistFrequency.map { entry ->
-                        val artUrl = history.firstOrNull { it.artist?.trim().equals(entry.key, ignoreCase = true) }?.thumbnail
+                        val matchingEntry = history.firstOrNull {
+                            it.artist?.replace(Regex("""(?i)\s*-\s*topic$"""), "")?.trim()?.equals(entry.key, ignoreCase = true) == true
+                        }
+                        val displayName = matchingEntry?.artist?.replace(Regex("""(?i)\s*-\s*topic$"""), "")?.trim()
+                            ?: entry.key.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
                         FeedArtist(
-                            name = entry.key,
+                            name = displayName,
                             browseId = null,
-                            artworkUrl = artUrl
+                            artworkUrl = matchingEntry?.thumbnail
                         )
                     }
 

@@ -1687,10 +1687,10 @@ fun LibraryScreen(
                                     LibraryTabId.ARTISTS -> {
                                         val isLoading = playerUiState.isLoadingLibraryCategories && artistsLazyPagingItems.itemCount == 0
 
-                                        val stableOnArtistClick: (Long) -> Unit = remember(navController) {
-                                            { artistId: Long ->
+                                        val stableOnArtistClick: (String) -> Unit = remember(navController) {
+                                            { artistIdStr: String ->
                                                 navController.navigateSafelyReplacing(
-                                                    route = Screen.ArtistDetail.createRoute(artistId),
+                                                    route = Screen.ArtistDetail.createRoute(artistIdStr),
                                                     patternToPop = Screen.ArtistDetail.route
                                                 )
                                             }
@@ -2012,7 +2012,7 @@ fun LibraryScreen(
                 },
                 onNavigateToArtist = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.ArtistDetail.createRoute(currentSong.artistId),
+                        route = Screen.ArtistDetail.createRoute(currentSong.navTargetArtistId),
                         patternToPop = Screen.ArtistDetail.route
                     )
                     showSongInfoBottomSheet = false

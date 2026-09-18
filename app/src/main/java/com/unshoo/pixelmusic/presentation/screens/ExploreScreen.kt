@@ -606,7 +606,7 @@ fun ExploreScreen(
                                     }
                                 )
                                 FeedMediaRow {
-                                    items(state.feedData.mixes, key = { it.seed.videoId }) { mix ->
+                                    itemsIndexed(state.feedData.mixes.distinctBy { it.seed.videoId }, key = { idx, mix -> "mix_${mix.seed.videoId}_$idx" }) { _, mix ->
                                         FeedPlaylistCard(
                                             title = mix.title,
                                             subtitle = "Artist radio station",
@@ -657,7 +657,7 @@ fun ExploreScreen(
                                     subtitle = if (state.feedData.recentAlbums.isNotEmpty()) "Verified records from your top artists" else "From your local album collection"
                                 )
                                 FeedMediaRow {
-                                    items(albumsForYou, key = { it.browseId ?: it.title }) { album ->
+                                    itemsIndexed(albumsForYou.distinctBy { it.browseId ?: it.title }, key = { idx, album -> "album_${album.browseId ?: album.title}_$idx" }) { _, album ->
                                         FeedPlaylistCard(
                                             title = album.title,
                                             subtitle = album.artist,
@@ -751,7 +751,7 @@ fun ExploreScreen(
                                 }
                             )
                             FeedMediaRow {
-                                items(newReleases, key = { it.id }) { release ->
+                                itemsIndexed(newReleases.distinctBy { it.id }, key = { idx, release -> "release_${release.id}_$idx" }) { _, release ->
                                     FeedPlaylistCard(
                                         title = release.title,
                                         subtitle = release.author ?: "Album",

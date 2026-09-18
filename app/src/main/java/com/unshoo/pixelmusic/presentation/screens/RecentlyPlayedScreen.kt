@@ -359,7 +359,7 @@ fun RecentlyPlayedScreen(
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
-                    navController.navigateSafely(Screen.ArtistDetail.createRoute(song.artistId))
+                    navController.navigateSafely(Screen.ArtistDetail.createRoute(song.navTargetArtistId))
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtistById = { artistId ->

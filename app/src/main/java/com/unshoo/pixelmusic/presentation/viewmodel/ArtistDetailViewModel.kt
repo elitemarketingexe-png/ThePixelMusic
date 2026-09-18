@@ -12,6 +12,7 @@ import com.unshoo.pixelmusic.data.model.Artist
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.repository.ArtistImageRepository
 import com.unshoo.pixelmusic.data.repository.MusicRepository
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+import com.unshoo.pixelmusic.data.database.toSong
 import com.unshoo.pixelmusic.data.remote.youtube.toNativeSong
 import unshoo.ianshulyadav.pixelmusic.innertube.YouTube as InnerTubeYouTube
 import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
@@ -51,6 +53,7 @@ data class ArtistDetailUiState(
     val popularSongs: List<Song> = emptyList(),
     val albumSections: List<ArtistAlbumSection> = emptyList(),
     val singlesAndEPs: List<ArtistAlbumSection> = emptyList(),
+    val localAlbumSections: List<ArtistAlbumSection> = emptyList(),
     val effectiveImageUrl: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -134,14 +137,21 @@ class ArtistDetailViewModel @Inject constructor(
             if (subscribe) {
                 val artist = uiState.value.artist
                 if (artist != null) {
-                    val finalArtistId = if (artist.id < 0) artist.id else -(17_000_000_000_000L + kotlin.math.abs(artist.name.lowercase().hashCode().toLong()))
+                    val effectiveChannelId = browseId ?: artist.channelId
+                    val finalArtistId = if (artist.id < 0) {
+                        artist.id
+                    } else if (!effectiveChannelId.isNullOrBlank()) {
+                        YouTubeIdUtils.toUnifiedArtistIdFromChannelId(effectiveChannelId)
+                    } else {
+                        YouTubeIdUtils.toUnifiedArtistId(artist.name)
+                    }
                     val artistEntity = com.unshoo.pixelmusic.data.database.ArtistEntity(
                         id = finalArtistId,
                         name = artist.name,
                         trackCount = artist.songCount,
                         imageUrl = artist.imageUrl ?: uiState.value.effectiveImageUrl,
                         customImageUri = artist.customImageUri,
-                        channelId = browseId ?: artist.channelId
+                        channelId = effectiveChannelId
                     )
                     withContext(Dispatchers.IO) {
                         musicDao.insertArtists(listOf(artistEntity))
@@ -165,6 +175,121 @@ class ArtistDetailViewModel @Inject constructor(
 
     private var currentLoadJob: Job? = null
 
+    private fun titlesMatch(title1: String?, title2: String?): Boolean {
+        if (title1.isNullOrBlank() || title2.isNullOrBlank()) return false
+        fun normalize(t: String): String = t.lowercase()
+            .replace(Regex("""(?i)\(.*?\)|\[.*?\]"""), "") // remove (Official Video), [Remastered], etc.
+            .replace(Regex("""(?i)\s*-\s*(single|ep|audio|video|lyrics?|remastered|bonus track|acoustic|live).*"""), "")
+            .replace(Regex("""[^a-zA-Z0-9\p{L}\s]"""), " ") // keep letters and digits across scripts
+            .trim()
+            .replace(Regex("""\s+"""), " ")
+        val n1 = normalize(title1)
+        val n2 = normalize(title2)
+        if (n1.isBlank() || n2.isBlank()) return false
+        if (n1 == n2) return true
+
+        val words1 = n1.split(" ").filter { it.isNotBlank() }
+        val words2 = n2.split(" ").filter { it.isNotBlank() }
+        val (shorterWords, longerWords) = if (words1.size <= words2.size) words1 to words2 else words2 to words1
+        if (shorterWords.size >= 2 || (shorterWords.size == 1 && shorterWords[0].length >= 5)) {
+            val longerWordSet = longerWords.toSet()
+            if (shorterWords.all { it in longerWordSet }) return true
+        }
+        return false
+    }
+
+    private suspend fun tryConfirmOnlineArtist(
+        artistName: String,
+        localSongs: List<Song>
+    ): String? {
+        val cleanName = artistName.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim()
+        if (cleanName.isBlank()) return null
+
+        // 1. Check if user already has online songs for this artist in the library
+        val onlineSongsInLibrary: List<Song> = withContext(Dispatchers.IO) {
+            musicDao.getOnlineSongsByArtistName(cleanName).map { it.toSong() }
+        }
+
+        // If the artist which is getting replaced has NO online song in this library:
+        // Blind YouTube name searching will never overwrite them with a YouTube artist.
+        if (onlineSongsInLibrary.isEmpty()) {
+            Log.d("ArtistDebug", "No online songs in library for '$cleanName' — strictly keeping local artist")
+            return null
+        }
+
+        // 2. The library DOES have online song(s) for this artist name.
+        // Now verify whether the online artist matches the local artist via song matching!
+
+        // Direct matching: check if any local song title matches any online song in the library
+        val hasDirectSongMatch = localSongs.any { localSong ->
+            onlineSongsInLibrary.any { onlineSong ->
+                titlesMatch(localSong.title, onlineSong.title)
+            }
+        }
+
+        // Extract known channel IDs from the online songs in library
+        val candidateChannelIds = onlineSongsInLibrary.flatMap { it.artists }
+            .mapNotNull { it.channelId }
+            .filter { it.startsWith("UC") || it.startsWith("LA") || it.startsWith("FEmusic_") }
+            .distinct()
+
+        if (hasDirectSongMatch) {
+            val verifiedChannelId = candidateChannelIds.firstOrNull()
+            if (verifiedChannelId != null) {
+                Log.d("ArtistDebug", "Confirmed online artist for '$cleanName' via direct library song match: $verifiedChannelId")
+                return verifiedChannelId
+            }
+        }
+
+        // If direct match didn't give a channel ID, or if direct match didn't find identical titles
+        // (e.g. user has Song A locally and Song B in online library by the same artist),
+        // verify against the candidate channel's full page (songs + albums)
+        val channelIdsToTest = if (candidateChannelIds.isNotEmpty()) {
+            candidateChannelIds
+        } else {
+            // If online songs didn't have channelId embedded, search YouTube for the channel ID
+            val primaryArtistName = cleanName.split(
+                ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
+            ).firstOrNull()?.trim() ?: cleanName
+
+            val searchResult = withContext(Dispatchers.IO) {
+                InnerTubeYouTube.search(primaryArtistName, InnerTubeYouTube.SearchFilter.FILTER_ARTIST).getOrNull()
+            }
+            val matchingArtist = searchResult?.items?.filterIsInstance<ArtistItem>()?.find {
+                it.title.trim().equals(primaryArtistName, ignoreCase = true)
+            }
+            listOfNotNull(matchingArtist?.id)
+        }
+
+        for (candidateBrowseId in channelIdsToTest) {
+            val artistPageResult = withContext(Dispatchers.IO) {
+                InnerTubeYouTube.artist(candidateBrowseId)
+            }
+            val artistPage = artistPageResult.getOrNull() ?: continue
+
+            val onlineSongTitles = artistPage.sections.flatMap { section ->
+                section.items.mapNotNull { (it as? SongItem)?.title }
+            }
+            val onlineAlbumTitles = artistPage.sections.flatMap { section ->
+                section.items.mapNotNull { (it as? AlbumItem)?.title }
+            }
+
+            // Verify: does this online channel contain any of the local songs or albums?
+            val hasMatchingSongOrAlbum = localSongs.any { localSong ->
+                onlineSongTitles.any { ytTitle -> titlesMatch(localSong.title, ytTitle) } ||
+                onlineAlbumTitles.any { ytAlbum -> titlesMatch(localSong.album, ytAlbum) }
+            }
+
+            if (hasMatchingSongOrAlbum) {
+                Log.d("ArtistDebug", "Confirmed online artist $candidateBrowseId for '$cleanName' via channel page song/album match")
+                return candidateBrowseId
+            }
+        }
+
+        Log.d("ArtistDebug", "Online artist verification failed for '$cleanName': no matching songs found between local and online")
+        return null
+    }
+
     private fun loadArtistData(artistIdStr: String) {
         currentLoadJob?.cancel()
         currentLoadJob = viewModelScope.launch {
@@ -172,208 +297,73 @@ class ArtistDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val numericId = artistIdStr.toLongOrNull()
-                var browseId: String? = null
-                if (artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA") || artistIdStr.startsWith("FEmusic_")) {
-                    browseId = artistIdStr
-                } else {
-                    val rawName = if (numericId != null) {
-                        musicRepository.getArtistById(numericId).first()?.name
-                    } else {
-                        artistIdStr
-                    }
-                    val cleanName = rawName?.trim()?.trim(',', '&', '/', ';', '•', '·', '.', '-')?.trim()
-                    if (!cleanName.isNullOrBlank() && cleanName.any { it.isLetterOrDigit() }) {
-                        val primaryArtistName = cleanName.split(
-                            ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
-                        ).firstOrNull()?.trim() ?: cleanName
+                val isExplicitBrowseId = artistIdStr.startsWith("UC") || 
+                                         artistIdStr.startsWith("LA") || 
+                                         artistIdStr.startsWith("FEmusic_")
 
-                        val searchResult = withContext(Dispatchers.IO) {
-                            InnerTubeYouTube.search(primaryArtistName, InnerTubeYouTube.SearchFilter.FILTER_ARTIST).getOrNull()
-                        }
-                        val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
-                        browseId = artistItem?.id
-                    }
+                if (isExplicitBrowseId) {
+                    loadOnlineArtist(artistIdStr)
+                    return@launch
                 }
 
-                if (browseId != null && (browseId.startsWith("UC") || browseId.startsWith("LA") || browseId.startsWith("FEmusic_"))) {
-                    val artistPageResult = withContext(Dispatchers.IO) {
-                        InnerTubeYouTube.artist(browseId)
+                if (numericId != null) {
+                    if (numericId > 0) {
+                        // Local MediaStore artist:
+                        val localSongs = musicRepository.getSongsForArtist(numericId).first()
+                        val dbArtist = musicRepository.getArtistById(numericId).first()
+                        val artistName = dbArtist?.name?.trim() ?: ""
+
+                        // Check if this local artist can be confirmed from online (e.g. matching online songs in library or matching track titles on YouTube)
+                        val confirmedBrowseId = tryConfirmOnlineArtist(artistName, localSongs)
+                        if (confirmedBrowseId != null) {
+                            loadOnlineArtist(confirmedBrowseId, localSongs = localSongs)
+                            return@launch
+                        }
+
+                        // Not confirmed online: strictly load local artist with local songs
+                        loadLocalArtist(numericId)
+                        return@launch
+                    } else {
+                        // Negative ID: could be YouTube sync, Telegram, Cloud
+                        val dbArtist = musicRepository.getArtistById(numericId).first()
+                        val localSongs = musicRepository.getSongsForArtist(numericId).first()
+
+                        if (dbArtist != null && !dbArtist.channelId.isNullOrBlank() && 
+                            (dbArtist.channelId.startsWith("UC") || dbArtist.channelId.startsWith("LA") || dbArtist.channelId.startsWith("FEmusic_"))) {
+                            loadOnlineArtist(dbArtist.channelId, localSongs = localSongs)
+                            return@launch
+                        }
+
+                        val artistName = dbArtist?.name ?: ""
+                        val confirmedBrowseId = tryConfirmOnlineArtist(artistName, localSongs)
+                        if (confirmedBrowseId != null) {
+                            loadOnlineArtist(confirmedBrowseId, localSongs = localSongs)
+                            return@launch
+                        }
+
+                        loadLocalArtist(numericId)
+                        return@launch
                     }
-
-                    artistPageResult.onSuccess { artistPage ->
-                        withContext(Dispatchers.Default) {
-                            val artistItem = artistPage.artist
-
-                            // ── Popular Songs: extract from the "Songs" section ──
-                            val ytSongsSection = artistPage.sections.find {
-                                it.title.contains("Songs", ignoreCase = true) ||
-                                it.title.contains("Popular", ignoreCase = true)
-                            }
-                            val popularSongs = ytSongsSection?.items?.mapNotNull { item ->
-                                (item as? SongItem)?.toNativeSong()
-                            }?.take(10) ?: emptyList()
-
-                            val localCount = runCatching {
-                                musicDao.getLocalSongCountByArtistName(artistItem.title)
-                            }.getOrDefault(0)
-
-                            val artistModel = Artist(
-                                id = browseId.hashCode().toLong(),
-                                name = artistItem.title,
-                                songCount = if (localCount > 0) localCount else popularSongs.size,
-                                imageUrl = artistItem.thumbnail
-                            )
-
-                            // ── Albums: sections titled "Albums" or "Releases" ──
-                            fun AlbumItem.toAlbumSection(): ArtistAlbumSection {
-                                return ArtistAlbumSection(
-                                    albumId = this.browseId.hashCode().toLong(),
-                                    title = this.title,
-                                    year = this.year,
-                                    albumArtUriString = this.thumbnail,
-                                    browseId = this.browseId,
-                                    songs = emptyList(), // Albums shown as cards; songs loaded on album detail
-                                    sectionType = ArtistSectionType.ALBUM
-                                )
-                            }
-
-                            val albumsSection = artistPage.sections.firstOrNull { section ->
-                                section.title.contains("Albums", ignoreCase = true) ||
-                                section.title.contains("Releases", ignoreCase = true)
-                            }
-                            val albumSections = albumsSection?.items?.mapNotNull { item ->
-                                when (item) {
-                                    is AlbumItem -> item.toAlbumSection()
-                                    else -> null
-                                }
-                            }.orEmpty()
-
-                            // ── Singles & EPs: sections titled "Singles", "EP", or "EPs" ──
-                            val singlesSection = artistPage.sections.firstOrNull { section ->
-                                section.title.contains("Single", ignoreCase = true) ||
-                                section.title.contains("EP", ignoreCase = true)
-                            }
-                            val singlesAndEPs = singlesSection?.items?.mapNotNull { item ->
-                                when (item) {
-                                    is AlbumItem -> ArtistAlbumSection(
-                                        albumId = item.browseId.hashCode().toLong(),
-                                        title = item.title,
-                                        year = item.year,
-                                        albumArtUriString = item.thumbnail,
-                                        browseId = item.browseId,
-                                        songs = emptyList(),
-                                        sectionType = ArtistSectionType.SINGLE_EP
-                                    )
-                                    else -> null
-                                }
-                            }.orEmpty()
-
-                            val effectiveImageUrl = artistItem.thumbnail
-                            val newScheme = if (!effectiveImageUrl.isNullOrBlank()) {
-                                try {
-                                    themeStateHolder.getOrGenerateColorScheme(effectiveImageUrl)
-                                } catch (e: Exception) {
-                                    null
-                                }
-                            } else null
-
-                            withContext(Dispatchers.Main) {
-                                _artistColorScheme.value = newScheme
-                                _uiState.value = ArtistDetailUiState(
-                                    artist = artistModel,
-                                    songs = popularSongs,
-                                    popularSongs = popularSongs,
-                                    albumSections = albumSections,
-                                    singlesAndEPs = singlesAndEPs,
-                                    effectiveImageUrl = effectiveImageUrl,
-                                    isLoading = false,
-                                    isOnlineArtist = true,
-                                    artistDescription = artistPage.description,
-                                    subscriberCount = artistItem.subscriberCountText,
-                                    browseId = browseId,
-                                    albumsMoreEndpoint = albumsSection?.moreEndpoint,
-                                    singlesMoreEndpoint = singlesSection?.moreEndpoint,
-                                    songsMoreEndpoint = ytSongsSection?.moreEndpoint
-                                )
-                            }
-                        }
-                    }.onFailure { e ->
-                        _uiState.update {
-                            it.copy(
-                                error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
-                                isLoading = false
-                            )
-                        }
-                    }
-                } else if (numericId != null) {
-                    val id = numericId
-                    val artistDetailsFlow = musicRepository.getArtistById(id)
-                    val artistSongsFlow = musicRepository.getSongsForArtist(id)
-
-                    combine(artistDetailsFlow, artistSongsFlow) { artist, songs ->
-                        Log.d("ArtistDebug", "loadArtistData: id=$id found=${artist != null} songs=${songs.size}")
-                        artist to songs
-                    }
-                        .catch { e ->
-                            _uiState.update {
-                                it.copy(
-                                    error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
-                                    isLoading = false
-                                )
-                            }
-                        }
-                        .collect { (artist, songs) ->
-                            withContext(Dispatchers.Default) {
-                                if (artist == null) {
-                                    _uiState.update {
-                                        it.copy(error = context.getString(R.string.could_not_find_artist), isLoading = false)
-                                    }
-                                    return@withContext
-                                }
-
-                                val albumSections = buildAlbumSections(songs)
-                                val orderedSongs = albumSections.flatMap { it.songs }
-
-                                val effectiveUrl = try {
-                                    artistImageRepository.getEffectiveArtistImageUrl(
-                                        artistId = artist.id,
-                                        artistName = artist.name
-                                    )
-                                } catch (e: Exception) {
-                                    Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
-                                    artist.effectiveImageUrl
-                                }
-
-                                val newScheme = if (!effectiveUrl.isNullOrBlank()) {
-                                    try {
-                                        themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
-                                    } catch (e: Exception) {
-                                        Log.w("ArtistDebug", "Color scheme pre-warm failed: ${e.message}")
-                                        null
-                                    }
-                                } else null
-
-                                withContext(Dispatchers.Main) {
-                                    _artistColorScheme.value = newScheme
-                                    _uiState.value = ArtistDetailUiState(
-                                        artist = artist.copy(
-                                            imageUrl = if (artist.customImageUri.isNullOrBlank()) effectiveUrl else artist.imageUrl
-                                        ),
-                                        songs = orderedSongs,
-                                        popularSongs = emptyList(),
-                                        albumSections = albumSections,
-                                        singlesAndEPs = emptyList(),
-                                        effectiveImageUrl = effectiveUrl,
-                                        isLoading = false,
-                                        isOnlineArtist = false
-                                    )
-                                }
-                            }
-                        }
                 } else {
+                    // artistIdStr is a raw string name (e.g. "Bharat Chauhan")
+                    val cleanName = artistIdStr.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim()
+                    val localId = musicDao.getArtistIdByNormalizedName(cleanName)
+                    val localSongs = if (localId != null) musicRepository.getSongsForArtist(localId).first() else emptyList()
+
+                    val confirmedBrowseId = tryConfirmOnlineArtist(cleanName, localSongs)
+                    if (confirmedBrowseId != null) {
+                        loadOnlineArtist(confirmedBrowseId, localSongs = localSongs)
+                        return@launch
+                    }
+
+                    if (localId != null) {
+                        loadLocalArtist(localId)
+                        return@launch
+                    }
+
                     _uiState.update {
                         it.copy(
-                            error = context.getString(R.string.artist_id_not_found),
+                            error = context.getString(R.string.could_not_find_artist),
                             isLoading = false
                         )
                     }
@@ -387,6 +377,216 @@ class ArtistDetailViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private suspend fun loadOnlineArtist(browseId: String, localSongs: List<Song> = emptyList()) {
+        val artistPageResult = withContext(Dispatchers.IO) {
+            InnerTubeYouTube.artist(browseId)
+        }
+
+        artistPageResult.onSuccess { artistPage ->
+            withContext(Dispatchers.Default) {
+                val artistItem = artistPage.artist
+
+                // ── Popular Songs: extract from the "Songs" section ──
+                val ytSongsSection = artistPage.sections.find {
+                    it.title.contains("Songs", ignoreCase = true) ||
+                    it.title.contains("Popular", ignoreCase = true)
+                }
+                val popularSongs = ytSongsSection?.items?.mapNotNull { item ->
+                    (item as? SongItem)?.toNativeSong()
+                }?.take(10) ?: emptyList()
+
+                // If localSongs was not explicitly passed, check if the user has local songs in library
+                // that match this online artist's songs or albums
+                val verifiedLocalSongs = if (localSongs.isNotEmpty()) {
+                    localSongs
+                } else {
+                    val localCandidates: List<Song> = withContext(Dispatchers.IO) {
+                        musicDao.getLocalSongsByArtistName(artistItem.title).map { it.toSong() }
+                    }
+                    if (localCandidates.isNotEmpty()) {
+                        val onlineSongTitles = artistPage.sections.flatMap { section ->
+                            section.items.mapNotNull { (it as? SongItem)?.title }
+                        }
+                        val onlineAlbumTitles = artistPage.sections.flatMap { section ->
+                            section.items.mapNotNull { (it as? AlbumItem)?.title }
+                        }
+                        val matches = localCandidates.any { localSong ->
+                            onlineSongTitles.any { ytTitle -> titlesMatch(localSong.title, ytTitle) } ||
+                            onlineAlbumTitles.any { ytAlbum -> titlesMatch(localSong.album, ytAlbum) }
+                        }
+                        if (matches) localCandidates else emptyList()
+                    } else {
+                        emptyList()
+                    }
+                }
+
+                val artistModel = Artist(
+                    id = YouTubeIdUtils.toUnifiedArtistIdFromChannelId(browseId),
+                    name = artistItem.title,
+                    songCount = if (verifiedLocalSongs.isNotEmpty()) verifiedLocalSongs.size else popularSongs.size,
+                    imageUrl = artistItem.thumbnail,
+                    channelId = browseId
+                )
+
+                // ── Albums: sections titled "Albums" or "Releases" ──
+                fun AlbumItem.toAlbumSection(): ArtistAlbumSection {
+                    return ArtistAlbumSection(
+                        albumId = this.browseId.hashCode().toLong(),
+                        title = this.title,
+                        year = this.year,
+                        albumArtUriString = this.thumbnail,
+                        browseId = this.browseId,
+                        songs = emptyList(),
+                        sectionType = ArtistSectionType.ALBUM
+                    )
+                }
+
+                val albumsSection = artistPage.sections.firstOrNull { section ->
+                    section.title.contains("Albums", ignoreCase = true) ||
+                    section.title.contains("Releases", ignoreCase = true)
+                }
+                val albumSections = albumsSection?.items?.mapNotNull { item ->
+                    when (item) {
+                        is AlbumItem -> item.toAlbumSection()
+                        else -> null
+                    }
+                }.orEmpty()
+
+                // ── Singles & EPs: sections titled "Singles", "EP", or "EPs" ──
+                val singlesSection = artistPage.sections.firstOrNull { section ->
+                    section.title.contains("Single", ignoreCase = true) ||
+                    section.title.contains("EP", ignoreCase = true)
+                }
+                val singlesAndEPs = singlesSection?.items?.mapNotNull { item ->
+                    when (item) {
+                        is AlbumItem -> ArtistAlbumSection(
+                            albumId = item.browseId.hashCode().toLong(),
+                            title = item.title,
+                            year = item.year,
+                            albumArtUriString = item.thumbnail,
+                            browseId = item.browseId,
+                            songs = emptyList(),
+                            sectionType = ArtistSectionType.SINGLE_EP
+                        )
+                        else -> null
+                    }
+                }.orEmpty()
+
+                // ── Local album sections if user has matching local songs ──
+                val localAlbumSections = if (verifiedLocalSongs.isNotEmpty()) {
+                    buildAlbumSections(verifiedLocalSongs)
+                } else emptyList()
+
+                val effectiveImageUrl = artistItem.thumbnail
+                val newScheme = if (!effectiveImageUrl.isNullOrBlank()) {
+                    try {
+                        themeStateHolder.getOrGenerateColorScheme(effectiveImageUrl)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } else null
+
+                withContext(Dispatchers.Main) {
+                    _artistColorScheme.value = newScheme
+                    _uiState.value = ArtistDetailUiState(
+                        artist = artistModel,
+                        songs = if (popularSongs.isNotEmpty()) popularSongs else verifiedLocalSongs,
+                        popularSongs = popularSongs,
+                        albumSections = albumSections,
+                        singlesAndEPs = singlesAndEPs,
+                        localAlbumSections = localAlbumSections,
+                        effectiveImageUrl = effectiveImageUrl,
+                        isLoading = false,
+                        isOnlineArtist = true,
+                        artistDescription = artistPage.description,
+                        subscriberCount = artistItem.subscriberCountText,
+                        browseId = browseId,
+                        albumsMoreEndpoint = albumsSection?.moreEndpoint,
+                        singlesMoreEndpoint = singlesSection?.moreEndpoint,
+                        songsMoreEndpoint = ytSongsSection?.moreEndpoint
+                    )
+                }
+            }
+        }.onFailure { e ->
+            if (localSongs.isNotEmpty() && localSongs.firstOrNull()?.artistId != null) {
+                loadLocalArtist(localSongs.first().artistId)
+            } else {
+                _uiState.update {
+                    it.copy(
+                        error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
+                        isLoading = false
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun loadLocalArtist(id: Long) {
+        val artistDetailsFlow = musicRepository.getArtistById(id)
+        val artistSongsFlow = musicRepository.getSongsForArtist(id)
+
+        combine(artistDetailsFlow, artistSongsFlow) { artist, songs ->
+            Log.d("ArtistDebug", "loadArtistData: id=$id found=${artist != null} songs=${songs.size}")
+            artist to songs
+        }
+            .catch { e ->
+                _uiState.update {
+                    it.copy(
+                        error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
+                        isLoading = false
+                    )
+                }
+            }
+            .collect { (artist, songs) ->
+                withContext(Dispatchers.Default) {
+                    if (artist == null) {
+                        _uiState.update {
+                            it.copy(error = context.getString(R.string.could_not_find_artist), isLoading = false)
+                        }
+                        return@withContext
+                    }
+
+                    val albumSections = buildAlbumSections(songs)
+                    val orderedSongs = albumSections.flatMap { it.songs }
+
+                    val effectiveUrl = try {
+                        artistImageRepository.getEffectiveArtistImageUrl(
+                            artistId = artist.id,
+                            artistName = artist.name
+                        )
+                    } catch (e: Exception) {
+                        Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
+                        artist.effectiveImageUrl
+                    }
+
+                    val newScheme = if (!effectiveUrl.isNullOrBlank()) {
+                        try {
+                            themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
+                        } catch (e: Exception) {
+                            Log.w("ArtistDebug", "Color scheme pre-warm failed: ${e.message}")
+                            null
+                        }
+                    } else null
+
+                    withContext(Dispatchers.Main) {
+                        _artistColorScheme.value = newScheme
+                        _uiState.value = ArtistDetailUiState(
+                            artist = artist.copy(
+                                imageUrl = if (artist.customImageUri.isNullOrBlank()) effectiveUrl else artist.imageUrl
+                            ),
+                            songs = orderedSongs,
+                            popularSongs = emptyList(),
+                            albumSections = albumSections,
+                            singlesAndEPs = emptyList(),
+                            effectiveImageUrl = effectiveUrl,
+                            isLoading = false,
+                            isOnlineArtist = false
+                        )
+                    }
+                }
+            }
     }
 
     /**

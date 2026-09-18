@@ -1,9 +1,14 @@
 package com.unshoo.pixelmusic.presentation.viewmodel
 
+import android.content.Context
 import com.unshoo.pixelmusic.data.DailyMixManager
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.repository.MusicRepository
+import com.unshoo.pixelmusic.utils.OfflineAudioResolver
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
+import com.unshoo.pixelmusic.data.remote.youtube.parseDurationStringToMillis
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -35,6 +40,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class DailyMixStateHolder @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val connectivityStateHolder: ConnectivityStateHolder,
     private val dailyMixManager: DailyMixManager,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val musicRepository: MusicRepository
@@ -65,20 +72,84 @@ class DailyMixStateHolder @Inject constructor(
     }
 
     private suspend fun loadMixCandidates(maxCandidates: Int = 1_000): List<Song> {
-        val totalSongs = musicRepository.getSongCountFlow().first()
-        if (totalSongs <= maxCandidates) return musicRepository.getAllSongsOnce()
+        val isOnline = connectivityStateHolder.isOnline.value
 
-        val pageSize = 200
-        val pageCount = (maxCandidates + pageSize - 1) / pageSize
-        val maxOffset = (totalSongs - pageSize).coerceAtLeast(0)
-        val offsets = LinkedHashSet<Int>(pageCount)
-        while (offsets.size < pageCount) {
-            offsets += if (maxOffset == 0) 0 else Random.nextInt(maxOffset + 1)
+        // Gather all confirmed offline playable songs: local media + verified downloaded songs
+        val localSongs = musicRepository.getLocalSongsOnce()
+        val downloadedSongs = try {
+            com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                .songRepository().getDownloadedSongs()
+                .filter { ySong ->
+                    val path = ySong.audioFilePath
+                    path?.startsWith("content://") == true || (path != null && java.io.File(path).let { it.isFile && it.length() > 0L })
+                }.map { ySong ->
+                    val primaryArtistId = YouTubeIdUtils.toUnifiedYoutubeArtistId(ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist")
+                    val songAlbum = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
+                    Song(
+                        id = "youtube_${ySong.youtubeId}",
+                        title = ySong.title,
+                        artist = ySong.artist,
+                        artistId = primaryArtistId,
+                        artists = listOf(
+                            com.unshoo.pixelmusic.data.model.ArtistRef(
+                                id = primaryArtistId,
+                                name = ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist",
+                                isPrimary = true
+                            )
+                        ),
+                        album = songAlbum,
+                        albumId = YouTubeIdUtils.toUnifiedYoutubeAlbumId(songAlbum),
+                        albumArtist = null,
+                        path = ySong.audioFilePath ?: "",
+                        contentUriString = "youtube://${ySong.youtubeId}",
+                        albumArtUriString = ySong.thumbnailPath ?: ySong.thumbnailHref,
+                        duration = parseDurationStringToMillis(ySong.duration),
+                        genre = ySong.genre ?: "YouTube Music",
+                        lyrics = null,
+                        isFavorite = false,
+                        trackNumber = 0,
+                        discNumber = null,
+                        year = 0,
+                        dateAdded = ySong.downloadTimestamp,
+                        dateModified = 0,
+                        mimeType = "audio/opus",
+                        bitrate = null,
+                        sampleRate = null,
+                        youtubeId = ySong.youtubeId,
+                        albumBrowseId = ySong.albumBrowseId
+                    )
+                }
+        } catch (e: Exception) {
+            emptyList()
         }
 
-        return offsets.flatMap { offset ->
-            musicRepository.getSongsPage(limit = pageSize, offset = offset)
-        }.distinctBy { it.id }
+        val offlinePlayable = (localSongs + downloadedSongs)
+            .filter { OfflineAudioResolver.hasOfflineAudio(context, it) }
+            .distinctBy { it.id }
+
+        if (!isOnline) {
+            // When offline, strictly generate from local + downloads
+            return offlinePlayable
+        }
+
+        // When online, 100% guarantee local + downloaded tracks are included alongside library songs
+        val totalSongs = musicRepository.getSongCountFlow().first()
+        val librarySongs = if (totalSongs <= maxCandidates) {
+            musicRepository.getAllSongsOnce()
+        } else {
+            val pageSize = 200
+            val pageCount = (maxCandidates + pageSize - 1) / pageSize
+            val maxOffset = (totalSongs - pageSize).coerceAtLeast(0)
+            val offsets = LinkedHashSet<Int>(pageCount)
+            while (offsets.size < pageCount) {
+                offsets += if (maxOffset == 0) 0 else Random.nextInt(maxOffset + 1)
+            }
+            offsets.flatMap { offset ->
+                musicRepository.getSongsPage(limit = pageSize, offset = offset)
+            }
+        }
+
+        return (offlinePlayable + librarySongs).distinctBy { it.id }
     }
 
     /**
@@ -109,10 +180,6 @@ class DailyMixStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Load persisted daily mix from storage using direct DB queries by IDs
-     * instead of combining with the full allSongs flow.
-     */
     fun loadPersistedDailyMix() {
         // Load Daily Mix
         scope?.launch {

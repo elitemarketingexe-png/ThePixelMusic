@@ -1442,8 +1442,7 @@ fun FullPlayerContent(
                             Surface(
                                 onClick = {
                                     showSongInfoBottomSheet = false
-                                    val resolvedArtistIdStr = song.artistId?.toString() ?: song.artist
-                                    playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistIdStr)
+                                    playerViewModel.triggerArtistNavigationFromPlayer(song.navTargetArtistId)
                                 },
                                 shape = AbsoluteSmoothCornerShape(20.dp, 50),
                                 color = LocalMaterialTheme.current.surfaceContainerLow,

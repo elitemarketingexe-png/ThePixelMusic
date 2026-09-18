@@ -507,7 +507,7 @@ fun LibraryArtistsTab(
     playerViewModel: PlayerViewModel,
     bottomBarHeight: Dp,
     currentArtistSortOption: SortOption,
-    onArtistClick: (Long) -> Unit,
+    onArtistClick: (String) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     storageFilter: StorageFilter = StorageFilter.ALL
@@ -662,8 +662,15 @@ fun LibraryArtistsTab(
                             ) { index ->
                                 val artist = artists[index]
                                 if (artist != null) {
-                                    val rememberedOnClick = remember(artist.id, onArtistClick) {
-                                        { onArtistClick(artist.id) }
+                                    val rememberedOnClick = remember(artist.id, artist.channelId, storageFilter, onArtistClick) {
+                                        {
+                                            val idToPass = if (storageFilter != StorageFilter.LOCAL && !artist.channelId.isNullOrBlank() && artist.channelId.startsWith("UC")) {
+                                                artist.channelId
+                                            } else {
+                                                artist.id.toString()
+                                            }
+                                            onArtistClick(idToPass)
+                                        }
                                     }
                                     ArtistListItem(artist = artist, onClick = rememberedOnClick)
                                 } else {

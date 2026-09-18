@@ -241,7 +241,7 @@ fun DailyMixScreen(
                 showSongInfoSheet = false
             },
             onNavigateToArtist = {
-                navController.navigateSafely(Screen.ArtistDetail.createRoute(song.artistId))
+                navController.navigateSafely(Screen.ArtistDetail.createRoute(song.navTargetArtistId))
                 showSongInfoSheet = false
             },
             onNavigateToArtistById = { artistId ->

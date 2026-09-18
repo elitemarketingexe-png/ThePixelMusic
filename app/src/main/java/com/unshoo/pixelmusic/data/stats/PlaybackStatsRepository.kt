@@ -373,8 +373,8 @@ class PlaybackStatsRepository @Inject constructor(
                 )
             }
             .sortedWith(
-                compareByDescending<SongPlaybackSummary> { it.totalDurationMs }
-                    .thenByDescending { it.playCount }
+                compareByDescending<SongPlaybackSummary> { it.playCount }
+                    .thenByDescending { it.totalDurationMs }
             )
         val topSongs = allSongs.take(5)
 
@@ -390,7 +390,8 @@ class PlaybackStatsRepository @Inject constructor(
                 val flattened = groupedSongs.flatMap { it.value }
                 val uniqueArtists = groupedSongs
                     .flatMap { (songId, _) ->
-                        statsArtistNames(songMap[songId])
+                        val fallbackArtist = normalizedEvents.lastOrNull { it.songId == songId }?.artist
+                        statsArtistNames(songMap[songId], fallbackArtist)
                     }
                     .distinctBy { it.normalizedArtistKey() }
                     .size
@@ -456,7 +457,8 @@ class PlaybackStatsRepository @Inject constructor(
 
         val topArtists = segmentsBySong.entries
             .flatMap { (songId, segmentsForSong) ->
-                statsArtistNames(songMap[songId]).map { artist ->
+                val fallbackArtist = normalizedEvents.lastOrNull { it.songId == songId }?.artist
+                statsArtistNames(songMap[songId], fallbackArtist).map { artist ->
                     ArtistSongPlayback(
                         artist = artist,
                         songId = songId,
@@ -481,8 +483,8 @@ class PlaybackStatsRepository @Inject constructor(
                 )
             }
             .sortedWith(
-                compareByDescending<ArtistPlaybackSummary> { it.totalDurationMs }
-                    .thenByDescending { it.playCount }
+                compareByDescending<ArtistPlaybackSummary> { it.playCount }
+                    .thenByDescending { it.totalDurationMs }
             )
             .take(5)
 
@@ -756,20 +758,35 @@ class PlaybackStatsRepository @Inject constructor(
         val segments: List<PlaybackSegment>
     )
 
-    private fun statsArtistNames(song: Song?): List<String> {
-        if (song == null) return listOf(UNKNOWN_ARTIST)
-
-        val separatedArtists = song.artists
-            .sortedByDescending { it.isPrimary }
-            .map { it.name.trim() }
-            .filter { it.isNotBlank() }
-            .distinctBy { it.normalizedArtistKey() }
-        if (separatedArtists.isNotEmpty()) {
-            return separatedArtists
+    private fun statsArtistNames(song: Song?, fallbackArtist: String? = null): List<String> {
+        val rawArtists = if (song != null) {
+            val separatedArtists = song.artists
+                .sortedByDescending { it.isPrimary }
+                .map { it.name.trim() }
+                .filter { it.isNotBlank() }
+            if (separatedArtists.isNotEmpty()) {
+                separatedArtists
+            } else {
+                val fallback = song.displayArtist.trim()
+                if (fallback.isNotBlank()) listOf(fallback) else emptyList()
+            }
+        } else if (!fallbackArtist.isNullOrBlank()) {
+            fallbackArtist.split(",", "&", " feat. ", " feat ", " ft. ", " ft ")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+        } else {
+            emptyList()
         }
 
-        val fallbackArtist = song.displayArtist.trim()
-        return listOf(fallbackArtist.ifBlank { UNKNOWN_ARTIST })
+        val cleaned = rawArtists
+            .map { it.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim() }
+            .filter { name ->
+                name.isNotBlank() &&
+                name.lowercase(Locale.ROOT) !in UNKNOWN_ARTIST_KEYS
+            }
+            .distinctBy { it.normalizedArtistKey() }
+
+        return cleaned.ifEmpty { listOf(UNKNOWN_ARTIST) }
     }
 
     private fun String.normalizedArtistKey(): String = trim().lowercase(Locale.ROOT)
@@ -1229,6 +1246,10 @@ class PlaybackStatsRepository @Inject constructor(
         /** Album values that are placeholder/fallback and should not appear in top-album stats. */
         val UNKNOWN_ALBUM_KEYS: Set<String> = setOf(
             "Unknown Album", "unknown album", "YouTube Music", "youtube music"
+        )
+        /** Artist values that are placeholder/fallback and should not appear in top-artist stats. */
+        val UNKNOWN_ARTIST_KEYS: Set<String> = setOf(
+            "unknown", "unknown artist", "<unknown>", "various artists", "various", "unknown artists"
         )
     }
 }

@@ -210,6 +210,11 @@ fun HomeScreen(
             (dailyMixSongs + discoverYoutubeSongs).distinctBy { it.id }.toImmutableList()
         }
     }
+    LaunchedEffect(isOnline) {
+        if (!isOnline && dailyMixSongs.isEmpty()) {
+            playerViewModel.forceUpdateDailyMix()
+        }
+    }
     val userName = remember(accountsUiState.userName) {
         val rawName = accountsUiState.userName
         if (!rawName.isNullOrBlank()) {
@@ -593,7 +598,7 @@ fun HomeScreen(
                             },
                             onNavigateToArtist = { song ->
                                 navController.navigateSafelyReplacing(
-                                    route = Screen.ArtistDetail.createRoute(song.artistId),
+                                    route = Screen.ArtistDetail.createRoute(song.navTargetArtistId),
                                     patternToPop = Screen.ArtistDetail.route
                                 )
                             },

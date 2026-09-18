@@ -1655,8 +1655,9 @@ interface MusicDao {
     ): Flow<List<ArtistEntity>>
 
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
+        SELECT MAX(artists.id) AS id, REPLACE(artists.name, ' - Topic', '') AS name,
+               MAX(artists.image_url) AS image_url, MAX(artists.custom_image_uri) AS custom_image_uri,
+               CASE WHEN :filterMode = 1 THEN NULL ELSE MAX(artists.channel_id) END AS channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
         LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
@@ -1674,7 +1675,9 @@ interface MusicDao {
                 AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
             )
         )
-        WHERE (
+        WHERE TRIM(artists.name) != ''
+          AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) NOT IN ('unknown', 'unknown artist', '<unknown>', 'various artists', 'various', 'unknown artists')
+          AND (
             (:subscribedOnly = 0 OR (
                 artists.channel_id IN (:subscribedIds)
                 OR CAST(artists.id AS TEXT) IN (:subscribedIds)
@@ -1709,17 +1712,17 @@ interface MusicDao {
                 )
             )
         )
-        GROUP BY artists.id
+        GROUP BY LOWER(TRIM(REPLACE(artists.name, ' - Topic', '')))
         HAVING track_count >= :minSongCount 
             OR (artists.channel_id IS NOT NULL AND artists.channel_id != '')
             OR EXISTS (SELECT 1 FROM library_membership lm_a WHERE lm_a.song_key = 'artist_' || CAST(artists.id AS TEXT))
         ORDER BY
-            CASE WHEN :sortOrder = 'artist_name_az' THEN artists.name END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
+            CASE WHEN :sortOrder = 'artist_name_az' THEN name END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'artist_name_za' THEN name END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'artist_num_songs_desc' OR :sortOrder = 'artist_most_played' THEN track_count END DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
-            artists.name COLLATE NOCASE ASC,
-            artists.id ASC
+            name COLLATE NOCASE ASC,
+            id ASC
     """)
     fun getArtistsPaginated(
         allowedParentDirs: List<String>,
@@ -1736,8 +1739,9 @@ interface MusicDao {
      * Filters out local MediaStore artists which may have combined/unsplit artist strings.
      */
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
+        SELECT MAX(artists.id) AS id, REPLACE(artists.name, ' - Topic', '') AS name,
+               MAX(artists.image_url) AS image_url, MAX(artists.custom_image_uri) AS custom_image_uri,
+               MAX(artists.channel_id) AS channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
         LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
@@ -1756,15 +1760,17 @@ interface MusicDao {
             )
         )
         WHERE artists.id < 0
+          AND TRIM(artists.name) != ''
+          AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) NOT IN ('unknown', 'unknown artist', '<unknown>', 'various artists', 'various', 'unknown artists')
           AND ((artists.channel_id IS NOT NULL AND artists.channel_id != '') OR songs.id IS NOT NULL)
-        GROUP BY artists.id
+        GROUP BY LOWER(TRIM(REPLACE(artists.name, ' - Topic', '')))
         ORDER BY
-            CASE WHEN :sortOrder = 'artist_name_az' THEN artists.name END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
+            CASE WHEN :sortOrder = 'artist_name_az' THEN name END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'artist_name_za' THEN name END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'artist_num_songs_desc' OR :sortOrder = 'artist_most_played' THEN track_count END DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
-            artists.name COLLATE NOCASE ASC,
-            artists.id ASC
+            name COLLATE NOCASE ASC,
+            id ASC
     """)
     fun getYouTubeOnlyArtistsPaginated(
         sortOrder: String
@@ -1772,24 +1778,27 @@ interface MusicDao {
 
     /** ArchiveTune-style subscribed artist view: only artists from the user's YouTube account. */
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
+        SELECT MAX(artists.id) AS id, REPLACE(artists.name, ' - Topic', '') AS name,
+               MAX(artists.image_url) AS image_url, MAX(artists.custom_image_uri) AS custom_image_uri,
+               MAX(artists.channel_id) AS channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
         LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id)
         WHERE artists.id < 0
+          AND TRIM(artists.name) != ''
+          AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) NOT IN ('unknown', 'unknown artist', '<unknown>', 'various artists', 'various', 'unknown artists')
           AND (
               artists.channel_id IN (:subscribedIds)
               OR CAST(artists.id AS TEXT) IN (:subscribedIds)
           )
-        GROUP BY artists.id
+        GROUP BY LOWER(TRIM(REPLACE(artists.name, ' - Topic', '')))
         ORDER BY
-            CASE WHEN :sortOrder = 'artist_name_az' THEN artists.name END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
+            CASE WHEN :sortOrder = 'artist_name_az' THEN name END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'artist_name_za' THEN name END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'artist_num_songs_desc' OR :sortOrder = 'artist_most_played' THEN track_count END DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
-            artists.name COLLATE NOCASE ASC,
-            artists.id ASC
+            name COLLATE NOCASE ASC,
+            id ASC
     """)
     fun getSubscribedYouTubeArtistsPaginated(
         subscribedIds: List<String>,
@@ -1798,8 +1807,9 @@ interface MusicDao {
 
     /** All artists from the user's library, but only meaningful artists with >= minSongCount songs. */
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
+        SELECT MAX(artists.id) AS id, REPLACE(artists.name, ' - Topic', '') AS name,
+               MAX(artists.image_url) AS image_url, MAX(artists.custom_image_uri) AS custom_image_uri,
+               MAX(artists.channel_id) AS channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
         INNER JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
@@ -1813,15 +1823,17 @@ interface MusicDao {
             OR EXISTS (SELECT 1 FROM library_membership lm WHERE lm.song_key = CAST(songs.id AS TEXT))
             OR EXISTS (SELECT 1 FROM library_membership lm2 WHERE lm2.song_key = songs.content_uri_string)
         )
-        GROUP BY artists.id
+        WHERE TRIM(artists.name) != ''
+          AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) NOT IN ('unknown', 'unknown artist', '<unknown>', 'various artists', 'various', 'unknown artists')
+        GROUP BY LOWER(TRIM(REPLACE(artists.name, ' - Topic', '')))
         HAVING track_count >= :minSongCount
         ORDER BY
-            CASE WHEN :sortOrder = 'artist_name_az' THEN artists.name END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
+            CASE WHEN :sortOrder = 'artist_name_az' THEN name END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'artist_name_za' THEN name END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'artist_num_songs_desc' OR :sortOrder = 'artist_most_played' THEN track_count END DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
-            artists.name COLLATE NOCASE ASC,
-            artists.id ASC
+            name COLLATE NOCASE ASC,
+            id ASC
     """)
     fun getAllLibraryArtistsMinSongsPaginated(
         minSongCount: Int,
@@ -1829,8 +1841,9 @@ interface MusicDao {
     ): PagingSource<Int, ArtistEntity>
 
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
+        SELECT MAX(artists.id) AS id, REPLACE(artists.name, ' - Topic', '') AS name,
+               MAX(artists.image_url) AS image_url, MAX(artists.custom_image_uri) AS custom_image_uri,
+               CASE WHEN :filterMode = 1 THEN NULL ELSE MAX(artists.channel_id) END AS channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
         LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id) AND (
@@ -1848,34 +1861,38 @@ interface MusicDao {
                 AND songs.id NOT IN (SELECT related_song_id FROM related_song_map)
             )
         )
-        WHERE (artists.channel_id IS NOT NULL AND artists.channel_id != '')
-           OR (
-               songs.id IS NOT NULL 
-               AND (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
-               AND (
-                   :filterMode = 0
-                   OR (
-                       :filterMode = 1
-                       AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
-                   )
-                   OR (
-                       :filterMode = 2
-                       AND songs.source_type = 1
-                   )
-                   OR (
-                       :filterMode = 3
-                       AND songs.source_type = 7
-                   )
-               )
-           )
-        GROUP BY artists.id
+        WHERE TRIM(artists.name) != ''
+          AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) NOT IN ('unknown', 'unknown artist', '<unknown>', 'various artists', 'various', 'unknown artists')
+          AND (
+            (artists.channel_id IS NOT NULL AND artists.channel_id != '')
+            OR (
+                songs.id IS NOT NULL 
+                AND (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+                AND (
+                    :filterMode = 0
+                    OR (
+                        :filterMode = 1
+                        AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
+                    )
+                    OR (
+                        :filterMode = 2
+                        AND songs.source_type = 1
+                    )
+                    OR (
+                        :filterMode = 3
+                        AND songs.source_type = 7
+                    )
+                )
+            )
+          )
+        GROUP BY LOWER(TRIM(REPLACE(artists.name, ' - Topic', '')))
         ORDER BY
-            CASE WHEN :sortOrder = 'artist_name_az' THEN artists.name END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
+            CASE WHEN :sortOrder = 'artist_name_az' THEN name END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'artist_name_za' THEN name END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'artist_num_songs_desc' OR :sortOrder = 'artist_most_played' THEN track_count END DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
-            artists.name COLLATE NOCASE ASC,
-            artists.id ASC
+            name COLLATE NOCASE ASC,
+            id ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getArtistsPage(
@@ -2000,7 +2017,15 @@ interface MusicDao {
     @Query("SELECT id FROM artists WHERE name = :name LIMIT 1")
     suspend fun getArtistIdByName(name: String): Long?
 
-    @Query("SELECT id FROM artists WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) LIMIT 1")
+    @Query("""
+        SELECT id FROM artists 
+        WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) 
+        ORDER BY 
+            CASE WHEN channel_id IS NOT NULL AND channel_id != '' THEN 0 ELSE 1 END,
+            CASE WHEN id > 0 THEN 0 ELSE 1 END,
+            track_count DESC 
+        LIMIT 1
+    """)
     suspend fun getArtistIdByNormalizedName(name: String): Long?
 
     @Query("SELECT MAX(id) FROM artists")
@@ -2277,9 +2302,15 @@ interface MusicDao {
      * Get all songs for a specific artist using the junction table.
      */
     @Query("""
-        SELECT songs.* FROM songs
-        INNER JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
+        SELECT DISTINCT songs.* FROM songs
+        LEFT JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
         WHERE song_artist_cross_ref.artist_id = :artistId
+           OR songs.artist_id = :artistId
+           OR (
+               (songs.artist_id IS NULL OR songs.artist_id = 0)
+               AND (SELECT name FROM artists WHERE id = :artistId) IS NOT NULL
+               AND LOWER(TRIM(REPLACE(songs.artist_name, ' - Topic', ''))) = LOWER(TRIM(REPLACE((SELECT name FROM artists WHERE id = :artistId), ' - Topic', '')))
+           )
         ORDER BY songs.title ASC
     """)
     fun getSongsForArtist(artistId: Long): Flow<List<SongEntity>>
@@ -2288,9 +2319,15 @@ interface MusicDao {
      * Get all songs for a specific artist (one-shot).
      */
     @Query("""
-        SELECT songs.* FROM songs
-        INNER JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
+        SELECT DISTINCT songs.* FROM songs
+        LEFT JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
         WHERE song_artist_cross_ref.artist_id = :artistId
+           OR songs.artist_id = :artistId
+           OR (
+               (songs.artist_id IS NULL OR songs.artist_id = 0)
+               AND (SELECT name FROM artists WHERE id = :artistId) IS NOT NULL
+               AND LOWER(TRIM(REPLACE(songs.artist_name, ' - Topic', ''))) = LOWER(TRIM(REPLACE((SELECT name FROM artists WHERE id = :artistId), ' - Topic', '')))
+           )
         ORDER BY songs.title ASC
     """)
     suspend fun getSongsForArtistList(artistId: Long): List<SongEntity>
@@ -2322,12 +2359,17 @@ interface MusicDao {
      * Get all artists with their song counts computed from the junction table.
      */
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT song_artist_cross_ref.song_id) AS track_count
+        SELECT MAX(artists.id) AS id, REPLACE(artists.name, ' - Topic', '') AS name,
+               MAX(artists.image_url) AS image_url, MAX(artists.custom_image_uri) AS custom_image_uri,
+               MAX(artists.channel_id) AS channel_id, COUNT(DISTINCT songs.id) AS track_count
         FROM artists
-        LEFT JOIN song_artist_cross_ref ON artists.id = song_artist_cross_ref.artist_id
-        GROUP BY artists.id
-        ORDER BY artists.name ASC
+        LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
+        LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id)
+        WHERE TRIM(artists.name) != ''
+          AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) NOT IN ('unknown', 'unknown artist', '<unknown>', 'various artists', 'various', 'unknown artists')
+        GROUP BY LOWER(TRIM(REPLACE(artists.name, ' - Topic', '')))
+        HAVING track_count > 0
+        ORDER BY name COLLATE NOCASE ASC
     """)
     fun getArtistsWithSongCounts(): Flow<List<ArtistEntity>>
 
@@ -2335,29 +2377,36 @@ interface MusicDao {
      * Get all artists with song counts, filtered by allowed directories.
      */
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
-        FROM songs
-        INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.song_id = songs.id
-        INNER JOIN artists ON artists.id = song_artist_cross_ref.artist_id
-        WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
-        AND (
-            :filterMode = 0
-            OR (
-                :filterMode = 1
-                AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
-            )
-            OR (
-                :filterMode = 2
-                AND songs.source_type = 1
-            )
-            OR (
-                :filterMode = 3
-                AND songs.source_type = 7
-            )
-        )
-        GROUP BY artists.id
-        ORDER BY artists.name ASC
+        SELECT MAX(artists.id) AS id, REPLACE(artists.name, ' - Topic', '') AS name,
+               MAX(artists.image_url) AS image_url, MAX(artists.custom_image_uri) AS custom_image_uri,
+               MAX(artists.channel_id) AS channel_id, COUNT(DISTINCT songs.id) AS track_count
+        FROM artists
+        LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
+        LEFT JOIN songs ON (songs.id = song_artist_cross_ref.song_id OR songs.artist_id = artists.id)
+        WHERE TRIM(artists.name) != ''
+          AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) NOT IN ('unknown', 'unknown artist', '<unknown>', 'various artists', 'various', 'unknown artists')
+          AND (
+              songs.id IS NOT NULL
+              AND (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+              AND (
+                  :filterMode = 0
+                  OR (
+                      :filterMode = 1
+                      AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
+                  )
+                  OR (
+                      :filterMode = 2
+                      AND songs.source_type = 1
+                  )
+                  OR (
+                      :filterMode = 3
+                      AND songs.source_type = 7
+                  )
+              )
+          )
+        GROUP BY LOWER(TRIM(REPLACE(artists.name, ' - Topic', '')))
+        HAVING track_count > 0
+        ORDER BY name COLLATE NOCASE ASC
     """)
     fun getArtistsWithSongCountsFiltered(
         allowedParentDirs: List<String>,
@@ -2642,6 +2691,34 @@ interface MusicDao {
         ORDER BY isFavourite DESC, totalPlayCount DESC
     """)
     suspend fun getArtistsByPlayCount(): List<ArtistPlayCountRow>
+
+    @Query("""
+        SELECT DISTINCT songs.* FROM songs
+        LEFT JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
+        LEFT JOIN artists ON song_artist_cross_ref.artist_id = artists.id
+        WHERE (songs.source_type = 7 OR songs.content_uri_string LIKE 'youtube://%')
+          AND (
+              (artists.name IS NOT NULL AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) = LOWER(TRIM(REPLACE(:artistName, ' - Topic', ''))))
+              OR LOWER(TRIM(REPLACE(songs.artist_name, ' - Topic', ''))) = LOWER(TRIM(REPLACE(:artistName, ' - Topic', '')))
+              OR (songs.artists_json IS NOT NULL AND LOWER(songs.artists_json) LIKE '%' || LOWER(:artistName) || '%')
+          )
+        ORDER BY songs.title ASC
+    """)
+    suspend fun getOnlineSongsByArtistName(artistName: String): List<SongEntity>
+
+    @Query("""
+        SELECT DISTINCT songs.* FROM songs
+        LEFT JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
+        LEFT JOIN artists ON song_artist_cross_ref.artist_id = artists.id
+        WHERE songs.source_type = 0 AND songs.content_uri_string NOT LIKE 'youtube://%'
+          AND (
+              (artists.name IS NOT NULL AND LOWER(TRIM(REPLACE(artists.name, ' - Topic', ''))) = LOWER(TRIM(REPLACE(:artistName, ' - Topic', ''))))
+              OR LOWER(TRIM(REPLACE(songs.artist_name, ' - Topic', ''))) = LOWER(TRIM(REPLACE(:artistName, ' - Topic', '')))
+              OR (songs.artists_json IS NOT NULL AND LOWER(songs.artists_json) LIKE '%' || LOWER(:artistName) || '%')
+          )
+        ORDER BY songs.title ASC
+    """)
+    suspend fun getLocalSongsByArtistName(artistName: String): List<SongEntity>
 
     companion object {
         /**

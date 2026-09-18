@@ -615,7 +615,7 @@ fun AlbumDetailScreen(
                     },
                     onNavigateToArtist = {
                         navController.navigateSafelyReplacing(
-                            route = Screen.ArtistDetail.createRoute(currentSong.artistId),
+                            route = Screen.ArtistDetail.createRoute(currentSong.navTargetArtistId),
                             patternToPop = Screen.ArtistDetail.route
                         )
                         showSongInfoBottomSheet = false

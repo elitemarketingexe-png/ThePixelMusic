@@ -98,12 +98,11 @@ internal fun rememberSheetActionHandlers(
             playerViewModelState.value.collapsePlayerSheet()
             queueSheetControllerState.value.animate(false)
             sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
-            if (song.artistId != -1L) {
-                navController.navigateSafelyReplacing(
-                    route = Screen.ArtistDetail.createRoute(song.artistId),
-                    patternToPop = Screen.ArtistDetail.route
-                )
-            }
+            navController.navigateSafelyReplacing(
+                route = Screen.ArtistDetail.createRoute(song.navTargetArtistId),
+                patternToPop = Screen.ArtistDetail.route
+            )
+            Unit
         }
     }
     val onNavigateToGenre = remember {

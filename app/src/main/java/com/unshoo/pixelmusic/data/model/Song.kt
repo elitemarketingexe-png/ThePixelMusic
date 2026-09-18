@@ -68,6 +68,18 @@ data class Song(
             ?: artists.firstOrNull()
             ?: ArtistRef(id = artistId, name = artist, isPrimary = true)
 
+    /**
+     * Resolves the target artist navigation identifier:
+     * - Returns the YouTube channel ID if available (e.g. "UC...").
+     * - Otherwise returns the non-zero numeric artist ID as String.
+     * - Falls back to the raw artist name string.
+     */
+    val navTargetArtistId: String
+        get() = artists.firstOrNull { it.channelId?.isNotBlank() == true }?.channelId
+            ?: artists.firstOrNull()?.id?.takeIf { it != 0L && it != -1L }?.toString()
+            ?: artistId.takeIf { it != 0L && it != -1L }?.toString()
+            ?: artist
+
     val isLocal: Boolean
         get() = !contentUriString.startsWith("telegram://") &&
                 !contentUriString.startsWith("netease://") &&

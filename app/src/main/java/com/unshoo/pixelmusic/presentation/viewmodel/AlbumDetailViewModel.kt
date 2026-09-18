@@ -253,10 +253,20 @@ class AlbumDetailViewModel @Inject constructor(
                         error = null
                     )
                 }.onFailure { e ->
-                    _uiState.update { it.copy(error = e.localizedMessage ?: "Failed to load online album", isLoading = false) }
+                    val albumId = savedStateHandle.get<String>("albumId")?.toLongOrNull()
+                    if (albumId != null) {
+                        loadAlbumData(albumId)
+                    } else {
+                        _uiState.update { it.copy(error = e.localizedMessage ?: "Failed to load online album", isLoading = false) }
+                    }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.localizedMessage, isLoading = false) }
+                val albumId = savedStateHandle.get<String>("albumId")?.toLongOrNull()
+                if (albumId != null) {
+                    loadAlbumData(albumId)
+                } else {
+                    _uiState.update { it.copy(error = e.localizedMessage, isLoading = false) }
+                }
             }
         }
     }
