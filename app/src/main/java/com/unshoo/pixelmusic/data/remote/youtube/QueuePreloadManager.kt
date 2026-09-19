@@ -120,6 +120,7 @@ object QueuePreloadManager {
                     youtubeId = videoId,
                     title = mediaItem.mediaMetadata.title?.toString() ?: "",
                     artist = mediaItem.mediaMetadata.artist?.toString() ?: "",
+                    album = mediaItem.mediaMetadata.albumTitle?.toString(),
                     thumbnailHref = upgradeThumbnailUrlToHighQuality(mediaItem.mediaMetadata.artworkUri?.toString()).orEmpty()
                 )
 

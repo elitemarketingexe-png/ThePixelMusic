@@ -5401,6 +5401,8 @@ class PlayerViewModel @Inject constructor(
                                             youtubeId = youtubeId,
                                             title = currentSongValue.title,
                                             artist = currentSongValue.artist,
+                                            album = currentSongValue.album,
+                                            duration = if (currentSongValue.duration > 0) (currentSongValue.duration / 1000).toString() else "",
                                             thumbnailHref = currentSongValue.albumArtUriString ?: ""
                                         )
                                         val url = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.getSongPlayerUrl(context, ytSong)

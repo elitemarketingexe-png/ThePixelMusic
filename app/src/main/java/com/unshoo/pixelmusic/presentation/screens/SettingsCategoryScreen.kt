@@ -1287,6 +1287,13 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
+                                    title = "JioSaavn HQ Streaming",
+                                    subtitle = "Stream and download high-quality audio (up to 320 kbps AAC) powered by JioSaavn. Automatically falls back to YouTube if unavailable.",
+                                    checked = uiState.enableSaavnStreaming,
+                                    onCheckedChange = { settingsViewModel.setEnableSaavnStreaming(it) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
+                                SwitchSettingItem(
                                     title = "Cache liked songs manually",
                                     subtitle = "When you like a YouTube song, download it for offline use. Off by default to prevent unexpected downloads.",
                                     checked = uiState.cacheLikedSongsOffline,

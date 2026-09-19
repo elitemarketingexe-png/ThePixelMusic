@@ -180,6 +180,8 @@ class SearchStateHolder @Inject constructor(
                                             youtubeId = topSong.song.youtubeId,
                                             title = topSong.song.title,
                                             artist = topSong.song.artist,
+                                            album = topSong.song.album,
+                                            duration = if (topSong.song.duration > 0) (topSong.song.duration / 1000).toString() else "",
                                             thumbnailHref = topSong.song.albumArtUriString ?: ""
                                         )
                                         com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.getSongPlayerUrl(

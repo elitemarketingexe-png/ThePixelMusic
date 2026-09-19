@@ -1848,6 +1848,8 @@ class MusicService : MediaLibraryService() {
             val currentUri = currentItem?.localConfiguration?.uri?.toString()
             val isYoutube = currentUri?.startsWith("youtube://") == true ||
                 currentUri?.contains("googlevideo.com") == true ||
+                currentUri?.contains("saavncdn.com") == true ||
+                currentUri?.contains("jiosaavn.com") == true ||
                 currentItem?.mediaId?.startsWith("youtube_") == true
 
             val mediaId = currentItem?.mediaId
@@ -1863,7 +1865,7 @@ class MusicService : MediaLibraryService() {
                 engine.invalidateResolvedUri(currentUri)
                 val youtubeVideoId: String? = when {
                     currentUri.startsWith("youtube://") -> currentUri.removePrefix("youtube://")
-                    currentUri.contains("googlevideo.com") -> {
+                    currentUri.contains("googlevideo.com") || currentUri.contains("saavncdn.com") || currentUri.contains("jiosaavn.com") -> {
                         val fromPrefix = currentItem.mediaId
                             .takeIf { it.startsWith("youtube_") }
                             ?.removePrefix("youtube_")

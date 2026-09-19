@@ -1337,7 +1337,15 @@ class DualPlayerEngine @Inject constructor(
             }
 
             val youtubeId = uriString.substringAfter("youtube://")
-            val youtubeSong = com.unshoo.pixelmusic.data.model.youtube.Song(youtubeId = youtubeId)
+            val matchingItem = queueSnapshot.firstOrNull { it.mediaId == youtubeId || it.requestMetadata.mediaUri?.toString() == uriString }
+                ?: if (::playerA.isInitialized && (playerA.currentMediaItem?.mediaId == youtubeId || playerA.currentMediaItem?.requestMetadata?.mediaUri?.toString() == uriString)) playerA.currentMediaItem else null
+
+            val youtubeSong = com.unshoo.pixelmusic.data.model.youtube.Song(
+                youtubeId = youtubeId,
+                title = matchingItem?.mediaMetadata?.title?.toString().orEmpty(),
+                artist = matchingItem?.mediaMetadata?.artist?.toString().orEmpty(),
+                album = matchingItem?.mediaMetadata?.albumTitle?.toString().orEmpty()
+            )
 
             // getSongPlayerUrl honors Settings quality:
             // HIGH → highest stream first; LOW → lowest first (weak nets).

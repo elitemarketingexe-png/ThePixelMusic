@@ -134,6 +134,7 @@ data class SettingsUiState(
     val streamingAudioQualityWifi: StreamingAudioQuality = StreamingAudioQuality.AUTO,
     val streamingAudioQualityMobile: StreamingAudioQuality = StreamingAudioQuality.AUTO,
     val forceHighQualityOnMobile: Boolean = false,
+    val enableSaavnStreaming: Boolean = false,
     val albumArtQualityMobile: AlbumArtQuality = AlbumArtQuality.LOW,
     val cacheLikedSongsOffline: Boolean = false,
     val cacheMostPlayedSongsOffline: Boolean = false,
@@ -915,6 +916,12 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.enableSaavnStreamingFlow.collect { enabled ->
+                _uiState.update { it.copy(enableSaavnStreaming = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.albumArtQualityMobileFlow.collect { quality ->
                 _uiState.update { it.copy(albumArtQualityMobile = quality) }
             }
@@ -1527,6 +1534,12 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun setForceHighQualityOnMobile(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setForceHighQualityOnMobile(enabled)
+        }
+    }
+
+    fun setEnableSaavnStreaming(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setEnableSaavnStreaming(enabled)
         }
     }
 

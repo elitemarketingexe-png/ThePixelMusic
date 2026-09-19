@@ -334,6 +334,7 @@ constructor(
         val STREAMING_AUDIO_QUALITY_WIFI = stringPreferencesKey("streaming_audio_quality_wifi")
         val STREAMING_AUDIO_QUALITY_MOBILE = stringPreferencesKey("streaming_audio_quality_mobile")
         val FORCE_HIGH_QUALITY_ON_MOBILE = booleanPreferencesKey("force_high_quality_on_mobile")
+        val ENABLE_SAAVN_STREAMING = booleanPreferencesKey("enable_saavn_streaming")
         val ALBUM_ART_QUALITY_MOBILE = stringPreferencesKey("album_art_quality_mobile")
         val CACHE_LIKED_SONGS_OFFLINE = booleanPreferencesKey("cache_liked_songs_offline")
         val CACHE_MOST_PLAYED_SONGS_OFFLINE = booleanPreferencesKey("cache_most_played_songs_offline")
@@ -1118,6 +1119,18 @@ constructor(
     suspend fun setPureYtMusicOnly(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.PURE_YT_MUSIC_ONLY] = enabled
+        }
+    }
+
+    /** JioSaavn high quality streaming toggle. Disabled by default. */
+    val enableSaavnStreamingFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.ENABLE_SAAVN_STREAMING] ?: false
+        }
+
+    suspend fun setEnableSaavnStreaming(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ENABLE_SAAVN_STREAMING] = enabled
         }
     }
 

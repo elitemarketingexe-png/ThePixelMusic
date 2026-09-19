@@ -66,19 +66,29 @@ object DownloadHelper {
         connections: Int = 8
     ): String? = withContext(Dispatchers.IO) {
 
+        // ── Check if audio file already exists locally with >= 80% data similarity and matching artist ──
+        val existingLocalFile = com.unshoo.pixelmusic.utils.LocalAudioDuplicateMatcher.findMatchingLocalFilePath(context, song)
+        if (existingLocalFile != null) {
+            PixelMusicHelper.printd("Download skipped: '${song.title}' already exists locally at $existingLocalFile (>=80% match)")
+            return@withContext existingLocalFile
+        }
+
         val repo = DatastoreRepository(context)
         val customPath = repo.customDownloadPath.first()
         val safeTitle = song.title.replace(Regex("[\\\\/:*?\"\\<>|]"), "_")
         val safeArtist = song.artist.replace(Regex("[\\\\/:*?\"\\<>|]"), "_")
-        val fileName = "$safeTitle - $safeArtist.webm"
 
         if (customPath.isNotBlank()) {
             try {
                 val treeUri = Uri.parse(customPath)
                 val documentDir = DocumentFile.fromTreeUri(context, treeUri)
-                val existingFile = documentDir?.findFile(fileName)
-                if (existingFile != null && existingFile.exists()) {
-                    return@withContext existingFile.uri.toString()
+                val existingM4a = documentDir?.findFile("$safeTitle - $safeArtist.m4a")
+                if (existingM4a != null && existingM4a.exists()) {
+                    return@withContext existingM4a.uri.toString()
+                }
+                val existingWebm = documentDir?.findFile("$safeTitle - $safeArtist.webm")
+                if (existingWebm != null && existingWebm.exists()) {
+                    return@withContext existingWebm.uri.toString()
                 }
             } catch (e: Exception) {
                 PixelMusicHelper.printe("Error checking custom download path exists: ${e.message}")
@@ -87,10 +97,14 @@ object DownloadHelper {
 
         val audioDir =
             PixelMusicHelper.getDownloadDirectory(context, Constants.Downloads.AUDIO_FILES_FOLDER)
-        val outputFile = File(audioDir, "${song.youtubeId}.webm")
+        val m4aFile = File(audioDir, "${song.youtubeId}.m4a")
+        val webmFile = File(audioDir, "${song.youtubeId}.webm")
 
-        if (outputFile.exists() && outputFile.length() > 0) {
-            return@withContext outputFile.absolutePath
+        if (m4aFile.exists() && m4aFile.length() > 0) {
+            return@withContext m4aFile.absolutePath
+        }
+        if (webmFile.exists() && webmFile.length() > 0) {
+            return@withContext webmFile.absolutePath
         }
 
         val tempFile = File(audioDir, "${song.youtubeId}.tmp")
@@ -111,12 +125,31 @@ object DownloadHelper {
                     throw IOException("Empty stream URL for song ${song.youtubeId}")
                 }
 
+                val isSaavn = url.contains("saavncdn.com") || url.contains("jiosaavn.com")
+                val isM4a = isSaavn || url.contains(".mp4") || url.contains(".m4a")
+                val ext = if (isM4a) "m4a" else "webm"
+                val mimeType = if (isM4a) "audio/mp4" else "audio/webm"
+                val dynamicFileName = "$safeTitle - $safeArtist.$ext"
+                val outputFile = File(audioDir, "${song.youtubeId}.$ext")
+
+                val userAgent = if (isSaavn) {
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+                } else {
+                    Constants.YoutubeApi.USER_AGENT
+                }
+
                 // Determine total length for multi-part parallel downloading if requested
                 var totalLength: Long = -1L
                 try {
                     val headReq = Request.Builder()
                         .url(url)
-                        .header("User-Agent", Constants.YoutubeApi.USER_AGENT)
+                        .header("User-Agent", userAgent)
+                        .apply {
+                            if (isSaavn) {
+                                header("Accept-Language", "en-IN,en;q=0.9")
+                                header("Cookie", "explicit_content=1")
+                            }
+                        }
                         .header("Range", "bytes=0-0")
                         .build()
 
@@ -145,7 +178,13 @@ object DownloadHelper {
 
                                 val req = Request.Builder()
                                     .url(url)
-                                    .header("User-Agent", Constants.YoutubeApi.USER_AGENT)
+                                    .header("User-Agent", userAgent)
+                                    .apply {
+                                        if (isSaavn) {
+                                            header("Accept-Language", "en-IN,en;q=0.9")
+                                            header("Cookie", "explicit_content=1")
+                                        }
+                                    }
                                     .header("Range", "bytes=$start-$end")
                                     .header("Accept", "*/*")
                                     .build()
@@ -177,7 +216,13 @@ object DownloadHelper {
                     // Single stream download with Range header
                     val req = Request.Builder()
                         .url(url)
-                        .header("User-Agent", Constants.YoutubeApi.USER_AGENT)
+                        .header("User-Agent", userAgent)
+                        .apply {
+                            if (isSaavn) {
+                                header("Accept-Language", "en-IN,en;q=0.9")
+                                header("Cookie", "explicit_content=1")
+                            }
+                        }
                         .header("Range", "bytes=0-")
                         .header("Accept", "*/*")
                         .build()
@@ -203,7 +248,7 @@ object DownloadHelper {
                 if (customPath.isNotBlank()) {
                     val treeUri = Uri.parse(customPath)
                     val documentDir = DocumentFile.fromTreeUri(context, treeUri)
-                    val file = documentDir?.createFile("audio/webm", fileName)
+                    val file = documentDir?.createFile(mimeType, dynamicFileName)
                     val outputUri = file?.uri
                     if (outputUri != null) {
                         context.contentResolver.openOutputStream(outputUri)?.use { out ->
@@ -254,9 +299,12 @@ object DownloadHelper {
             val sourceFile = File(sourceFilePath)
             if (!sourceFile.exists()) return null
 
+            val isM4a = sourceFilePath.endsWith(".m4a", ignoreCase = true) || sourceFilePath.endsWith(".mp4", ignoreCase = true)
+            val ext = if (isM4a) "m4a" else "webm"
+            val mimeType = if (isM4a) "audio/mp4" else "audio/webm"
             val safeTitle = songTitle.replace(Regex("[\\\\/:*?\"\\<>|]"), "_")
             val safeArtist = artistName.replace(Regex("[\\\\/:*?\"\\<>|]"), "_")
-            val fileName = "$safeTitle - $safeArtist.webm"
+            val fileName = "$safeTitle - $safeArtist.$ext"
 
             val repo = DatastoreRepository(context)
             val customPath = repo.customDownloadPath.first()
@@ -279,7 +327,7 @@ object DownloadHelper {
             MediaScannerConnection.scanFile(
                 context,
                 arrayOf(destinationFile.absolutePath),
-                arrayOf("audio/webm"),
+                arrayOf(mimeType),
                 null
             )
 

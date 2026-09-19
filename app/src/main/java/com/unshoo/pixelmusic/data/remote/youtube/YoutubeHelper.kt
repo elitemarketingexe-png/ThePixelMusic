@@ -9,6 +9,7 @@ import com.unshoo.pixelmusic.data.model.youtube.Song
 import com.unshoo.pixelmusic.data.model.youtube.PixelMusicSettings
 import com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+import com.unshoo.pixelmusic.data.remote.saavn.SaavnService
 import com.unshoo.pixelmusic.presentation.viewmodel.ConnectivityStateHolder
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -654,6 +655,29 @@ object YoutubeHelper {
     private suspend fun shouldPreferLowQualityFirst(context: Context): Boolean =
         resolveStreamQualityPlan(context).preferLowFirst
 
+    private fun parseDurationToSeconds(durationStr: String?): Int? {
+        if (durationStr.isNullOrBlank()) return null
+        durationStr.toIntOrNull()?.let { return it }
+        val parts = durationStr.split(":").mapNotNull { it.trim().toIntOrNull() }
+        return when (parts.size) {
+            2 -> parts[0] * 60 + parts[1]
+            3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
+            else -> null
+        }
+    }
+
+    private suspend fun fetchSongMetadata(videoId: String): Song? {
+        var result: Song? = null
+        try {
+            SongRepository().getSongInfo(videoId).collect { apiResult ->
+                if (apiResult is ApiResult.Success<Song>) {
+                    result = apiResult.data
+                }
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
     /**
      * Resolve the stream URL for playback using the user's quality setting:
      * - **HIGH**: fetch highest available bitrate first and start on that stream immediately.
@@ -749,6 +773,68 @@ object YoutubeHelper {
                 localFilePathCache.put(videoId, savedSong.audioFilePath)
                 return savedSong.audioFilePath
             }
+        }
+
+        // ── JIOSAAVN HIGH-FIDELITY STREAMING GATE ─────────────────────────────
+        try {
+            val userPreferencesRepository = EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                YoutubeHelperEntryPoint::class.java
+            ).userPreferencesRepository()
+
+            val isSaavnEnabled = userPreferencesRepository.enableSaavnStreamingFlow.first()
+            if (isSaavnEnabled) {
+                var effectiveTitle = song.title.ifBlank { savedSong?.title.orEmpty() }
+                var effectiveArtist = song.artist.ifBlank { savedSong?.artist.orEmpty() }
+                var effectiveAlbum = song.album?.ifBlank { null } ?: savedSong?.album
+                var durationStr = song.duration.ifBlank { savedSong?.duration.orEmpty() }
+                var effectiveDuration = parseDurationToSeconds(durationStr)
+
+                if (effectiveTitle.isBlank() && videoId.isNotBlank()) {
+                    val fetched = fetchSongMetadata(videoId)
+                    if (fetched != null) {
+                        effectiveTitle = fetched.title
+                        effectiveArtist = fetched.artist
+                        effectiveAlbum = fetched.album
+                        effectiveDuration = parseDurationToSeconds(fetched.duration)
+                    }
+                }
+
+                if (effectiveTitle.isNotBlank()) {
+                    val artistsList = effectiveArtist.split(",", "&", "feat.", "ft.", ";")
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+
+                    val saavnResult = SaavnService.resolveStream(
+                        title = effectiveTitle,
+                        artists = if (artistsList.isNotEmpty()) artistsList else listOf(effectiveArtist),
+                        album = effectiveAlbum,
+                        durationSeconds = effectiveDuration,
+                        quality = plan.quality,
+                        maxBitrateKbps = maxBitrate
+                    )
+
+                    if (saavnResult != null && saavnResult.url.isNotBlank()) {
+                        val saavnUrl = saavnResult.url
+                        val saavnBitrate = saavnResult.bitrateKbps * 1000
+                        val mimeType = "audio/mp4"
+
+                        streamUrlLruCache.put(targetCacheKey, saavnUrl)
+                        streamMimeTypeLruCache.put(targetCacheKey, mimeType)
+                        streamBitrateLruCache.put(targetCacheKey, saavnBitrate)
+                        streamUrlLruCache.put("${videoId}_high", saavnUrl)
+                        streamMimeTypeLruCache.put("${videoId}_high", mimeType)
+                        streamBitrateLruCache.put("${videoId}_high", saavnBitrate)
+
+                        PixelMusicHelper.printd(
+                            "$videoId : Playing via JioSaavn HQ stream (${saavnResult.quality}, bitrate=${saavnBitrate})"
+                        )
+                        return saavnUrl
+                    }
+                }
+            }
+        } catch (saavnEx: Exception) {
+            PixelMusicHelper.printe("$videoId : JioSaavn stream resolve exception: ${saavnEx.message}, falling back to YouTube")
         }
 
         // ── Resolve at the selected quality FIRST (no forced low on HIGH) ──────
@@ -995,6 +1081,65 @@ object YoutubeHelper {
         streamUrlLruCache.get(cacheKey)?.let { 
             if (isYoutubeUrlValid(it)) return it 
         }
+
+        // JioSaavn check
+        try {
+            val userPreferencesRepository = EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                YoutubeHelperEntryPoint::class.java
+            ).userPreferencesRepository()
+
+            val isSaavnEnabled = userPreferencesRepository.enableSaavnStreamingFlow.first()
+            if (isSaavnEnabled) {
+                var effectiveTitle = song.title.ifBlank { savedSong?.title.orEmpty() }
+                var effectiveArtist = song.artist.ifBlank { savedSong?.artist.orEmpty() }
+                var effectiveAlbum = song.album?.ifBlank { null } ?: savedSong?.album
+                var durationStr = song.duration.ifBlank { savedSong?.duration.orEmpty() }
+                var effectiveDuration = parseDurationToSeconds(durationStr)
+
+                if (effectiveTitle.isBlank() && videoId.isNotBlank()) {
+                    val fetched = fetchSongMetadata(videoId)
+                    if (fetched != null) {
+                        effectiveTitle = fetched.title
+                        effectiveArtist = fetched.artist
+                        effectiveAlbum = fetched.album
+                        effectiveDuration = parseDurationToSeconds(fetched.duration)
+                    }
+                }
+
+                if (effectiveTitle.isNotBlank()) {
+                    val artistsList = effectiveArtist.split(",", "&", "feat.", "ft.", ";")
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+
+                    val quality = when {
+                        maxBitrateKbps in 1..127 -> StreamingAudioQuality.LOW
+                        maxBitrateKbps in 128..255 -> StreamingAudioQuality.MEDIUM
+                        else -> StreamingAudioQuality.HIGH
+                    }
+
+                    val saavnResult = SaavnService.resolveStream(
+                        title = effectiveTitle,
+                        artists = if (artistsList.isNotEmpty()) artistsList else listOf(effectiveArtist),
+                        album = effectiveAlbum,
+                        durationSeconds = effectiveDuration,
+                        quality = quality,
+                        maxBitrateKbps = maxBitrateKbps
+                    )
+
+                    if (saavnResult != null && saavnResult.url.isNotBlank()) {
+                        val saavnUrl = saavnResult.url
+                        val saavnBitrate = saavnResult.bitrateKbps * 1000
+                        val mimeType = "audio/mp4"
+
+                        streamUrlLruCache.put(cacheKey, saavnUrl)
+                        streamMimeTypeLruCache.put(cacheKey, mimeType)
+                        streamBitrateLruCache.put(cacheKey, saavnBitrate)
+                        return saavnUrl
+                    }
+                }
+            }
+        } catch (_: Exception) {}
 
         val urlResult = getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = maxBitrateKbps)
         val url = urlResult.first
@@ -1694,7 +1839,9 @@ object YoutubeHelper {
         // Doing a HEAD/range probe here was a major low-connectivity stall source.
         return@withContext url.contains("googlevideo.com", ignoreCase = true) ||
             url.contains("youtube.com", ignoreCase = true) ||
-            url.contains("ggpht.com", ignoreCase = true)
+            url.contains("ggpht.com", ignoreCase = true) ||
+            url.contains("saavncdn.com", ignoreCase = true) ||
+            url.contains("jiosaavn.com", ignoreCase = true)
     }
 
     fun findObjectsWithKey(element: JsonElement, key: String, result: MutableList<JsonObject>) {

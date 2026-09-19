@@ -104,13 +104,10 @@ class SongDownloadWorker(
                         }
                     }
 
-                val songKey = com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(song.title, song.artist)
-                val localMatching = if (songKey != null) {
-                    musicDao.getSongsBySourceType(0).firstOrNull { localSong ->
-                        localSong.filePath.isNotBlank() && File(localSong.filePath).length() > 0L &&
-                            com.unshoo.pixelmusic.utils.OfflineAudioResolver.alternativeKey(localSong.title, localSong.artistName) == songKey
-                    }
-                } else null
+                val localMatching = com.unshoo.pixelmusic.utils.LocalAudioDuplicateMatcher.findMatchingLocalSong(
+                    localSongs = musicDao.getSongsBySourceType(0),
+                    song = song
+                )
 
                 val isExistingLocal = localMatching != null
                 val audioPath = if (localMatching != null) {

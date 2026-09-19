@@ -503,17 +503,32 @@ class CloudTrackDownloadWorker @AssistedInject constructor(
                 if (streamUrl.isBlank()) {
                     throw IOException("Failed to resolve audio stream URL")
                 }
+                val isSaavn = streamUrl.contains("saavncdn.com") || streamUrl.contains("jiosaavn.com")
+                val userAgent = if (isSaavn) {
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+                } else {
+                    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36"
+                }
+                val headers = if (isSaavn) {
+                    mapOf(
+                        "User-Agent" to userAgent,
+                        "Accept-Language" to "en-IN,en;q=0.9",
+                        "Cookie" to "explicit_content=1"
+                    )
+                } else {
+                    mapOf("User-Agent" to userAgent)
+                }
                 DownloadSource(
                     url = streamUrl,
-                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36"),
-                    allowedHost = "https://googlevideo.com"
+                    headers = headers,
+                    allowedHost = if (isSaavn) "https://saavncdn.com" else "https://googlevideo.com"
                 )
             }
             else -> throw IOException("Unsupported cloud provider: ${parsed.scheme}")
         }.also { source ->
             if (!CloudStreamSecurity.isSafeRemoteStreamUrl(
                     url = source.url,
-                    allowedHostSuffixes = setOf("googlevideo.com", "youtube.com"),
+                    allowedHostSuffixes = setOf("googlevideo.com", "youtube.com", "saavncdn.com", "jiosaavn.com"),
                     allowHttpForAllowedHosts = true
                 )
             ) {
