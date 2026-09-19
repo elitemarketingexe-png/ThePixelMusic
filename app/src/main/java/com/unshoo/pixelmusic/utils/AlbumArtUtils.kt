@@ -19,7 +19,7 @@ import java.io.FileInputStream
 import java.io.InputStream
 
 object AlbumArtUtils {
-    private const val CACHE_VERSION_SUFFIX = "_v4"
+    private const val CACHE_VERSION_SUFFIX = "_v5"
     private const val MAX_CACHED_ART_DIMENSION = 1280
     private const val MAX_RAW_ART_BYTES_TO_KEEP = 512 * 1024
 
@@ -57,10 +57,6 @@ object AlbumArtUtils {
 
     /**
      * Main function to get album art for local songs.
-     *
-     * Local artwork is intentionally embedded-only. Falling back to folder images such as
-     * cover.jpg/thumb.jpg can pick unrelated Gallery files when music is stored in mixed
-     * directories, and can duplicate the same image across unrelated tracks.
      */
     fun getAlbumArtUri(
         appContext: Context,
@@ -90,7 +86,10 @@ object AlbumArtUtils {
         appContext: Context,
         songId: Long
     ): Boolean {
-        return getCachedAlbumArtFile(appContext, songId).exists()
+        val current = getCachedAlbumArtFile(appContext, songId)
+        if (current.exists() && current.length() > 0) return true
+        val legacy = legacyCachedAlbumArtFile(appContext, songId, "_v4")
+        return legacy.exists() && legacy.length() > 0
     }
 
     /**
@@ -122,6 +121,14 @@ object AlbumArtUtils {
                 cachedFile.setLastModified(System.currentTimeMillis())
                 return cachedFile
             }
+            // Check legacy v4 file to preserve previously decoded art without re-extraction
+            val legacyV4 = legacyCachedAlbumArtFile(appContext, songId, "_v4")
+            if (legacyV4.exists() && legacyV4.length() > 0) {
+                if (legacyV4.renameTo(cachedFile)) {
+                    cachedFile.setLastModified(System.currentTimeMillis())
+                    return cachedFile
+                }
+            }
             if (noArtFile.exists()) {
                 return null
             }
@@ -130,16 +137,67 @@ object AlbumArtUtils {
             noArtFile.delete()
         }
 
-        val resolvedPath = filePath ?: resolveSongMediaStoreInfo(appContext, songId)?.path ?: return null
-        if (!File(resolvedPath).exists()) {
-            return null
-        }
+        val mediaInfo = resolveSongMediaStoreInfo(appContext, songId)
+        val resolvedPath = filePath ?: mediaInfo?.path
+        val songUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId)
 
-        extractEmbeddedAlbumArtBytes(resolvedPath)?.let { bytes ->
-            cacheAlbumArtBytes(appContext, bytes, songId)
+        // Stage 1: Embedded artwork from file path
+        val fileBytes = resolvedPath?.takeIf { File(it).exists() }?.let { extractEmbeddedAlbumArtBytes(it) }
+
+        // Stage 2: Embedded artwork via ContentResolver FileDescriptor (bypasses Scoped Storage restrictions)
+        val pfdBytes = fileBytes ?: runCatching {
+            appContext.contentResolver.openFileDescriptor(songUri, "r")?.use { pfd ->
+                MediaMetadataRetrieverPool.withRetriever { retriever ->
+                    retriever.setDataSource(pfd.fileDescriptor)
+                    retriever.embeddedPicture?.takeIf { it.isNotEmpty() }
+                }
+            }
+        }.getOrNull()
+
+        // Stage 3: MediaStore Album Art URI
+        val albumId = mediaInfo?.albumId
+        val mediaStoreBytes = pfdBytes ?: if (albumId != null && albumId > 0L) {
+            runCatching {
+                val albumArtUri = ContentUris.withAppendedId(
+                    "content://media/external/audio/albumart".toUri(),
+                    albumId
+                )
+                appContext.contentResolver.openInputStream(albumArtUri)?.use { input ->
+                    input.readBytes().takeIf { it.isNotEmpty() }
+                }
+            }.getOrNull()
+        } else null
+
+        // Stage 4: Android 10+ (API 29+) loadThumbnail
+        val thumbBytes = mediaStoreBytes ?: if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            runCatching {
+                appContext.contentResolver.loadThumbnail(songUri, android.util.Size(512, 512), null)
+            }.getOrNull()?.let { bmp ->
+                try {
+                    ByteArrayOutputStream().use { bos ->
+                        bmp.compress(Bitmap.CompressFormat.JPEG, 88, bos)
+                        bos.toByteArray().takeIf { it.isNotEmpty() }
+                    }
+                } finally {
+                    bmp.recycle()
+                }
+            }
+        } else null
+
+        // Stage 5: External cover art in same directory (cover.jpg, folder.jpg, etc.)
+        val dirPath = resolvedPath ?: mediaInfo?.path
+        val artBytes = thumbBytes ?: if (!dirPath.isNullOrBlank()) {
+            findExternalAlbumArtFile(dirPath)?.let { artFile ->
+                runCatching { artFile.readBytes().takeIf { it.isNotEmpty() } }.getOrNull()
+            }
+        } else null
+
+        if (artBytes != null && artBytes.isNotEmpty()) {
+            cacheAlbumArtBytes(appContext, artBytes, songId)
             return cachedFile.takeIf { it.exists() && it.length() > 0 }
         }
 
+        // If all stages fail, mark with no-art file
         cachedFile.delete()
         noArtFile.createNewFile()
         return null
@@ -171,38 +229,24 @@ object AlbumArtUtils {
         songId: Long,
         deepScan: Boolean
     ): Boolean {
-        val audioFile = File(filePath)
-        if (!audioFile.exists() || !audioFile.canRead()) {
-            return false
-        }
-
         val cachedFile = getCachedAlbumArtFile(appContext, songId)
         val noArtFile = noArtMarkerFile(appContext, songId)
 
         if (!deepScan) {
-            if (noArtFile.exists()) {
-                if (cachedFile.exists()) {
-                    cachedFile.delete()
-                }
-                return false
-            }
-
             if (cachedFile.exists() && cachedFile.length() > 0) {
                 return true
             }
-        } else {
-            noArtFile.delete()
+            val legacyV4 = legacyCachedAlbumArtFile(appContext, songId, "_v4")
+            if (legacyV4.exists() && legacyV4.length() > 0) {
+                return true
+            }
+            if (noArtFile.exists()) {
+                return false
+            }
         }
 
-        val hasEmbeddedArt = extractEmbeddedAlbumArtBytes(filePath)?.isNotEmpty() == true
-        if (hasEmbeddedArt) {
-            noArtFile.delete()
-            return true
-        }
-
-        cachedFile.delete()
-        noArtFile.createNewFile()
-        return false
+        // Check or resolve via ensureAlbumArtCachedFile across all stages
+        return ensureAlbumArtCachedFile(appContext, songId, filePath, deepScan) != null
     }
 
     /**
@@ -274,6 +318,8 @@ object AlbumArtUtils {
         listOf(
             getCachedAlbumArtFile(appContext, songId),
             noArtMarkerFile(appContext, songId),
+            legacyCachedAlbumArtFile(appContext, songId, "_v4"),
+            legacyNoArtMarkerFile(appContext, songId, "_v4"),
             legacyCachedAlbumArtFile(appContext, songId, "_v2"),
             legacyNoArtMarkerFile(appContext, songId, "_v2"),
             legacyCachedAlbumArtFile(appContext, songId),

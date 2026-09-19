@@ -224,6 +224,8 @@ fun SmartImage(
             } else {
                 model
             }
+        } else if (model is String && model.startsWith("/")) {
+            java.io.File(model)
         } else {
             model
         }

@@ -15,7 +15,7 @@ object LocalArtworkUri {
     }
 
     fun isLocalArtworkUri(uri: Uri?): Boolean {
-        return uri?.toString()?.let(::isLocalArtworkUri) == true
+        return uri?.scheme == SCHEME || uri?.toString()?.let(::isLocalArtworkUri) == true
     }
 
     fun parseSongId(uriString: String): Long? {
@@ -86,9 +86,13 @@ object LocalArtworkUri {
         songId: Long,
         contentUriString: String
     ): String? {
-        val normalizedStoredUri = storedUri?.takeIf { it.isNotBlank() } ?: return null
         if (!isLikelyLocalMedia(contentUriString)) {
-            return normalizedStoredUri
+            return storedUri?.takeIf { it.isNotBlank() }
+        }
+
+        val normalizedStoredUri = storedUri?.takeIf { it.isNotBlank() }
+        if (normalizedStoredUri == null) {
+            return if (songId > 0L) buildSongUri(songId) else null
         }
 
         return when {

@@ -192,7 +192,11 @@ private fun DailyMixCard(
     playerViewModel: PlayerViewModel,
     onMoreOptionsClick: (Song) -> Unit
 ) {
-    val headerSongs = songs.take(3).toImmutableList()
+    val headerSongs = remember(songs) {
+        val withArt = songs.filter { !it.albumArtUriString.isNullOrBlank() }
+            .distinctBy { it.albumArtUriString }
+        (withArt + songs).distinctBy { it.id }.take(3).toImmutableList()
+    }
     val visibleSongs = songs.take(4).toImmutableList()
     val cornerRadius = 30.dp
     Card(
@@ -359,7 +363,7 @@ private fun DailyMixSongList(
                 containerColorOverride = itemContainerColor,
                 onMoreOptionsClick = onMoreOptionsClick,
                 customShape = RoundedCornerShape(10.dp),
-                showAlbumArt = false,
+                showAlbumArt = true,
                 onClick = {
                     playerViewModel.showAndPlaySong(
                         song = song,

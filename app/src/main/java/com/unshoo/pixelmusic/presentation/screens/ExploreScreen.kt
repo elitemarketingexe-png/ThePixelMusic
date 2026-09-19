@@ -135,6 +135,7 @@ import com.unshoo.pixelmusic.presentation.components.PlayingWaveBars
 import com.unshoo.pixelmusic.presentation.components.PlaylistCover
 import com.unshoo.pixelmusic.presentation.components.QuickPicksSection
 import com.unshoo.pixelmusic.presentation.components.SmartImage
+import com.unshoo.pixelmusic.presentation.components.SmartImageCardTargetSize
 import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
 import com.unshoo.pixelmusic.presentation.navigation.navigateToTopLevelSafely
@@ -1293,23 +1294,14 @@ private fun FeedTrackCard(
                 modifier = Modifier.fillMaxSize()
             ) {
                 Box(Modifier.fillMaxSize()) {
-                    if (!artworkUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = artworkUrl,
-                            contentDescription = title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Filled.MusicNote,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-                    }
+                    SmartImage(
+                        model = artworkUrl,
+                        contentDescription = title,
+                        contentScale = ContentScale.Crop,
+                        shape = cardShape,
+                        targetSize = SmartImageCardTargetSize,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
                     if (badgeText != null) {
                         Surface(

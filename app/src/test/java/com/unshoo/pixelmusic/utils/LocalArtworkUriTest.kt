@@ -73,4 +73,26 @@ class LocalArtworkUriTest {
 
         assertThat(cacheBustToken).isEqualTo("456")
     }
+
+    @Test
+    fun resolveSongArtworkUri_fallsBackToSongUriForLocalMediaWithNullStoredUri() {
+        val resolved = LocalArtworkUri.resolveSongArtworkUri(
+            storedUri = null,
+            songId = 42L,
+            contentUriString = "content://media/external/audio/media/42"
+        )
+
+        assertThat(resolved).isEqualTo(LocalArtworkUri.buildSongUri(42L))
+    }
+
+    @Test
+    fun resolveSongArtworkUri_returnsNullForRemoteMediaWithNullStoredUri() {
+        val resolved = LocalArtworkUri.resolveSongArtworkUri(
+            storedUri = null,
+            songId = 42L,
+            contentUriString = "youtube://dQw4w9WgXcQ"
+        )
+
+        assertThat(resolved).isNull()
+    }
 }

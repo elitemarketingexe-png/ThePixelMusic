@@ -82,43 +82,7 @@ class DailyMixStateHolder @Inject constructor(
                 .filter { ySong ->
                     val path = ySong.audioFilePath
                     path?.startsWith("content://") == true || (path != null && java.io.File(path).let { it.isFile && it.length() > 0L })
-                }.map { ySong ->
-                    val primaryArtistId = YouTubeIdUtils.toUnifiedYoutubeArtistId(ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist")
-                    val songAlbum = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
-                    Song(
-                        id = "youtube_${ySong.youtubeId}",
-                        title = ySong.title,
-                        artist = ySong.artist,
-                        artistId = primaryArtistId,
-                        artists = listOf(
-                            com.unshoo.pixelmusic.data.model.ArtistRef(
-                                id = primaryArtistId,
-                                name = ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist",
-                                isPrimary = true
-                            )
-                        ),
-                        album = songAlbum,
-                        albumId = YouTubeIdUtils.toUnifiedYoutubeAlbumId(songAlbum),
-                        albumArtist = null,
-                        path = ySong.audioFilePath ?: "",
-                        contentUriString = "youtube://${ySong.youtubeId}",
-                        albumArtUriString = ySong.thumbnailPath ?: ySong.thumbnailHref,
-                        duration = parseDurationStringToMillis(ySong.duration),
-                        genre = ySong.genre ?: "YouTube Music",
-                        lyrics = null,
-                        isFavorite = false,
-                        trackNumber = 0,
-                        discNumber = null,
-                        year = 0,
-                        dateAdded = ySong.downloadTimestamp,
-                        dateModified = 0,
-                        mimeType = "audio/opus",
-                        bitrate = null,
-                        sampleRate = null,
-                        youtubeId = ySong.youtubeId,
-                        albumBrowseId = ySong.albumBrowseId
-                    )
-                }
+                }.map { it.toSong() }
         } catch (e: Exception) {
             emptyList()
         }
@@ -150,6 +114,64 @@ class DailyMixStateHolder @Inject constructor(
         }
 
         return (offlinePlayable + librarySongs).distinctBy { it.id }
+    }
+
+    private fun com.unshoo.pixelmusic.data.model.youtube.Song.toSong(): Song {
+        val primaryArtistId = YouTubeIdUtils.toUnifiedYoutubeArtistId(artist.takeIf { it.isNotBlank() } ?: "Unknown Artist")
+        val songAlbum = album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
+        return Song(
+            id = "youtube_$youtubeId",
+            title = title,
+            artist = artist,
+            artistId = primaryArtistId,
+            artists = listOf(
+                com.unshoo.pixelmusic.data.model.ArtistRef(
+                    id = primaryArtistId,
+                    name = artist.takeIf { it.isNotBlank() } ?: "Unknown Artist",
+                    isPrimary = true
+                )
+            ),
+            album = songAlbum,
+            albumId = YouTubeIdUtils.toUnifiedYoutubeAlbumId(songAlbum),
+            albumArtist = null,
+            path = audioFilePath ?: "",
+            contentUriString = "youtube://$youtubeId",
+            albumArtUriString = thumbnailPath ?: thumbnailHref,
+            duration = parseDurationStringToMillis(duration),
+            genre = genre ?: "YouTube Music",
+            lyrics = null,
+            isFavorite = false,
+            trackNumber = 0,
+            discNumber = null,
+            year = 0,
+            dateAdded = downloadTimestamp,
+            dateModified = 0,
+            mimeType = "audio/opus",
+            bitrate = null,
+            sampleRate = null,
+            youtubeId = youtubeId,
+            albumBrowseId = albumBrowseId
+        )
+    }
+
+    private suspend fun resolveSongsByIds(ids: List<String>): List<Song> {
+        if (ids.isEmpty()) return emptyList()
+        val librarySongs = musicRepository.getSongsByIdsOnce(ids)
+        val libraryMap = librarySongs.associateBy { it.id }
+        val missingIds = ids.filterNot { libraryMap.containsKey(it) }
+        if (missingIds.isEmpty()) return librarySongs
+
+        val downloadedSongs = runCatching {
+            com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                .songRepository().getDownloadedSongs()
+                .map { it.toSong() }
+        }.getOrDefault(emptyList())
+
+        val downloadedMatched = missingIds.mapNotNull { id ->
+            downloadedSongs.firstOrNull { s -> s.id == id || s.youtubeId == id || "youtube_${s.youtubeId}" == id }
+                ?.let { if (it.id != id) it.copy(id = id) else it }
+        }
+        return librarySongs + downloadedMatched
     }
 
     /**
@@ -186,13 +208,11 @@ class DailyMixStateHolder @Inject constructor(
             val dailyMixIds = userPreferencesRepository.dailyMixSongIdsFlow.first()
             if (dailyMixIds.isNotEmpty() && _dailyMixSongs.value.isEmpty()) {
                 val songs = withContext(Dispatchers.IO) {
-                    musicRepository.getSongsByIdsOnce(dailyMixIds)
+                    resolveSongsByIds(dailyMixIds)
                 }
                 if (songs.isNotEmpty()) {
-                    // Maintain persisted order
                     val songMap = songs.associateBy { it.id }
-                    val orderedSongs = dailyMixIds.mapNotNull { songMap[it] }
-                    _dailyMixSongs.value = orderedSongs.toImmutableList()
+                    _dailyMixSongs.value = dailyMixIds.mapNotNull { songMap[it] }.toImmutableList()
                 }
             }
         }
@@ -202,12 +222,11 @@ class DailyMixStateHolder @Inject constructor(
             val yourMixIds = userPreferencesRepository.yourMixSongIdsFlow.first()
             if (yourMixIds.isNotEmpty() && _yourMixSongs.value.isEmpty()) {
                 val songs = withContext(Dispatchers.IO) {
-                    musicRepository.getSongsByIdsOnce(yourMixIds)
+                    resolveSongsByIds(yourMixIds)
                 }
                 if (songs.isNotEmpty()) {
                     val songMap = songs.associateBy { it.id }
-                    val orderedSongs = yourMixIds.mapNotNull { songMap[it] }
-                    _yourMixSongs.value = orderedSongs.toImmutableList()
+                    _yourMixSongs.value = yourMixIds.mapNotNull { songMap[it] }.toImmutableList()
                 }
             }
         }
@@ -226,14 +245,15 @@ class DailyMixStateHolder @Inject constructor(
             val allSongs = loadMixCandidates()
             if (allSongs.isNotEmpty()) {
                 val favoriteIds = favoriteSongIdsFlow.first()
+                val freshnessSalt = System.currentTimeMillis()
 
                 // Generate daily mix
-                val mix = dailyMixManager.generateDailyMix(allSongs, favoriteIds)
+                val mix = dailyMixManager.generateDailyMix(allSongs, favoriteIds, seedSalt = freshnessSalt)
                 _dailyMixSongs.value = mix.toImmutableList()
                 userPreferencesRepository.saveDailyMixSongIds(mix.map { it.id })
 
                 // Generate your mix
-                val yourMix = dailyMixManager.generateYourMix(allSongs, favoriteIds)
+                val yourMix = dailyMixManager.generateYourMix(allSongs, favoriteIds, seedSalt = freshnessSalt + 42L)
                 _yourMixSongs.value = yourMix.toImmutableList()
                 userPreferencesRepository.saveYourMixSongIds(yourMix.map { it.id })
             } else {

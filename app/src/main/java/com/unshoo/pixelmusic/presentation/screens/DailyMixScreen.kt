@@ -461,7 +461,11 @@ private fun ExpressiveDailyMixHeader(
 ) {
     val dailyMixHeaderTitle = stringResource(R.string.presentation_batch_b_daily_mix_title)
     Trace.beginSection("ExpressiveDailyMixHeader.Composition")
-    val albumArts = remember(songs) { songs.map { it.albumArtUriString }.distinct().take(3) }
+    val albumArts = remember(songs) {
+        songs.mapNotNull { it.albumArtUriString?.takeIf { uri -> uri.isNotBlank() } }
+            .distinct()
+            .take(3)
+    }
     val totalDuration = remember(songs) { songs.sumOf { it.duration } }
 
     val parallaxOffset by remember { derivedStateOf { if (scrollState.firstVisibleItemIndex == 0) scrollState.firstVisibleItemScrollOffset * 0.5f else 0f } }
@@ -522,7 +526,7 @@ private fun ExpressiveDailyMixHeader(
                                     .clip(shape)
                             ) {
                                 SmartImage(
-                                    model = artUrl ?: R.drawable.rounded_album_24,
+                                    model = artUrl,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
@@ -537,7 +541,7 @@ private fun ExpressiveDailyMixHeader(
                                 .clip(shape)
                         ) {
                             SmartImage(
-                                model = artUrl ?: R.drawable.rounded_album_24,
+                                model = artUrl,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()

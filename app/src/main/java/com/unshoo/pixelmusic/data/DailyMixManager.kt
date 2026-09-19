@@ -298,7 +298,8 @@ class DailyMixManager @Inject constructor(
     private suspend fun computeRankedSongs(
         allSongs: List<Song>,
         favoriteSongIds: Set<String>,
-        random: java.util.Random
+        random: java.util.Random,
+        seed: Long = 0L
     ): List<RankedSong> = kotlinx.coroutines.withContext(Dispatchers.Default) {
         if (allSongs.isEmpty()) return@withContext emptyList()
 
@@ -353,18 +354,20 @@ class DailyMixManager @Inject constructor(
             val noveltyScore = computeNoveltyScore(song.dateAdded, now)
             val favoriteScore = if (favoriteSongIds.contains(song.id)) 1.0 else 0.0
             val baselineScore = if (stats == null) 0.1 else 0.0
-            val noise = random.nextDouble() * 0.003
+            val rotationJitter = ((song.id.hashCode() + seed).and(0x7FFFFFFF) % 1000) / 1000.0 * 0.18
+            val noise = random.nextDouble() * 0.12
 
-            val finalScore = (preferenceScore * 0.45) +
-                (affinityScore * 0.25) +
+            val finalScore = (preferenceScore * 0.40) +
+                (affinityScore * 0.20) +
                 (recencyScore * 0.15) +
-                (favoriteScore * 0.1) +
+                (favoriteScore * 0.10) +
                 (noveltyScore * 0.05) +
-                baselineScore + noise
+                baselineScore + rotationJitter + noise
 
-            val discoveryScore = ((1.0 - affinityScore).coerceIn(0.0, 1.0) * 0.6) +
-                (noveltyScore * 0.25) +
-                (preferenceScore * 0.15)
+            val discoveryScore = ((1.0 - affinityScore).coerceIn(0.0, 1.0) * 0.5) +
+                (noveltyScore * 0.3) +
+                (preferenceScore * 0.2) +
+                (((song.id.hashCode() + seed * 31).and(0x7FFFFFFF) % 1000) / 1000.0 * 0.15)
 
             RankedSong(
                 song = song,
@@ -381,47 +384,71 @@ class DailyMixManager @Inject constructor(
     suspend fun generateDailyMix(
         allSongs: List<Song>,
         favoriteSongIds: Set<String> = emptySet(),
-        limit: Int = 30
+        limit: Int = 30,
+        seedSalt: Long = 0L
     ): List<Song> {
         if (allSongs.isEmpty()) {
             return emptyList()
         }
 
         val calendar = Calendar.getInstance()
-        val seed = calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR)
-        val random = java.util.Random(seed.toLong())
+        val daySeed = calendar.get(Calendar.YEAR) * 1000L + calendar.get(Calendar.DAY_OF_YEAR)
+        val finalSeed = if (seedSalt != 0L) daySeed xor seedSalt else daySeed
+        val random = java.util.Random(finalSeed)
 
-        val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random)
+        val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random, finalSeed)
         if (rankedSongs.isEmpty()) {
             return allSongs.shuffled(random).take(limit.coerceAtMost(allSongs.size))
         }
 
-        val selected = pickWithDiversity(rankedSongs, favoriteSongIds, limit)
-        if (selected.size >= limit || selected.size == rankedSongs.size) {
-            return selected
+        val coreLimit = (limit * 0.45).toInt().coerceAtLeast(3)
+        val discoveryLimit = (limit * 0.35).toInt().coerceAtLeast(2)
+        val varietyLimit = (limit - coreLimit - discoveryLimit).coerceAtLeast(0)
+
+        // 1. Core / Top affinity songs with rotational variety
+        val coreSection = pickWithDiversity(rankedSongs, favoriteSongIds, coreLimit)
+        val selectedIds = coreSection.map { it.id }.toMutableSet()
+
+        // 2. Discovery candidates (gems not played recently or new library additions)
+        val discoveryCandidates = rankedSongs
+            .filterNot { selectedIds.contains(it.song.id) }
+            .sortedWith(compareByDescending<RankedSong> { it.discoveryScore }.thenBy { it.song.id })
+        val discoverySection = pickWithDiversity(discoveryCandidates, favoriteSongIds, discoveryLimit)
+        selectedIds.addAll(discoverySection.map { it.id })
+
+        // 3. Variety section (randomized rotation from the rest of the library)
+        val varietyCandidates = rankedSongs
+            .filterNot { selectedIds.contains(it.song.id) }
+            .shuffled(random)
+        val varietySection = pickWithDiversity(varietyCandidates, favoriteSongIds, varietyLimit)
+        selectedIds.addAll(varietySection.map { it.id })
+
+        val combined = (coreSection + discoverySection + varietySection).toMutableList()
+        if (combined.size < limit) {
+            val remaining = allSongs
+                .filterNot { selectedIds.contains(it.id) }
+                .shuffled(random)
+            combined.addAll(remaining.take(limit - combined.size))
         }
 
-        val remaining = allSongs
-            .filterNot { song -> selected.any { it.id == song.id } }
-            .shuffled(random)
-
-        val combined = (selected + remaining).distinctBy { it.id }
-        return combined.take(limit.coerceAtMost(combined.size))
+        return combined.take(limit)
     }
 
     suspend fun generateYourMix(
         allSongs: List<Song>,
         favoriteSongIds: Set<String> = emptySet(),
-        limit: Int = 60
+        limit: Int = 60,
+        seedSalt: Long = 0L
     ): List<Song> {
         if (allSongs.isEmpty()) {
             return emptyList()
         }
 
         val calendar = Calendar.getInstance()
-        val seed = calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR) + 17
-        val random = java.util.Random(seed.toLong())
-        val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random)
+        val daySeed = calendar.get(Calendar.YEAR) * 1000L + calendar.get(Calendar.DAY_OF_YEAR) + 17L
+        val finalSeed = if (seedSalt != 0L) daySeed xor seedSalt else daySeed
+        val random = java.util.Random(finalSeed)
+        val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random, finalSeed)
 
         if (rankedSongs.isEmpty()) {
             return allSongs.shuffled(random).take(limit.coerceAtMost(allSongs.size))
@@ -490,7 +517,7 @@ class DailyMixManager @Inject constructor(
         val seed = calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR) + 42
         val random = java.util.Random(seed.toLong())
 
-        val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random)
+        val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random, seed.toLong())
         if (rankedSongs.isEmpty()) {
             return allSongs.take(limit.coerceAtMost(allSongs.size))
         }
