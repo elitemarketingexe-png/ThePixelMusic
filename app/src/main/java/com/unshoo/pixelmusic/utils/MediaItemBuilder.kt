@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.unshoo.pixelmusic.data.provider.SharedArtworkContentProvider
 import com.unshoo.pixelmusic.data.model.Song
+import com.unshoo.pixelmusic.data.service.player.DualPlayerEngine
 import java.io.File
 
 object MediaItemBuilder {
@@ -101,6 +102,9 @@ object MediaItemBuilder {
     const val EXTERNAL_EXTRA_NAVIDROME_ID = EXTERNAL_EXTRA_PREFIX + "NAVIDROME_ID"
 
     fun build(song: Song): MediaItem {
+        if (song.contentUriString.startsWith("youtube://") && song.path.isNotBlank()) {
+            DualPlayerEngine.registerLocalPath(song.contentUriString, song.path)
+        }
         return MediaItem.Builder()
             .setMediaId(song.id)
             .setUri(playbackUri(song))
@@ -110,6 +114,9 @@ object MediaItemBuilder {
     }
 
     fun buildForExternalController(context: Context, song: Song): MediaItem {
+        if (song.contentUriString.startsWith("youtube://") && song.path.isNotBlank()) {
+            DualPlayerEngine.registerLocalPath(song.contentUriString, song.path)
+        }
         return MediaItem.Builder()
             .setMediaId(song.id)
             .setUri(playbackUri(song))

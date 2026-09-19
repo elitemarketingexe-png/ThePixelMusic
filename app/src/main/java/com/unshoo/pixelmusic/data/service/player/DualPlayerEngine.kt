@@ -58,6 +58,8 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import dagger.Lazy
+import com.unshoo.pixelmusic.data.database.MusicDao
 
 
 
@@ -85,9 +87,10 @@ class DualPlayerEngine @Inject constructor(
     private val telegramCacheManager: com.unshoo.pixelmusic.data.telegram.TelegramCacheManager,
     private val connectivityStateHolder: com.unshoo.pixelmusic.presentation.viewmodel.ConnectivityStateHolder,
     private val exoCache: com.unshoo.pixelmusic.data.remote.youtube.ExoCache,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val musicDaoLazy: Lazy<MusicDao>
 ) {
-    private companion object {
+    companion object {
         private const val AUDIO_OFFLOAD_BUFFERING_FALLBACK_MS = 4_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = 200
         private const val STREAM_RESOLVE_TIMEOUT_MS = 8_000L
@@ -108,6 +111,16 @@ class DualPlayerEngine @Inject constructor(
         private const val FIRST_CHUNK_PRECACHE_BYTES = 256L * 1024L // 256KB — enough for instant start
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
         private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "gdrive", "youtube")
+
+        private val localFilePathCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+        fun registerLocalPath(youtubeUri: String, filePath: String) {
+            if (filePath.isNotBlank()) {
+                localFilePathCache[youtubeUri] = filePath
+            }
+        }
+
+        fun getCachedLocalPath(youtubeUri: String): String? = localFilePathCache[youtubeUri]
     }
 
     data class TransitionTarget(
@@ -444,7 +457,6 @@ class DualPlayerEngine @Inject constructor(
     private var isReleased = false
     internal val resolvedUriCache = LruCache<String, Uri>(100)
     private val activePlaybackResolvedUris = java.util.concurrent.ConcurrentHashMap<String, Uri>()
-    private val localFilePathCache = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val activeResolutions = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Uri>>()
 
     /** Fire-and-forget stream resolve used by the non-blocking ResolvingDataSource path. */
@@ -461,7 +473,9 @@ class DualPlayerEngine @Inject constructor(
     fun getCachedResolvedUri(uri: Uri): Uri? {
         val uriString = uri.toString()
         localFilePathCache[uriString]?.let { localPath ->
-            if (java.io.File(localPath).exists()) return Uri.fromFile(java.io.File(localPath))
+            if (localPath.startsWith("content://")) return Uri.parse(localPath)
+            val f = java.io.File(localPath)
+            if (f.isFile && f.length() > 0L) return Uri.fromFile(f)
         }
         val cached = resolvedUriCache.get(uriString) ?: activePlaybackResolvedUris[uriString]
         return if (cached != null && isResolvedUriFresh(uriString, cached)) cached else null
@@ -578,9 +592,7 @@ class DualPlayerEngine @Inject constructor(
 
 
     fun registerLocalPath(youtubeUri: String, filePath: String) {
-        if (filePath.isNotBlank()) {
-            localFilePathCache[youtubeUri] = filePath
-        }
+        Companion.registerLocalPath(youtubeUri, filePath)
     }
 
     fun resolveLocalDiskFile(uriString: String): Uri? {
@@ -682,6 +694,18 @@ class DualPlayerEngine @Inject constructor(
                     // on every toggle causes audible gaps and UI churn on low-end devices.
                     if (::playerA.isInitialized) applyAudioOffloadToActivePlayers()
                 }
+            }
+        }
+
+        // Asynchronously warm up YouTube local-file linkages from Room DB for zero-latency playback
+        scope.launch(Dispatchers.IO) {
+            try {
+                val mappings = musicDaoLazy.get().getYoutubeLinkedLocalPaths()
+                mappings.forEach { mapping ->
+                    Companion.registerLocalPath(mapping.contentUriString, mapping.filePath)
+                }
+            } catch (e: Exception) {
+                Timber.tag("DualPlayerEngine").w(e, "Failed to warm up YouTube local path links")
             }
         }
     }

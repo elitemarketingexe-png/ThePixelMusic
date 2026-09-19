@@ -1,6 +1,7 @@
 package com.unshoo.pixelmusic.data.database
 
 import androidx.paging.PagingSource
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -100,8 +101,60 @@ data class DeviceCapabilitySongRow(
     val sourceType: Int
 )
 
+data class LocalMatchCandidate(
+    val id: Long,
+    val title: String,
+    @ColumnInfo(name = "artist_name") val artistName: String,
+    val duration: Long,
+    @ColumnInfo(name = "content_uri_string") val contentUriString: String,
+    @ColumnInfo(name = "file_path") val filePath: String,
+    @ColumnInfo(name = "album_art_uri_string") val albumArtUriString: String?,
+    @ColumnInfo(name = "is_favorite") val isFavorite: Boolean
+)
+
+data class YoutubeUnlinkedSong(
+    val id: Long,
+    val title: String,
+    @ColumnInfo(name = "artist_name") val artistName: String,
+    val duration: Long,
+    @ColumnInfo(name = "content_uri_string") val contentUriString: String,
+    @ColumnInfo(name = "file_path") val filePath: String,
+    @ColumnInfo(name = "is_favorite") val isFavorite: Boolean
+)
+
+data class YoutubeLocalPathMapping(
+    @ColumnInfo(name = "content_uri_string") val contentUriString: String,
+    @ColumnInfo(name = "file_path") val filePath: String
+)
+
 @Dao
 interface MusicDao {
+
+    @Query("""
+        SELECT id, title, artist_name, duration, content_uri_string, file_path, album_art_uri_string, is_favorite
+        FROM songs
+        WHERE source_type = 0
+          AND title != ''
+          AND artist_name != ''
+    """)
+    suspend fun getAllLocalMatchCandidates(): List<LocalMatchCandidate>
+
+    @Query("""
+        SELECT id, title, artist_name, duration, content_uri_string, file_path, is_favorite
+        FROM songs
+        WHERE source_type = 7
+          AND (file_path IS NULL OR file_path = '')
+    """)
+    suspend fun getUnlinkedYoutubeSongs(): List<YoutubeUnlinkedSong>
+
+    @Query("""
+        SELECT content_uri_string, file_path
+        FROM songs
+        WHERE source_type = 7
+          AND file_path IS NOT NULL
+          AND file_path != ''
+    """)
+    suspend fun getYoutubeLinkedLocalPaths(): List<YoutubeLocalPathMapping>
 
     // --- Insert Operations ---
     @Insert(onConflict = OnConflictStrategy.IGNORE)

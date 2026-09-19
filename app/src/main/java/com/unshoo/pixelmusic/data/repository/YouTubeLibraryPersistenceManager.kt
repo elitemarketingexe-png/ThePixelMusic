@@ -19,11 +19,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 import com.unshoo.pixelmusic.utils.YouTubeIdUtils
+import com.unshoo.pixelmusic.utils.SongMatcher
+import com.unshoo.pixelmusic.data.database.MusicDao
 
 @Singleton
 class YouTubeLibraryPersistenceManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
+    private val musicDao: MusicDao,
     private val favoritesDao: FavoritesDao,
     private val playlistPreferencesRepository: PlaylistPreferencesRepository
 ) {
@@ -133,19 +136,53 @@ class YouTubeLibraryPersistenceManager @Inject constructor(
 
             // 2. Insert into favoritesDao
             val baseTimestamp = System.currentTimeMillis()
-            val favoriteEntities = likedSongs.mapIndexedNotNull { index, song ->
+            val favoriteEntities = ArrayList<FavoritesEntity>(likedSongs.size * 2)
+
+            val localCandidates = runCatching { musicDao.getAllLocalMatchCandidates() }.getOrDefault(emptyList())
+            val localByTitle = localCandidates.groupBy { SongMatcher.normalizeTitle(it.title) }
+
+            likedSongs.forEachIndexed { index, song ->
                 val rawYt = song.youtubeId ?: song.id
                 val numericId = YouTubeIdUtils.safeSongIdToLong(rawYt)
 
-                FavoritesEntity(
-                    songId = numericId,
-                    isFavorite = true,
-                    timestamp = baseTimestamp - index
+                favoriteEntities.add(
+                    FavoritesEntity(
+                        songId = numericId,
+                        isFavorite = true,
+                        timestamp = baseTimestamp - index
+                    )
                 )
+
+                if (localByTitle.isNotEmpty()) {
+                    val nTitle = SongMatcher.normalizeTitle(song.title)
+                    val match = localByTitle[nTitle]?.firstOrNull { local ->
+                        SongMatcher.isMatch(
+                            localTitle = local.title,
+                            localArtist = local.artistName,
+                            localDurationMs = local.duration,
+                            ytTitle = song.title,
+                            ytArtist = song.artist,
+                            ytDurationMs = song.duration
+                        )
+                    }
+                    if (match != null) {
+                        favoriteEntities.add(
+                            FavoritesEntity(
+                                songId = match.id,
+                                isFavorite = true,
+                                timestamp = baseTimestamp - index
+                            )
+                        )
+                    }
+                }
             }
 
             if (isFullSync) {
-                favoritesDao.replaceAll(favoriteEntities)
+                favoritesDao.replaceYoutubeFavorites(favoriteEntities.filter { it.songId < 0 })
+                val localFavs = favoriteEntities.filter { it.songId > 0 }
+                if (localFavs.isNotEmpty()) {
+                    favoritesDao.insertAllBatched(localFavs)
+                }
             } else {
                 favoritesDao.insertAllBatched(favoriteEntities)
             }

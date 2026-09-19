@@ -47,7 +47,9 @@ import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.preferences.PlaylistPreferencesRepository
 import com.unshoo.pixelmusic.data.repository.LyricsRepository
+import com.unshoo.pixelmusic.data.service.player.DualPlayerEngine
 import com.unshoo.pixelmusic.utils.AlbumArtCacheManager
+import com.unshoo.pixelmusic.utils.SongMatcher
 import com.unshoo.pixelmusic.utils.AlbumArtUtils
 import com.unshoo.pixelmusic.utils.AudioMetaUtils.getAudioMetadata
 import com.unshoo.pixelmusic.utils.DirectoryRuleResolver
@@ -447,6 +449,9 @@ constructor(
                     } else {
                         Log.d(TAG, "Skipping YouTube sync — not logged in.")
                     }
+
+                    // Link any YouTube songs in the library to existing/newly-scanned local media
+                    linkUnlinkedYoutubeSongsWithLocalMedia()
 
                     // Recalculate total
                     val finalTotalSongs = musicDao.getSongCount().first()
@@ -1973,6 +1978,9 @@ constructor(
             val artistsToInsert = LinkedHashMap<Long, ArtistEntity>()
             val albumsToInsert = LinkedHashMap<Long, AlbumEntity>()
             val crossRefsToInsert = mutableListOf<SongArtistCrossRef>()
+            val localCandidates = runCatching { musicDao.getAllLocalMatchCandidates() }.getOrDefault(emptyList())
+            val localByTitle = localCandidates.groupBy { SongMatcher.normalizeTitle(it.title) }
+            val favoritesToWire = mutableListOf<FavoritesEntity>()
 
             allUniqueSongs.values.forEach { ySong ->
                 val songId = toUnifiedYoutubeSongId(ySong.youtubeId)
@@ -2046,6 +2054,35 @@ constructor(
 
                 val durationMs = parseDurationStringToMillis(ySong.duration).takeIf { it > 0L } ?: (existingSong?.duration ?: 0L)
 
+                val localMatch = if (localByTitle.isNotEmpty()) {
+                    val nTitle = SongMatcher.normalizeTitle(ySong.title)
+                    localByTitle[nTitle]?.firstOrNull { local ->
+                        SongMatcher.isMatch(
+                            localTitle = local.title,
+                            localArtist = local.artistName,
+                            localDurationMs = local.duration,
+                            ytTitle = ySong.title,
+                            ytArtist = ySong.artist,
+                            ytDurationMs = durationMs
+                        )
+                    }
+                } else null
+
+                val resolvedLocalPath = ySong.audioFilePath
+                    ?: existingSong?.filePath?.takeIf { it.isNotBlank() }
+                    ?: localMatch?.filePath?.takeIf { it.isNotBlank() }
+                    ?: localMatch?.contentUriString?.takeIf { it.startsWith("content://") || it.startsWith("file://") }
+                    ?: ""
+
+                if (resolvedLocalPath.isNotBlank()) {
+                    DualPlayerEngine.registerLocalPath("youtube://${ySong.youtubeId}", resolvedLocalPath)
+                }
+
+                val isFav = songId in localFavorites || existingSong?.isFavorite == true || (localMatch?.isFavorite == true)
+                if (isFav && localMatch != null && !localMatch.isFavorite && localMatch.id !in localFavorites) {
+                    favoritesToWire.add(FavoritesEntity(songId = localMatch.id, isFavorite = true))
+                }
+
                 songsToInsert.add(
                     SongEntity(
                         id = songId,
@@ -2059,15 +2096,13 @@ constructor(
                         albumArtUriString = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(ySong.thumbnailPath ?: ySong.thumbnailHref ?: existingSong?.albumArtUriString),
                         duration = durationMs,
                         genre = ySong.genre?.takeIf { it.isNotBlank() } ?: existingSong?.genre?.takeIf { it.isNotBlank() } ?: YOUTUBE_GENRE,
-                        filePath = ySong.audioFilePath ?: existingSong?.filePath ?: "",
-                        parentDirectoryPath = if (!ySong.audioFilePath.isNullOrBlank()) {
-                            java.io.File(ySong.audioFilePath).parent ?: YOUTUBE_PARENT_DIRECTORY
-                        } else if (!existingSong?.filePath.isNullOrBlank()) {
-                            existingSong.filePath.let { java.io.File(it).parent } ?: YOUTUBE_PARENT_DIRECTORY
+                        filePath = resolvedLocalPath,
+                        parentDirectoryPath = if (resolvedLocalPath.isNotBlank()) {
+                            java.io.File(resolvedLocalPath).parent ?: YOUTUBE_PARENT_DIRECTORY
                         } else {
                             YOUTUBE_PARENT_DIRECTORY
                         },
-                        isFavorite = songId in localFavorites || existingSong?.isFavorite == true,
+                        isFavorite = isFav,
                         lyrics = existingSong?.lyrics,
                         trackNumber = trackNumber,
                         year = year,
@@ -2112,6 +2147,14 @@ constructor(
                 crossRefs = crossRefsToInsert,
                 deletedSongIds = deletedUnifiedSongIds
             )
+
+            if (favoritesToWire.isNotEmpty()) {
+                try {
+                    favoritesDao.insertAllBatched(favoritesToWire)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to wire linked favorites during YouTube sync", e)
+                }
+            }
 
             // Sync YouTube Playlists to user preferences/database
             val syncedPlaylistIds = youtubePlaylists.map { it.info.id }.toSet()
@@ -2331,5 +2374,54 @@ constructor(
         val activeNetwork = cm.activeNetwork ?: return false
         val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
         return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+    }
+
+    private suspend fun linkUnlinkedYoutubeSongsWithLocalMedia() {
+        try {
+            val unlinkedYoutubeSongs = musicDao.getUnlinkedYoutubeSongs()
+            if (unlinkedYoutubeSongs.isEmpty()) return
+
+            val localCandidates = musicDao.getAllLocalMatchCandidates()
+            if (localCandidates.isEmpty()) return
+
+            val localByTitle = localCandidates.groupBy { SongMatcher.normalizeTitle(it.title) }
+            val favoritesToWire = mutableListOf<FavoritesEntity>()
+
+            unlinkedYoutubeSongs.forEach { ytSong ->
+                val nTitle = SongMatcher.normalizeTitle(ytSong.title)
+                val candidate = localByTitle[nTitle]?.firstOrNull { local ->
+                    SongMatcher.isMatch(
+                        localTitle = local.title,
+                        localArtist = local.artistName,
+                        localDurationMs = local.duration,
+                        ytTitle = ytSong.title,
+                        ytArtist = ytSong.artistName,
+                        ytDurationMs = ytSong.duration
+                    )
+                }
+
+                if (candidate != null) {
+                    val localPath = candidate.filePath.takeIf { it.isNotBlank() }
+                        ?: candidate.contentUriString.takeIf { it.startsWith("content://") || it.startsWith("file://") }.orEmpty()
+                    if (localPath.isNotBlank()) {
+                        val parentPath = java.io.File(localPath).parent ?: YOUTUBE_PARENT_DIRECTORY
+                        musicDao.updateSongFilePathAndParent(ytSong.id, localPath, parentPath)
+                        DualPlayerEngine.registerLocalPath(ytSong.contentUriString, localPath)
+
+                        if (candidate.isFavorite && !ytSong.isFavorite) {
+                            favoritesToWire.add(FavoritesEntity(songId = ytSong.id, isFavorite = true))
+                        } else if (ytSong.isFavorite && !candidate.isFavorite) {
+                            favoritesToWire.add(FavoritesEntity(songId = candidate.id, isFavorite = true))
+                        }
+                    }
+                }
+            }
+
+            if (favoritesToWire.isNotEmpty()) {
+                favoritesDao.insertAllBatched(favoritesToWire)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to link unlinked YouTube songs with local media", e)
+        }
     }
 }

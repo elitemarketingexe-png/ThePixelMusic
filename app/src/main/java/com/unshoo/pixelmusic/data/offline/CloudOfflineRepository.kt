@@ -12,6 +12,7 @@ import androidx.work.workDataOf
 import com.unshoo.pixelmusic.data.database.OfflineTrackDao
 import com.unshoo.pixelmusic.data.database.OfflineTrackEntity
 import com.unshoo.pixelmusic.data.model.Song
+import com.unshoo.pixelmusic.data.service.player.DualPlayerEngine
 import com.unshoo.pixelmusic.data.worker.CloudTrackDownloadWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -87,6 +88,37 @@ class CloudOfflineRepository @Inject constructor(
             ) {
                 return@withLock
             }
+
+            // If the song already exists as local media on disk, complete immediately without network download
+            val mappedLocalPath = song.path.takeIf { it.isNotBlank() }
+                ?: DualPlayerEngine.getCachedLocalPath(sourceUri)
+                ?: DualPlayerEngine.getCachedLocalPath(song.contentUriString)
+
+            if (mappedLocalPath != null) {
+                val localFile = File(mappedLocalPath)
+                if (localFile.isFile && localFile.length() > 0L) {
+                    val now = System.currentTimeMillis()
+                    dao.upsert(
+                        OfflineTrackEntity(
+                            downloadId = downloadId,
+                            attemptId = UUID.randomUUID().toString(),
+                            songId = song.id,
+                            sourceUri = sourceUri,
+                            provider = provider,
+                            title = song.title,
+                            mimeType = song.mimeType ?: "audio/mpeg",
+                            localPath = mappedLocalPath,
+                            state = OfflineDownloadStatus.COMPLETE.storageValue,
+                            bytesDownloaded = localFile.length(),
+                            totalBytes = localFile.length(),
+                            createdAt = existing?.createdAt ?: now,
+                            updatedAt = now
+                        )
+                    )
+                    return@withLock
+                }
+            }
+
             existing?.let {
                 it.localPath?.let(::File)?.delete()
                 deleteAttemptFiles(context, it.downloadId, it.attemptId)

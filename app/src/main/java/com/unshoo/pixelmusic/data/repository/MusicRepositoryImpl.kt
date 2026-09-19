@@ -21,8 +21,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.net.toUri
 import com.unshoo.pixelmusic.data.database.FavoritesDao
+import com.unshoo.pixelmusic.data.database.FavoritesEntity
 import com.unshoo.pixelmusic.data.database.MusicDao
 import com.unshoo.pixelmusic.data.database.SearchHistoryDao
+import com.unshoo.pixelmusic.data.service.player.DualPlayerEngine
+import com.unshoo.pixelmusic.utils.SongMatcher
 import com.unshoo.pixelmusic.data.database.SearchHistoryEntity
 import com.unshoo.pixelmusic.data.database.AlbumEntity
 import com.unshoo.pixelmusic.data.database.ArtistEntity
@@ -219,8 +222,39 @@ class MusicRepositoryImpl @Inject constructor(
                 )
             }.flatMapLatest { it }
         }.map { entities ->
-            entities.map { it.toSong() }
+            deduplicateSongsForLibrary(entities).map { it.toSong() }
         }.distinctUntilChanged().conflate().flowOn(Dispatchers.IO)
+    }
+
+    private fun deduplicateSongsForLibrary(entities: List<SongEntity>): List<SongEntity> {
+        val localSongs = entities.filter { it.sourceType == SourceType.LOCAL }
+        if (localSongs.isEmpty()) return entities
+
+        val localByTitle = localSongs.groupBy { SongMatcher.normalizeTitle(it.title) }
+
+        return entities.filter { entity ->
+            if (entity.sourceType != SourceType.YOUTUBE) {
+                true
+            } else {
+                val nYtTitle = SongMatcher.normalizeTitle(entity.title)
+                val candidates = localByTitle[nYtTitle]
+                if (candidates.isNullOrEmpty()) {
+                    true
+                } else {
+                    val hasLocalMatch = candidates.any { local ->
+                        SongMatcher.isMatch(
+                            localTitle = local.title,
+                            localArtist = local.artistName,
+                            localDurationMs = local.duration,
+                            ytTitle = entity.title,
+                            ytArtist = entity.artistName,
+                            ytDurationMs = entity.duration
+                        )
+                    }
+                    !hasLocalMatch
+                }
+            }
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -1862,6 +1896,9 @@ class MusicRepositoryImpl @Inject constructor(
         val artistsToInsert = LinkedHashMap<Long, ArtistEntity>()
         val albumsToInsert = LinkedHashMap<Long, AlbumEntity>()
         val crossRefsToInsert = mutableListOf<com.unshoo.pixelmusic.data.database.SongArtistCrossRef>()
+        val localCandidates = runCatching { musicDao.getAllLocalMatchCandidates() }.getOrDefault(emptyList())
+        val localByTitle = localCandidates.groupBy { SongMatcher.normalizeTitle(it.title) }
+        val favoritesToInsert = mutableListOf<FavoritesEntity>()
 
         songs.forEach { song ->
             val youtubeId = song.youtubeId 
@@ -1893,7 +1930,7 @@ class MusicRepositoryImpl @Inject constructor(
                     )
                 }
 
-                val albumName = song.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
+                val albumName = song.album.takeIf { it.isNotBlank() } ?: "YouTube Music"
                 val albumId = toUnifiedYoutubeAlbumId(albumName)
                 if (!albumsToInsert.containsKey(albumId)) {
                     albumsToInsert[albumId] = AlbumEntity(
@@ -1929,6 +1966,35 @@ class MusicRepositoryImpl @Inject constructor(
                     null
                 }
 
+                val localMatch = if (localByTitle.isNotEmpty()) {
+                    val nTitle = SongMatcher.normalizeTitle(song.title)
+                    localByTitle[nTitle]?.firstOrNull { local ->
+                        SongMatcher.isMatch(
+                            localTitle = local.title,
+                            localArtist = local.artistName,
+                            localDurationMs = local.duration,
+                            ytTitle = song.title,
+                            ytArtist = song.artist,
+                            ytDurationMs = song.duration
+                        )
+                    }
+                } else null
+
+                val localFilePath = localMatch?.filePath?.takeIf { it.isNotBlank() }
+                    ?: localMatch?.contentUriString?.takeIf { it.startsWith("content://") || it.startsWith("file://") }.orEmpty()
+
+                if (localFilePath.isNotBlank()) {
+                    DualPlayerEngine.registerLocalPath("youtube://$youtubeId", localFilePath)
+                }
+
+                val isFav = song.isFavorite || (localMatch?.isFavorite == true)
+                if (isFav) {
+                    favoritesToInsert.add(FavoritesEntity(songId = songId, isFavorite = true))
+                    if (localMatch != null && !localMatch.isFavorite) {
+                        favoritesToInsert.add(FavoritesEntity(songId = localMatch.id, isFavorite = true))
+                    }
+                }
+
                 songsToInsert.add(
                     SongEntity(
                         id = songId,
@@ -1942,9 +2008,13 @@ class MusicRepositoryImpl @Inject constructor(
                         albumArtUriString = song.albumArtUriString,
                         duration = song.duration,
                         genre = song.genre?.takeIf { it.isNotBlank() } ?: "YouTube Music",
-                        filePath = "",
-                        parentDirectoryPath = "youtube://",
-                        isFavorite = false,
+                        filePath = localFilePath,
+                        parentDirectoryPath = if (localFilePath.isNotBlank()) {
+                            java.io.File(localFilePath).parent ?: "youtube://"
+                        } else {
+                            "youtube://"
+                        },
+                        isFavorite = isFav,
                         lyrics = null,
                         trackNumber = 0,
                         year = 0,
@@ -1965,12 +2035,12 @@ class MusicRepositoryImpl @Inject constructor(
                         youtubeId = youtubeId,
                         title = song.title,
                         artist = song.artist,
-                        album = song.album?.takeIf { it.isNotBlank() },
+                        album = song.album.takeIf { it.isNotBlank() },
                         albumBrowseId = song.albumBrowseId,
                         duration = com.unshoo.pixelmusic.utils.formatDuration(song.duration),
                         thumbnailHref = song.albumArtUriString ?: "",
                         thumbnailPath = null,
-                        audioFilePath = null
+                        audioFilePath = localFilePath.takeIf { it.isNotBlank() }
                     )
                 )
             }
@@ -1983,6 +2053,13 @@ class MusicRepositoryImpl @Inject constructor(
                 artists = artistsToInsert.values.toList(),
                 crossRefs = crossRefsToInsert
             )
+            if (favoritesToInsert.isNotEmpty()) {
+                try {
+                    favoritesDao.insertAllBatched(favoritesToInsert)
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to batch insert linked favorites in insertYoutubeSongs")
+                }
+            }
         }
 
         if (ytSongs.isNotEmpty()) {

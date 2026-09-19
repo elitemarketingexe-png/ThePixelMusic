@@ -38,6 +38,15 @@ interface FavoritesDao {
     @Query("SELECT * FROM favorites")
     suspend fun getAllFavoritesOnce(): List<FavoritesEntity>
 
+    @Query("DELETE FROM favorites WHERE songId < 0")
+    suspend fun clearAllYoutubeFavorites()
+
+    @Transaction
+    suspend fun replaceYoutubeFavorites(favorites: List<FavoritesEntity>) {
+        clearAllYoutubeFavorites()
+        if (favorites.isNotEmpty()) insertAll(favorites)
+    }
+
     @Query("DELETE FROM favorites")
     suspend fun clearAll()
 
