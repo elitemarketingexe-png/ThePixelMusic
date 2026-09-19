@@ -589,32 +589,7 @@ class MusicRepositoryImpl @Inject constructor(
             )
                 .distinctUntilChanged()
                 .map { entities ->
-                    val artists = entities
-                        .map { it.toArtist() }
-                        .filter { artist ->
-                            val clean = artist.name.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim()
-                            clean.isNotBlank() && clean.lowercase() !in setOf("unknown", "unknown artist", "<unknown>", "various artists", "various", "unknown artists")
-                        }
-                        .groupBy { it.name.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim().lowercase() }
-                        .map { (_, group) ->
-                            val primary = if (storageFilter == StorageFilter.LOCAL) {
-                                group.firstOrNull { it.id > 0 } ?: group.first()
-                            } else {
-                                group.firstOrNull { !it.channelId.isNullOrBlank() } ?: group.first()
-                            }
-                            val totalSongCount = group.sumOf { it.songCount }
-                            val bestImage = group.firstOrNull { !it.customImageUri.isNullOrBlank() }?.customImageUri
-                                ?: group.firstOrNull { !it.imageUrl.isNullOrBlank() }?.imageUrl
-                            val channelId = if (storageFilter == StorageFilter.LOCAL) null
-                                else group.firstOrNull { !it.channelId.isNullOrBlank() }?.channelId
-                            val cleanName = primary.name.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim()
-                            primary.copy(
-                                name = cleanName,
-                                songCount = totalSongCount,
-                                imageUrl = bestImage,
-                                channelId = channelId
-                            )
-                        }
+                    val artists = entities.map { it.toArtist() }
                     // Trigger prefetch for missing images (non-blocking)
                     val missingImages = artists.missingImageCandidates()
                     if (missingImages.isNotEmpty()) {

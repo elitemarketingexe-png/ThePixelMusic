@@ -44,24 +44,8 @@ object YouTubeIdUtils {
      * Converts an artist name to a stable negative Long for use as a unified artist ID.
      */
     fun toUnifiedArtistId(artistName: String): Long {
-        val cleanName = artistName.replace(Regex("""(?i)\s*-\s*topic$"""), "").trim()
-        return -(YOUTUBE_ARTIST_ID_OFFSET + abs(cleanName.lowercase().hashCode().toLong()))
+        return -(YOUTUBE_ARTIST_ID_OFFSET + abs(artistName.lowercase().hashCode().toLong()))
     }
-
-    /**
-     * Converts a YouTube channel/browse ID (e.g. "UC...") to a stable negative Long
-     * for use as a unified artist ID. Avoids collisions between different artists sharing the same name.
-     */
-    fun toUnifiedArtistIdFromChannelId(channelId: String): Long {
-        val clean = channelId.trim()
-        if (clean.isBlank()) return 0L
-        return -(YOUTUBE_ARTIST_ID_OFFSET + abs(clean.hashCode().toLong()))
-    }
-
-    /**
-     * Alias for toUnifiedArtistIdFromChannelId to match legacy naming across the codebase.
-     */
-    fun toUnifiedYoutubeArtistIdFromChannelId(channelId: String): Long = toUnifiedArtistIdFromChannelId(channelId)
 
     /**
      * Alias for toUnifiedArtistId to match legacy naming across the codebase.

@@ -2233,11 +2233,7 @@ constructor(
                     val artistEntitiesToInsert = mutableListOf<ArtistEntity>()
                     remoteArtists.forEach { remoteArtist ->
                         val channelId = remoteArtist.id
-                        val artistId = if (channelId.isNotBlank()) {
-                            toUnifiedYoutubeArtistIdFromChannelId(channelId)
-                        } else {
-                            toUnifiedYoutubeArtistId(remoteArtist.name)
-                        }
+                        val artistId = toUnifiedYoutubeArtistId(remoteArtist.name)
                         
                         // Insert artist into db
                         val artistEntity = ArtistEntity(
@@ -2310,9 +2306,6 @@ constructor(
 
     private fun toUnifiedYoutubeArtistId(artistName: String): Long =
         YouTubeIdUtils.toUnifiedYoutubeArtistId(artistName)
-
-    private fun toUnifiedYoutubeArtistIdFromChannelId(channelId: String): Long =
-        YouTubeIdUtils.toUnifiedYoutubeArtistIdFromChannelId(channelId)
 
     private fun parseDurationStringToMillis(durationStr: String): Long {
         if (durationStr.isBlank()) return 0L

@@ -383,8 +383,7 @@ object YouTube {
     }
 
     suspend fun album(browseId: String, withSongs: Boolean = true): Result<AlbumPage> = runCatching {
-        val normalizedBrowseId = if (browseId.startsWith("OLAK5uy_")) "VL$browseId" else browseId
-        val response = innerTube.browse(WEB_REMIX, normalizedBrowseId).body<BrowseResponse>()
+        val response = innerTube.browse(WEB_REMIX, browseId).body<BrowseResponse>()
         val playlistId = AlbumPage.getPlaylistId(response)
             ?: throw IllegalStateException("Missing album playlist id for $browseId")
         val albumTitle = AlbumPage.getTitle(response)
@@ -850,8 +849,7 @@ object YouTube {
 
 
     suspend fun browse(browseId: String, params: String?): Result<BrowseResult> = runCatching {
-        val normalizedBrowseId = if (browseId.startsWith("OLAK5uy_")) "VL$browseId" else browseId
-        val response = innerTube.browse(WEB_REMIX, browseId = normalizedBrowseId, params = params).body<BrowseResponse>()
+        val response = innerTube.browse(WEB_REMIX, browseId = browseId, params = params).body<BrowseResponse>()
         val browseItems = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.mapNotNull { content ->
             when {
                 content.gridRenderer != null -> {

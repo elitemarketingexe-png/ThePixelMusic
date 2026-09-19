@@ -598,7 +598,11 @@ fun HomeScreen(
                             },
                             onNavigateToArtist = { song ->
                                 navController.navigateSafelyReplacing(
-                                    route = Screen.ArtistDetail.createRoute(song.navTargetArtistId),
+                                    route = Screen.ArtistDetail.createRoute(
+                                        song.artists.firstOrNull()?.id?.takeIf { it != 0L && it != -1L }?.toString()
+                                            ?: song.artists.firstOrNull()?.name
+                                            ?: song.artist
+                                    ),
                                     patternToPop = Screen.ArtistDetail.route
                                 )
                             },

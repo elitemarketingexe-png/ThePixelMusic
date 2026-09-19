@@ -449,18 +449,6 @@ class InnerTube {
         }
     }
 
-    private fun shouldRetryBrowseRequest(
-        failure: Throwable,
-        forceAnonymous: Boolean,
-    ): Boolean {
-        if (forceAnonymous) return false
-        val clientError = failure as? ClientRequestException ?: return false
-        if (clientError.response.status != HttpStatusCode.BadRequest) return false
-        val message = clientError.message.orEmpty()
-        return message.contains("INVALID_ARGUMENT", ignoreCase = true) ||
-            message.contains("invalid argument", ignoreCase = true)
-    }
-
     suspend fun browse(
         client: YouTubeClient,
         browseId: String? = null,
@@ -469,43 +457,21 @@ class InnerTube {
         setLogin: Boolean = false,
         forceAnonymous: Boolean = false,
     ) = withRetry {
-        try {
-            httpClient.post("browse") {
-                val finalSetLogin = if (forceAnonymous) false else (setLogin || useLoginForBrowse)
-                ytClient(client, setLogin = finalSetLogin, forceAnonymous = forceAnonymous)
-                setBody(
-                    BrowseBody(
-                        context = client.toContext(
-                            locale,
-                            if (forceAnonymous) null else visitorData,
-                            if (finalSetLogin) dataSyncId else null
-                        ),
-                        browseId = browseId,
-                        params = params,
-                        continuation = continuation
-                    )
+        httpClient.post("browse") {
+            val finalSetLogin = if (forceAnonymous) false else (setLogin || useLoginForBrowse)
+            ytClient(client, setLogin = finalSetLogin, forceAnonymous = forceAnonymous)
+            setBody(
+                BrowseBody(
+                    context = client.toContext(
+                        locale,
+                        if (forceAnonymous) null else visitorData,
+                        if (finalSetLogin) dataSyncId else null
+                    ),
+                    browseId = browseId,
+                    params = params,
+                    continuation = continuation
                 )
-            }
-        } catch (failure: Throwable) {
-            if (shouldRetryBrowseRequest(failure, forceAnonymous)) {
-                httpClient.post("browse") {
-                    ytClient(client, setLogin = false, forceAnonymous = true)
-                    setBody(
-                        BrowseBody(
-                            context = client.toContext(
-                                locale,
-                                null,
-                                null
-                            ),
-                            browseId = browseId,
-                            params = params,
-                            continuation = continuation
-                        )
-                    )
-                }
-            } else {
-                throw failure
-            }
+            )
         }
     }
 

@@ -140,8 +140,6 @@ class ArtistDetailViewModel @Inject constructor(
                     val effectiveChannelId = browseId ?: artist.channelId
                     val finalArtistId = if (artist.id < 0) {
                         artist.id
-                    } else if (!effectiveChannelId.isNullOrBlank()) {
-                        YouTubeIdUtils.toUnifiedArtistIdFromChannelId(effectiveChannelId)
                     } else {
                         YouTubeIdUtils.toUnifiedArtistId(artist.name)
                     }
@@ -423,7 +421,7 @@ class ArtistDetailViewModel @Inject constructor(
                 }
 
                 val artistModel = Artist(
-                    id = YouTubeIdUtils.toUnifiedArtistIdFromChannelId(browseId),
+                    id = YouTubeIdUtils.toUnifiedArtistId(artistItem.title),
                     name = artistItem.title,
                     songCount = if (verifiedLocalSongs.isNotEmpty()) verifiedLocalSongs.size else popularSongs.size,
                     imageUrl = artistItem.thumbnail,

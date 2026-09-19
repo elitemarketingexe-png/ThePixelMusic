@@ -2013,7 +2013,11 @@ fun LibraryScreen(
                 },
                 onNavigateToArtist = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.ArtistDetail.createRoute(currentSong.navTargetArtistId),
+                        route = Screen.ArtistDetail.createRoute(
+                            currentSong.artists.firstOrNull()?.id?.takeIf { it != 0L && it != -1L }?.toString()
+                                ?: currentSong.artists.firstOrNull()?.name
+                                ?: currentSong.artist
+                        ),
                         patternToPop = Screen.ArtistDetail.route
                     )
                     showSongInfoBottomSheet = false

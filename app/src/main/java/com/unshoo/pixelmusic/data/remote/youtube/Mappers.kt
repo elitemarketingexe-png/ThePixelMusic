@@ -58,17 +58,12 @@ fun SongItem.toNativeSong(): Song {
     val artistNames = com.unshoo.pixelmusic.data.stream.CloudMusicUtils.parseArtistNames(rawArtistName)
     val artistRefs = artistNames.mapIndexed { index, name ->
         val originalArtist = artists.find { it.name.equals(name, ignoreCase = true) }
-        val channelId = originalArtist?.id?.takeIf { it.isNotBlank() }
-        val artistId = if (channelId != null) {
-            com.unshoo.pixelmusic.utils.YouTubeIdUtils.toUnifiedArtistIdFromChannelId(channelId)
-        } else {
-            com.unshoo.pixelmusic.utils.YouTubeIdUtils.toUnifiedArtistId(name)
-        }
+        val artistId = -(17_000_000_000_000L + kotlin.math.abs(name.lowercase().hashCode().toLong()))
         ArtistRef(
             id = artistId,
             name = name,
             isPrimary = index == 0,
-            channelId = channelId
+            channelId = originalArtist?.id
         )
     }
     val artistName = artistNames.joinToString(", ")

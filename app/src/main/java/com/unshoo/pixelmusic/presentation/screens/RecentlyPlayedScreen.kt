@@ -359,7 +359,10 @@ fun RecentlyPlayedScreen(
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
-                    navController.navigateSafely(Screen.ArtistDetail.createRoute(song.navTargetArtistId))
+                    val target = song.artists.firstOrNull()?.id?.takeIf { it != 0L && it != -1L }?.toString()
+                        ?: song.artists.firstOrNull()?.name
+                        ?: song.artist
+                    navController.navigateSafely(Screen.ArtistDetail.createRoute(target))
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtistById = { artistId ->
