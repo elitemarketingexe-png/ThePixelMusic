@@ -45,9 +45,9 @@ object SaavnService {
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(4, TimeUnit.SECONDS)
-            .readTimeout(6, TimeUnit.SECONDS)
-            .writeTimeout(4, TimeUnit.SECONDS)
+            .connectTimeout(2, TimeUnit.SECONDS)
+            .readTimeout(3, TimeUnit.SECONDS)
+            .writeTimeout(2, TimeUnit.SECONDS)
             .followRedirects(true)
             .retryOnConnectionFailure(true)
             .build()
@@ -178,7 +178,7 @@ object SaavnService {
                 .addQueryParameter("ctx", "android")
                 .addQueryParameter("q", query)
                 .addQueryParameter("p", "1")
-                .addQueryParameter("n", "10")
+                .addQueryParameter("n", "5")
                 .build()
 
             val request = Request.Builder()
@@ -215,15 +215,21 @@ object SaavnService {
         val filteredUrls = urls.filter { it.url.isNotBlank() }
         if (filteredUrls.isEmpty()) return null
 
-        // 1. Exact requested quality
+        // 1. If 320kbps requested or fallback, prioritize 320kbps immediately
+        if (quality.equals("320kbps", ignoreCase = true)) {
+            val q320 = filteredUrls.firstOrNull { it.quality.equals("320kbps", ignoreCase = true) }?.url
+            if (q320 != null) return q320
+        }
+
+        // 2. Exact requested quality
         val exactUrl = filteredUrls.firstOrNull { it.quality.equals(quality, ignoreCase = true) }?.url
         if (exactUrl != null) return exactUrl
 
-        // 2. Fall back to 320kbps
+        // 3. Fall back to 320kbps
         val fallback320 = filteredUrls.firstOrNull { it.quality.equals("320kbps", ignoreCase = true) }?.url
         if (fallback320 != null) return fallback320
 
-        // 3. Fall back to highest available bitrate
+        // 4. Fall back to highest available bitrate
         return filteredUrls.lastOrNull()?.url
     }
 

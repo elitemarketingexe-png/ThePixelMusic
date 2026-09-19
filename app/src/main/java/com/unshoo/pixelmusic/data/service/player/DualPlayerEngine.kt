@@ -1340,11 +1340,19 @@ class DualPlayerEngine @Inject constructor(
             val matchingItem = queueSnapshot.firstOrNull { it.mediaId == youtubeId || it.requestMetadata.mediaUri?.toString() == uriString }
                 ?: if (::playerA.isInitialized && (playerA.currentMediaItem?.mediaId == youtubeId || playerA.currentMediaItem?.requestMetadata?.mediaUri?.toString() == uriString)) playerA.currentMediaItem else null
 
+            val localSong = try {
+                com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context).songRepository().getSong(youtubeId)
+            } catch (_: Exception) { null }
+
             val youtubeSong = com.unshoo.pixelmusic.data.model.youtube.Song(
                 youtubeId = youtubeId,
-                title = matchingItem?.mediaMetadata?.title?.toString().orEmpty(),
-                artist = matchingItem?.mediaMetadata?.artist?.toString().orEmpty(),
-                album = matchingItem?.mediaMetadata?.albumTitle?.toString().orEmpty()
+                title = matchingItem?.mediaMetadata?.title?.toString()?.takeIf { it.isNotBlank() }
+                    ?: localSong?.title.orEmpty(),
+                artist = matchingItem?.mediaMetadata?.artist?.toString()?.takeIf { it.isNotBlank() }
+                    ?: localSong?.artist.orEmpty(),
+                album = matchingItem?.mediaMetadata?.albumTitle?.toString()?.takeIf { it.isNotBlank() }
+                    ?: localSong?.album,
+                duration = localSong?.duration.orEmpty()
             )
 
             // getSongPlayerUrl honors Settings quality:
@@ -1359,13 +1367,25 @@ class DualPlayerEngine @Inject constructor(
                     .getSongPlayerUrl(context, youtubeSong, allowLocal = true)
             } ?: run {
                 // Timeout: still try quality-aware path once more without outer timeout;
-                // on failure fall back to lowest so something can play.
+                // on failure preserve HIGH quality if requested.
                 try {
                     com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
                         .getSongPlayerUrl(context, youtubeSong, allowLocal = true)
                 } catch (_: Exception) {
-                    com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
-                        .getLowestQualityStreamUrl(context, youtubeSong)
+                    try {
+                        val plan = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
+                            .resolveStreamQualityPlan(context)
+                        if (plan.quality == com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality.HIGH) {
+                            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
+                                .getHighestQualityStreamUrl(context, youtubeSong)
+                        } else {
+                            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
+                                .getLowestQualityStreamUrl(context, youtubeSong)
+                        }
+                    } catch (_: Exception) {
+                        com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
+                            .getLowestQualityStreamUrl(context, youtubeSong)
+                    }
                 }
             }
 
@@ -1380,18 +1400,26 @@ class DualPlayerEngine @Inject constructor(
             Uri.parse(path)
         } catch (e: Exception) {
             Timber.tag("DualPlayerEngine").e(e, "resolveYoutubeUriAsync failed for $uriString")
-            // Last-ditch: lowest stream so weak nets still get audio
+            // Last-ditch: highest or lowest stream so weak nets still get audio
             try {
                 val youtubeId = uriString.substringAfter("youtube://")
                 val youtubeSong = com.unshoo.pixelmusic.data.model.youtube.Song(youtubeId = youtubeId)
-                val low = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
-                    .getLowestQualityStreamUrl(context, youtubeSong)
-                if (low.startsWith("http")) {
-                    preCacheFirstChunk(low)
-                    return@withContext Uri.parse(low)
+                val plan = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.resolveStreamQualityPlan(context)
+                val fallbackUrl = try {
+                    if (plan.quality == com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality.HIGH) {
+                        com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.getHighestQualityStreamUrl(context, youtubeSong)
+                    } else {
+                        com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.getLowestQualityStreamUrl(context, youtubeSong)
+                    }
+                } catch (_: Exception) {
+                    com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.getLowestQualityStreamUrl(context, youtubeSong)
                 }
-                if (low.isNotBlank() && java.io.File(low).exists()) {
-                    return@withContext Uri.fromFile(java.io.File(low))
+                if (fallbackUrl.startsWith("http")) {
+                    preCacheFirstChunk(fallbackUrl)
+                    return@withContext Uri.parse(fallbackUrl)
+                }
+                if (fallbackUrl.isNotBlank() && java.io.File(fallbackUrl).exists()) {
+                    return@withContext Uri.fromFile(java.io.File(fallbackUrl))
                 }
             } catch (_: Exception) {
             }
