@@ -294,17 +294,21 @@ class ThemeStateHolder @Inject constructor(
 
     @Suppress("DEPRECATION")
     fun trimMemory(level: Int) {
-        // Rebuilding one of these entries costs a bitmap decode plus a Palette pass, so they
-        // are only dropped once the system is actually under pressure. They used to be wiped
-        // unconditionally, including at TRIM_MEMORY_RUNNING_MODERATE, which the platform sends
-        // to healthy foreground apps — that forced a re-decode + re-extract mid-scroll.
-        if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return
-
         colorSchemeProcessor.clearMemoryCache()
         clearExtractedColorCache()
-        individualAlbumColorSchemes.clear()
 
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+        if (
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+            level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+        ) {
+            individualAlbumColorSchemes.clear()
+        }
+
+        if (
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+        ) {
             synchronized(pendingAlbumColorSchemeLock) {
                 pendingAlbumColorSchemeTargets.clear()
             }

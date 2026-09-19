@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.palette.graphics.Palette
-import com.unshoo.pixelmusic.utils.toSoftwareBitmap
 import coil.imageLoader
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -189,7 +188,7 @@ object CardColorExtractor {
                     if (result is SuccessResult) {
                         val bmp = (result.drawable as? BitmapDrawable)?.bitmap
                         if (bmp != null && !bmp.isRecycled) {
-                            val rgb = Palette.from(bmp.toSoftwareBitmap())
+                            val rgb = Palette.from(bmp)
                                 .maximumColorCount(4) // fast swatch extraction
                                 .resizeBitmapArea(32 * 32)
                                 .generate()

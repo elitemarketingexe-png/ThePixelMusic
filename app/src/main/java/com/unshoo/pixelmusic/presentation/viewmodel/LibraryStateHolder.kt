@@ -507,8 +507,10 @@ class LibraryStateHolder @Inject constructor(
 
     @Suppress("DEPRECATION")
     fun trimMemory(level: Int) {
-        // TRIM_MEMORY_COMPLETE (80) is already covered by >= TRIM_MEMORY_BACKGROUND (40).
-        if (level < ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) return
+        val shouldReleaseLibraryState =
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+                level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+        if (!shouldReleaseLibraryState) return
 
         val hasLoadedData =
             _allSongs.value.isNotEmpty() ||
