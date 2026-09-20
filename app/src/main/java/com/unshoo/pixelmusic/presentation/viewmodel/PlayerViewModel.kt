@@ -4988,36 +4988,48 @@ class PlayerViewModel @Inject constructor(
                 }
             }
 
-            // Bulletproof fallback: Parse the itag parameter from the YouTube URL if cache missed
+            // Bulletproof fallback: Parse the itag parameter from the YouTube URL or detect JioSaavn quality if cache missed
             if (cachedBitrate == null || cachedMime == null) {
                 val playingUriString = uri.toString()
                 if (playingUriString.startsWith("http")) {
-                    val itag = playingUriString.substringAfter("itag=", "").substringBefore("&")
-                    if (itag.isNotEmpty()) {
-                        when (itag) {
-                            "251" -> {
-                                if (cachedBitrate == null) cachedBitrate = 160_000
-                                if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
+                    if (playingUriString.contains("saavncdn.com") || playingUriString.contains("jiosaavn.com")) {
+                        if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
+                        if (cachedBitrate == null) {
+                            cachedBitrate = when {
+                                playingUriString.contains("_320") -> 320_000
+                                playingUriString.contains("_160") -> 160_000
+                                playingUriString.contains("_96") -> 96_000
+                                else -> 320_000
                             }
-                            "140" -> {
-                                if (cachedBitrate == null) cachedBitrate = 128_000
-                                if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
-                            }
-                            "250" -> {
-                                if (cachedBitrate == null) cachedBitrate = 70_000
-                                if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
-                            }
-                            "249" -> {
-                                if (cachedBitrate == null) cachedBitrate = 50_000
-                                if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
-                            }
-                            "171" -> {
-                                if (cachedBitrate == null) cachedBitrate = 128_000
-                                if (cachedMime == null) cachedMime = "audio/webm; codecs=\"vorbis\""
-                            }
-                            "139" -> {
-                                if (cachedBitrate == null) cachedBitrate = 48_000
-                                if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
+                        }
+                    } else {
+                        val itag = playingUriString.substringAfter("itag=", "").substringBefore("&")
+                        if (itag.isNotEmpty()) {
+                            when (itag) {
+                                "251" -> {
+                                    if (cachedBitrate == null) cachedBitrate = 160_000
+                                    if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
+                                }
+                                "140" -> {
+                                    if (cachedBitrate == null) cachedBitrate = 128_000
+                                    if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
+                                }
+                                "250" -> {
+                                    if (cachedBitrate == null) cachedBitrate = 70_000
+                                    if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
+                                }
+                                "249" -> {
+                                    if (cachedBitrate == null) cachedBitrate = 50_000
+                                    if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
+                                }
+                                "171" -> {
+                                    if (cachedBitrate == null) cachedBitrate = 128_000
+                                    if (cachedMime == null) cachedMime = "audio/webm; codecs=\"vorbis\""
+                                }
+                                "139" -> {
+                                    if (cachedBitrate == null) cachedBitrate = 48_000
+                                    if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
+                                }
                             }
                         }
                     }

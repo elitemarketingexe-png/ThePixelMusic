@@ -219,11 +219,19 @@ object SaavnService {
         val exactUrl = filteredUrls.firstOrNull { it.quality.equals(quality, ignoreCase = true) }?.url
         if (exactUrl != null) return exactUrl
 
-        // 2. Fall back to 320kbps
+        // 2. If 160kbps requested and missing, check 320 or 96
+        if (quality.equals("160kbps", ignoreCase = true)) {
+            val fallback320 = filteredUrls.firstOrNull { it.quality.equals("320kbps", ignoreCase = true) }?.url
+            if (fallback320 != null) return fallback320
+            val fallback96 = filteredUrls.firstOrNull { it.quality.equals("96kbps", ignoreCase = true) }?.url
+            if (fallback96 != null) return fallback96
+        }
+
+        // 3. Fall back to 320kbps
         val fallback320 = filteredUrls.firstOrNull { it.quality.equals("320kbps", ignoreCase = true) }?.url
         if (fallback320 != null) return fallback320
 
-        // 3. Fall back to highest available bitrate
+        // 4. Fall back to highest available bitrate
         return filteredUrls.lastOrNull()?.url
     }
 
@@ -286,8 +294,9 @@ object SaavnService {
      * @param album Album name (optional)
      * @param durationSeconds Track length in seconds (optional)
      * @param isExplicit Explicit flag if known
-     * @param quality App's streaming quality (StreamingAudioQuality.HIGH, MEDIUM, LOW, AUTO)
+     * @param streamingQuality App's streaming quality (StreamingAudioQuality.HIGH, MEDIUM, LOW, AUTO)
      * @param maxBitrateKbps Optional bitrate ceiling from the active stream plan
+     * @param saavnQuality User's configured JioSaavn audio quality preference (default: AUTO)
      * @return [SaavnStreamResult] containing CDN URL, bitrate, quality string, and metadata, or null if unresolvable
      */
     suspend fun resolveStream(
@@ -296,8 +305,9 @@ object SaavnService {
         album: String? = null,
         durationSeconds: Int? = null,
         isExplicit: Boolean = false,
-        quality: StreamingAudioQuality = StreamingAudioQuality.HIGH,
-        maxBitrateKbps: Int = 0
+        streamingQuality: StreamingAudioQuality = StreamingAudioQuality.HIGH,
+        maxBitrateKbps: Int = 0,
+        saavnQuality: SaavnAudioQuality = SaavnAudioQuality.AUTO
     ): SaavnStreamResult? = withContext(Dispatchers.IO) {
         if (title.isBlank()) return@withContext null
 
@@ -389,12 +399,14 @@ object SaavnService {
             return@withContext null
         }
 
-        // Map app's streaming quality directly to JioSaavn bitrate
-        val (apiQuality, bitrate) = when {
-            quality == StreamingAudioQuality.LOW || (maxBitrateKbps in 1..127) -> "96kbps" to 96
-            quality == StreamingAudioQuality.MEDIUM || (maxBitrateKbps in 128..255) -> "160kbps" to 160
-            else -> "320kbps" to 320 // HIGH or AUTO on fast network defaults to 320kbps
-        }
+        // Resolve effective quality: if AUTO, follow streamingQuality and maxBitrateKbps; otherwise use explicit setting
+        val effectiveQuality = SaavnAudioQuality.resolveQuality(
+            userSetting = saavnQuality,
+            streamingQuality = streamingQuality,
+            maxBitrateKbps = maxBitrateKbps
+        )
+        val apiQuality = effectiveQuality.apiValue
+        val bitrate = effectiveQuality.bitrateKbps
 
         // 1. Try to get stream URL directly from search results downloadUrl list (saves an extra round-trip)
         var streamUrl = selectBestUrl(matchedSong.downloadUrl, apiQuality)

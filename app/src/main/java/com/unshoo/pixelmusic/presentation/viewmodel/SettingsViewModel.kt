@@ -30,6 +30,7 @@ import com.unshoo.pixelmusic.data.preferences.AlbumArtQuality
 import com.unshoo.pixelmusic.data.preferences.AlbumArtColorAccuracy
 import com.unshoo.pixelmusic.data.preferences.AlbumArtPaletteStyle
 import com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality
+import com.unshoo.pixelmusic.data.remote.saavn.SaavnAudioQuality
 import com.unshoo.pixelmusic.data.preferences.AppLanguage
 import com.unshoo.pixelmusic.data.preferences.CollagePattern
 import com.unshoo.pixelmusic.data.preferences.FullPlayerLoadingTweaks
@@ -135,6 +136,7 @@ data class SettingsUiState(
     val streamingAudioQualityMobile: StreamingAudioQuality = StreamingAudioQuality.AUTO,
     val forceHighQualityOnMobile: Boolean = false,
     val enableSaavnStreaming: Boolean = false,
+    val saavnAudioQuality: SaavnAudioQuality = SaavnAudioQuality.AUTO,
     val albumArtQualityMobile: AlbumArtQuality = AlbumArtQuality.LOW,
     val cacheLikedSongsOffline: Boolean = false,
     val cacheMostPlayedSongsOffline: Boolean = false,
@@ -922,6 +924,12 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.saavnAudioQualityFlow.collect { quality ->
+                _uiState.update { it.copy(saavnAudioQuality = quality) }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.albumArtQualityMobileFlow.collect { quality ->
                 _uiState.update { it.copy(albumArtQualityMobile = quality) }
             }
@@ -1540,6 +1548,12 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun setEnableSaavnStreaming(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setEnableSaavnStreaming(enabled)
+        }
+    }
+
+    fun setSaavnAudioQuality(quality: SaavnAudioQuality) {
+        viewModelScope.launch {
+            userPreferencesRepository.setSaavnAudioQuality(quality)
         }
     }
 
