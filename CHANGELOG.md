@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Features & Enhancements
+- **Lossless streaming via the ArchiveTune Source Pool.** Songs are now resolved through
+  Tidal → Qobuz → Deezer → Apple Music (user-configurable order) before the JioSaavn and
+  YouTube paths, using shared subscriber accounts from an ArchivePool deployment
+  (`https://archivepool.vercel.app` by default) and/or the user's own provider accounts.
+  Includes the full ArchiveTune resolver chain: pool feed fetch + local AES-256-GCM
+  decryption, account cooldowns and dead-account reports, Tidal OAuth/PKCE + web-capture
+  login with token refresh and 401 retry, Tidal public-instance discovery + health ranking,
+  Qobuz token/instance resolution, Deezer ARL login with on-the-fly Blowfish decryption,
+  Apple Music web login with HLS flattening and Widevine-L3 licensing, title/artist/duration
+  match gate, 6-hourly background refresh worker, and a new **Settings → Lossless Sources**
+  category (pool API key/URL runtime override, per-source toggles, quality pickers,
+- **Download Audio Quality selection.** In Settings → Music Management (Library), users can now choose their preferred download quality (Max, High, Medium, Low). Max (Lossless FLAC/ALAC) is automatically exposed whenever lossless sources or accounts are signed in/configured.
+- **Smooth Audio Format Upgrade Transition.** The audio format badge in the full player now animates seamlessly using easing tween crossfades without any spring bounce or layout snapping.
+
 ## [1.6.09] - 2026-08-28
 
 ### Features & Enhancements

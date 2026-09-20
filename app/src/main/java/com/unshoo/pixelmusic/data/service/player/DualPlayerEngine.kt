@@ -32,6 +32,9 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
+import com.unshoo.pixelmusic.data.lossless.applemusic.AppleMusicDrm
+import com.unshoo.pixelmusic.data.lossless.playback.LosslessSchemeRoutingDataSource
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp4.Mp4Extractor
 import com.unshoo.pixelmusic.data.model.TransitionSettings
@@ -1047,9 +1050,19 @@ class DualPlayerEngine @Inject constructor(
             .setAllowCrossProtocolRedirects(true)
 
         val baseDataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
+        // Lossless sources (ArchiveTune port): route `deezer://` through the on-the-fly Blowfish
+        // decryptor and `tidal-dash://` through the progressive DASH stitcher; everything else
+        // (http/https CDN links, flattened Apple Music files, local files) uses the default source.
+        // The router sits UNDER the cache, exactly like ArchiveTune's ResolvedSchemeRoutingDataSource,
+        // so the cache stores decrypted / stitched bytes and can serve them offline-fast next time.
+        val losslessRoutingFactory = LosslessSchemeRoutingDataSource.create(
+            defaultFactory = baseDataSourceFactory,
+            httpUpstream = httpDataSourceFactory,
+            httpClient = LosslessStreamResolver.httpClient,
+        )
         val cacheDataSourceFactory = CacheDataSource.Factory()
             .setCache(exoCache.cache)
-            .setUpstreamDataSourceFactory(baseDataSourceFactory)
+            .setUpstreamDataSourceFactory(losslessRoutingFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
         val resolvingFactory = ResolvingDataSource.Factory(cacheDataSourceFactory, resolver)
@@ -1085,7 +1098,12 @@ class DualPlayerEngine @Inject constructor(
             .build()
 
         return ExoPlayer.Builder(context, renderersFactory)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resolvingFactory, extractorsFactory))
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(resolvingFactory, extractorsFactory)
+                    // Apple Music (lossless sources) streams are Widevine-L3 protected fMP4; the
+                    // provider answers DRM_UNSUPPORTED for everything else (see AppleMusicDrm).
+                    .setDrmSessionManagerProvider(AppleMusicDrm.drmSessionManagerProvider)
+            )
             .setLoadControl(loadControl)
             .build().apply {
                 // BUGFIX (adaptive buffering): feed real rebuffer events back into
@@ -1281,6 +1299,12 @@ class DualPlayerEngine @Inject constructor(
 
     private fun isResolvedUriFresh(originalUriString: String, resolvedUri: Uri): Boolean {
         val resolved = resolvedUri.toString()
+        // Lossless-source URIs carry their own freshness window (Tidal/Qobuz/Deezer links expire,
+        // flattened Apple files can be evicted); the resolver tracks it, never the googlevideo
+        // `expire=` heuristic below.
+        if (LosslessStreamResolver.isLosslessUri(resolved)) {
+            return LosslessStreamResolver.isFreshUri(resolved)
+        }
         val isYoutubeResolution = originalUriString.startsWith("youtube://") ||
             resolved.contains("googlevideo.com", ignoreCase = true) ||
             resolved.contains("youtube.com", ignoreCase = true)
@@ -1332,7 +1356,9 @@ class DualPlayerEngine @Inject constructor(
     private suspend fun resolveYoutubeUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
         try {
             val localDiskUri = resolveLocalDiskFile(uriString)
-            if (localDiskUri != null) {
+            val isFlacDiskFile = localDiskUri?.path?.endsWith(".flac", true) == true
+            val isLosslessEnabled = LosslessStreamResolver.isEnabled(context)
+            if (localDiskUri != null && (isFlacDiskFile || !isLosslessEnabled || !connectivityStateHolder.isOnline.value)) {
                 return@withContext localDiskUri
             }
 
@@ -1356,8 +1382,10 @@ class DualPlayerEngine @Inject constructor(
             }
             val path = withTimeoutOrNull(timeoutMs) {
                 com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
-                    .getSongPlayerUrl(context, youtubeSong, allowLocal = true)
+                    .getSongPlayerUrl(context, youtubeSong, allowLocal = localDiskUri == null)
             } ?: run {
+                // If high-quality / lossless stream resolve timed out, fall back to local disk file if available
+                if (localDiskUri != null) return@withContext localDiskUri
                 // Timeout: still try quality-aware path once more without outer timeout;
                 // on failure fall back to lowest so something can play.
                 try {
@@ -1367,6 +1395,17 @@ class DualPlayerEngine @Inject constructor(
                     com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
                         .getLowestQualityStreamUrl(context, youtubeSong)
                 }
+            }
+
+            // Lossless sources: custom schemes (deezer://, tidal-dash://) are served by the
+            // scheme router inside the player's data-source chain and flattened Apple Music
+            // files come back as file:// URIs — none of them is a downloaded local song, so they
+            // must not be registered in the local-file caches (they expire / get evicted).
+            if (LosslessSchemeRoutingDataSource.isCustomLosslessScheme(path) ||
+                path.startsWith("file:") ||
+                path.startsWith("apple-pending:")
+            ) {
+                return@withContext Uri.parse(path)
             }
 
             if (!path.startsWith("http")) {
@@ -1380,6 +1419,10 @@ class DualPlayerEngine @Inject constructor(
             Uri.parse(path)
         } catch (e: Exception) {
             Timber.tag("DualPlayerEngine").e(e, "resolveYoutubeUriAsync failed for $uriString")
+            val localDiskUri = resolveLocalDiskFile(uriString)
+            if (localDiskUri != null) {
+                return@withContext localDiskUri
+            }
             // Last-ditch: lowest stream so weak nets still get audio
             try {
                 val youtubeId = uriString.substringAfter("youtube://")

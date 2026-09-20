@@ -153,7 +153,20 @@ constructor(
         PreferencesKeys.INITIAL_SETUP_DONE.name,
         PreferencesKeys.LAST_DAILY_MIX_UPDATE.name,
         PreferencesKeys.DAILY_MIX_SONG_IDS.name,
-        PreferencesKeys.YOUR_MIX_SONG_IDS.name
+        PreferencesKeys.YOUR_MIX_SONG_IDS.name,
+        // Lossless sources: device-bound caches (the pool account cache is sealed with an
+        // Android Keystore key and cannot be read on another device; instance health and
+        // probe-track caches are transient). User credentials/settings ARE backed up.
+        "poolTidalAccounts",
+        "poolQobuzAccounts",
+        "poolDeezerAccounts",
+        "poolAppleMusicAccounts",
+        "poolAmazonAccounts",
+        "tidalVerifiedInstances",
+        "tidalLastProbeTrack",
+        "qobuzVerifiedInstances",
+        "qobuzVerifiedTokens",
+        "qobuzLastProbeTrack"
     )
 
     private object PreferencesKeys {
@@ -375,6 +388,7 @@ constructor(
         val EXPLORE_LASTFM_ENABLED = booleanPreferencesKey("explore_lastfm_enabled")
         val FILTER_COVER_AND_LOFI = booleanPreferencesKey("filter_cover_and_lofi")
         val FILTER_KEYWORDS = stringPreferencesKey("filter_keywords")
+        val DOWNLOAD_AUDIO_QUALITY = stringPreferencesKey("download_audio_quality")
 
         // YouTube Granular Sync & Personalization Options
         val YOUTUBE_SYNC_PLAYLISTS_AND_LIKES = booleanPreferencesKey("youtube_sync_playlists_and_likes")
@@ -1208,6 +1222,18 @@ constructor(
     suspend fun setStorageLimitMb(limitMb: Int) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.STORAGE_LIMIT_MB] = limitMb.coerceIn(0, 10240)
+        }
+    }
+
+    /** Download audio quality. Default: HIGH (320 kbps from JioSaavn). */
+    val downloadAudioQualityFlow: Flow<DownloadAudioQuality> =
+        dataStore.data.map { preferences ->
+            DownloadAudioQuality.fromName(preferences[PreferencesKeys.DOWNLOAD_AUDIO_QUALITY])
+        }.distinctUntilChanged()
+
+    suspend fun setDownloadAudioQuality(quality: DownloadAudioQuality) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DOWNLOAD_AUDIO_QUALITY] = quality.name
         }
     }
 

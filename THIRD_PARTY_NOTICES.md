@@ -41,3 +41,23 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+-------------------------------------------------------------------------------
+
+## ArchiveTune (lossless streaming / Source Pool integration)
+
+Project: ArchiveTune  
+Repository: https://github.com/4nx3b/ArchiveTune  
+Original author/maintainer: Rukamori (github.com/rukamori) and contributors  
+License: GNU General Public License v3.0 (GPL-3.0)
+
+The lossless-source stack under `app/src/main/java/com/unshoo/pixelmusic/data/lossless/`
+(Source Pool client + AES-256-GCM feed decryption, Tidal / Qobuz / Deezer / Apple Music
+stream resolvers, Deezer Blowfish-CBC decrypting DataSource, Tidal progressive-DASH
+DataSource, Apple Music HLS flattening + Widevine license callback, track-matching gate,
+instance health/cooldown handling), the provider sign-in screens under
+`presentation/screens/lossless/`, and the background `SourceRefreshWorker` are ported from
+ArchiveTune (2026) with package renames and adaptations to PixelMusic's player pipeline.
+Per GPL-3.0 §4/§5 the original copyright notices are retained in the file headers.
+PixelMusic itself is distributed under the GNU GPL, so the combined work stays GPL-3.0.

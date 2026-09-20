@@ -88,6 +88,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Science
@@ -613,6 +614,21 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { downloadDirPickerLauncher.launch(null) }
+                                )
+                                ThemeSelectorItem(
+                                    label = "Download Audio Quality",
+                                    description = "Quality for downloaded songs",
+                                    options = buildMap {
+                                        if (uiState.isLosslessAvailable) put(com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX.name, com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX.label)
+                                        put(com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.HIGH.name, com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.HIGH.label)
+                                        put(com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MEDIUM.name, com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MEDIUM.label)
+                                        put(com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.LOW.name, com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.LOW.label)
+                                    },
+                                    selectedKey = uiState.downloadAudioQuality.name,
+                                    onSelectionChanged = { key ->
+                                        settingsViewModel.setDownloadAudioQuality(com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.valueOf(key))
+                                    },
+                                    leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                             }
 
@@ -1288,7 +1304,7 @@ fun SettingsCategoryScreen(
                                 )
                                 SwitchSettingItem(
                                     title = "JioSaavn HQ Streaming",
-                                    subtitle = "Stream and download high-quality audio (up to 320 kbps AAC) powered by JioSaavn (via vivimusic). Automatically follows your streaming quality settings, falling back to YouTube if unavailable.",
+                                    subtitle = "Stream high-quality audio (up to 320 kbps AAC) powered by JioSaavn. When off, playback strictly uses Lossless sources and fast YouTube Opus streams, while downloads continue to use JioSaavn at your configured quality.",
                                     checked = uiState.enableSaavnStreaming,
                                     onCheckedChange = { settingsViewModel.setEnableSaavnStreaming(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
@@ -1683,6 +1699,18 @@ fun SettingsCategoryScreen(
                             }
                         }
                         SettingsCategory.DEVELOPER -> {
+                            SettingsSubsection(title = "Lossless Audio Sources (ArchiveTune)") {
+                                SettingsItem(
+                                    title = "Lossless Streaming Sources",
+                                    subtitle = "Tidal, Qobuz, Deezer, Apple Music via ArchivePool & accounts",
+                                    leadingIcon = { Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.primary) },
+                                    trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                    onClick = {
+                                        navController.navigateSafely(Screen.SettingsCategory.createRoute(SettingsCategory.LOSSLESS_SOURCES.id))
+                                    }
+                                )
+                            }
+
                             SettingsSubsection(title = stringResource(R.string.setcat_experiments)) {
                                 SettingsItem(
                                     title = stringResource(R.string.setcat_experimental_title),
@@ -2048,6 +2076,11 @@ fun SettingsCategoryScreen(
                                     }
                                 )
                             }
+                        }
+                        SettingsCategory.LOSSLESS_SOURCES -> {
+                            com.unshoo.pixelmusic.presentation.screens.lossless.LosslessSourcesSettings(
+                                navController = navController,
+                            )
                         }
                     }
                 }

@@ -82,6 +82,10 @@ object DownloadHelper {
             try {
                 val treeUri = Uri.parse(customPath)
                 val documentDir = DocumentFile.fromTreeUri(context, treeUri)
+                val existingFlac = documentDir?.findFile("$safeTitle - $safeArtist.flac")
+                if (existingFlac != null && existingFlac.exists()) {
+                    return@withContext existingFlac.uri.toString()
+                }
                 val existingM4a = documentDir?.findFile("$safeTitle - $safeArtist.m4a")
                 if (existingM4a != null && existingM4a.exists()) {
                     return@withContext existingM4a.uri.toString()
@@ -97,9 +101,13 @@ object DownloadHelper {
 
         val audioDir =
             PixelMusicHelper.getDownloadDirectory(context, Constants.Downloads.AUDIO_FILES_FOLDER)
+        val flacFile = File(audioDir, "${song.youtubeId}.flac")
         val m4aFile = File(audioDir, "${song.youtubeId}.m4a")
         val webmFile = File(audioDir, "${song.youtubeId}.webm")
 
+        if (flacFile.exists() && flacFile.length() > 0) {
+            return@withContext flacFile.absolutePath
+        }
         if (m4aFile.exists() && m4aFile.length() > 0) {
             return@withContext m4aFile.absolutePath
         }
@@ -120,15 +128,26 @@ object DownloadHelper {
             try {
                 // Invalidate any cached/expired stream URL to guarantee fresh highest-quality URL
                 YoutubeHelper.invalidateStreamCache(song.youtubeId)
-                val url = YoutubeHelper.getSongPlayerUrlWithQuality(context, song, maxBitrateKbps = 0)
+                val url = YoutubeHelper.getSongPlayerUrlWithQuality(context, song, maxBitrateKbps = 0, forDownload = true)
                 if (url.isBlank()) {
                     throw IOException("Empty stream URL for song ${song.youtubeId}")
                 }
 
+                val isLossless = url.contains(".flac", ignoreCase = true) ||
+                    url.contains("flac", ignoreCase = true) ||
+                    com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.isLosslessUri(url)
                 val isSaavn = url.contains("saavncdn.com") || url.contains("jiosaavn.com")
                 val isM4a = isSaavn || url.contains(".mp4") || url.contains(".m4a")
-                val ext = if (isM4a) "m4a" else "webm"
-                val mimeType = if (isM4a) "audio/mp4" else "audio/webm"
+                val ext = when {
+                    isLossless -> "flac"
+                    isM4a -> "m4a"
+                    else -> "webm"
+                }
+                val mimeType = when {
+                    isLossless -> "audio/flac"
+                    isM4a -> "audio/mp4"
+                    else -> "audio/webm"
+                }
                 val dynamicFileName = "$safeTitle - $safeArtist.$ext"
                 val outputFile = File(audioDir, "${song.youtubeId}.$ext")
 
@@ -299,9 +318,18 @@ object DownloadHelper {
             val sourceFile = File(sourceFilePath)
             if (!sourceFile.exists()) return null
 
+            val isFlac = sourceFilePath.endsWith(".flac", ignoreCase = true)
             val isM4a = sourceFilePath.endsWith(".m4a", ignoreCase = true) || sourceFilePath.endsWith(".mp4", ignoreCase = true)
-            val ext = if (isM4a) "m4a" else "webm"
-            val mimeType = if (isM4a) "audio/mp4" else "audio/webm"
+            val ext = when {
+                isFlac -> "flac"
+                isM4a -> "m4a"
+                else -> "webm"
+            }
+            val mimeType = when {
+                isFlac -> "audio/flac"
+                isM4a -> "audio/mp4"
+                else -> "audio/webm"
+            }
             val safeTitle = songTitle.replace(Regex("[\\\\/:*?\"\\<>|]"), "_")
             val safeArtist = artistName.replace(Regex("[\\\\/:*?\"\\<>|]"), "_")
             val fileName = "$safeTitle - $safeArtist.$ext"

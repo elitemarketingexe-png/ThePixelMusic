@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeveloperBoard
 import androidx.compose.material.icons.rounded.DeveloperMode
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MusicNote
@@ -91,6 +92,12 @@ enum class SettingsCategory(
         titleRes = R.string.lastfm_integration,
         subtitleRes = R.string.lastfm_integration_desc,
         icon = Icons.Rounded.MusicNote
+    ),
+    LOSSLESS_SOURCES(
+        id = "lossless_sources",
+        titleRes = R.string.settings_category_lossless_title,
+        subtitleRes = R.string.settings_category_lossless_subtitle,
+        icon = Icons.Rounded.HighQuality
     );
 
     companion object {

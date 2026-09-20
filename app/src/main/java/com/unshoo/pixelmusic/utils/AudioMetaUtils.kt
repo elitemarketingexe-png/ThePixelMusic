@@ -11,7 +11,10 @@ import java.util.Locale
 data class AudioMeta(
     val mimeType: String?,
     val bitrate: Int?,      // bits per second
-    val sampleRate: Int?   // Hz
+    val sampleRate: Int?,   // Hz
+    val bitDepth: Int? = null,
+    val formatLabel: String? = null,
+    val provider: String? = null,
 )
 
 object AudioMetaUtils {
@@ -35,6 +38,7 @@ object AudioMetaUtils {
         var mimeType: String? = null
         var bitrate: Int? = null
         var sampleRate: Int? = null
+        var bitDepth: Int? = null
 
         // Try MediaMetadataRetriever via pool
         MediaMetadataRetrieverPool.withRetriever { retriever ->
@@ -43,6 +47,9 @@ object AudioMetaUtils {
                 mimeType = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
                 bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()
                 sampleRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull()
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    bitDepth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)?.toIntOrNull()
+                }
             } catch (e: Exception) {
                 Log.w("AudioMetaUtils", "Retriever failed for $filePath: ${e.message}")
             }
@@ -62,6 +69,9 @@ object AudioMetaUtils {
                         bitrate = bitrate ?: if (format.containsKey(MediaFormat.KEY_BIT_RATE)) {
                             format.getInteger(MediaFormat.KEY_BIT_RATE)
                         } else null
+                        if (bitDepth == null && format.containsKey("bits-per-sample")) {
+                            bitDepth = format.getInteger("bits-per-sample")
+                        }
                         break
                     }
                 }
@@ -71,7 +81,7 @@ object AudioMetaUtils {
             Log.w("AudioMetaUtils", "Extractor failed for $filePath: ${e.message}")
         }
 
-        return AudioMeta(mimeType, bitrate, sampleRate)
+        return AudioMeta(mimeType, bitrate, sampleRate, bitDepth)
 
     }
 

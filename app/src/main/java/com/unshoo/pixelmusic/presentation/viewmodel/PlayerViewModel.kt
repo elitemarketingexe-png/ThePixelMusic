@@ -232,8 +232,21 @@ data class PlaybackAudioMetadata(
     val bitrate: Int? = null,
     val sampleRate: Int? = null,
     val channelCount: Int? = null,
-    val bitDepth: Int? = null
-)
+    val bitDepth: Int? = null,
+    val formatTag: String? = null,
+    val sourceName: String? = null,
+) {
+    val isLossless: Boolean
+        get() = formatTag == "LOSSLESS" || formatTag == "HI-RES LOSSLESS" ||
+            mimeType?.contains("flac", ignoreCase = true) == true ||
+            mimeType?.contains("alac", ignoreCase = true) == true ||
+            mimeType?.contains("wav", ignoreCase = true) == true
+
+    val isHiRes: Boolean
+        get() = formatTag == "HI-RES LOSSLESS" ||
+            (sampleRate ?: 0) > 48000 ||
+            (bitDepth ?: 0) >= 24
+}
 
 private data class SortOptionsSnapshot(
     val songSort: SortOption,
@@ -4863,7 +4876,23 @@ class PlayerViewModel @Inject constructor(
         pendingRepeatMode?.let { applyPreferredRepeatMode(it) }
     }
 
+    private var dynamicMetadataRefreshJob: Job? = null
+
+    private fun scheduleDynamicPlaybackMetadataRefresh(player: Player, targetMediaId: String) {
+        dynamicMetadataRefreshJob?.cancel()
+        dynamicMetadataRefreshJob = viewModelScope.launch(Dispatchers.Main) {
+            val delays = listOf(400L, 1200L, 2500L, 4000L)
+            for (probeDelay in delays) {
+                delay(probeDelay)
+                if (player.currentMediaItem?.mediaId != targetMediaId) break
+                refreshPlaybackAudioMetadata(player)
+            }
+        }
+    }
+
     private fun resetPlaybackAudioMetadata() {
+        dynamicMetadataRefreshJob?.cancel()
+        dynamicMetadataRefreshJob = null
         metadataProbeJob?.cancel()
         metadataProbeJob = null
         metadataProbeMediaId = null
@@ -4874,6 +4903,132 @@ class PlayerViewModel @Inject constructor(
         metadataProbeJob?.cancel()
         metadataProbeJob = null
         metadataProbeMediaId = null
+        if (mediaId == null) {
+            _playbackAudioMetadata.value = PlaybackAudioMetadata()
+            return
+        }
+
+        // 1. Check if LosslessStreamResolver has a cached resolution for this track
+        val cleanMediaId = mediaId.removePrefix("youtube_")
+        val losslessResult = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
+            .resultFor(cleanMediaId)
+            ?: com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.resultFor(mediaId)
+        if (losslessResult != null) {
+            val tag = when {
+                losslessResult.isHiRes -> "HI-RES LOSSLESS"
+                losslessResult.isLossless -> "LOSSLESS"
+                else -> null
+            }
+            _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                mediaId = mediaId,
+                mimeType = losslessResult.mimeType,
+                bitrate = losslessResult.bitrate.takeIf { it > 0 },
+                sampleRate = losslessResult.sampleRate,
+                bitDepth = losslessResult.bitDepth,
+                formatTag = tag,
+                sourceName = losslessResult.source.name
+            )
+            return
+        }
+
+        // 2. Check song from current playback queue or library for known format/extensions
+        val song = _playerUiState.value.currentPlaybackQueue.find { it.id == mediaId }
+            ?: libraryStateHolder.allSongsById.value[mediaId]
+            ?: runCatching { mediaController?.currentMediaItem?.let(::resolveSongFromMediaItem) }.getOrNull()
+
+        if (song != null) {
+            val isFlac = song.mimeType?.contains("flac", true) == true ||
+                song.path.endsWith(".flac", ignoreCase = true)
+            if (isFlac) {
+                val isHiRes = (song.sampleRate ?: 0) > 48000 || ((song.bitrate ?: 0) > 1_500_000)
+                _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                    mediaId = mediaId,
+                    mimeType = "audio/flac",
+                    bitrate = song.bitrate,
+                    sampleRate = song.sampleRate ?: if (isHiRes) 96000 else 44100,
+                    bitDepth = if (isHiRes) 24 else 16,
+                    formatTag = if (isHiRes) "HI-RES LOSSLESS" else "LOSSLESS",
+                    sourceName = "Local Storage"
+                )
+                return
+            }
+
+            val isWav = song.mimeType?.contains("wav", true) == true ||
+                song.path.endsWith(".wav", ignoreCase = true)
+            if (isWav) {
+                _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                    mediaId = mediaId,
+                    mimeType = "audio/wav",
+                    bitrate = song.bitrate,
+                    sampleRate = song.sampleRate ?: 44100,
+                    bitDepth = 16,
+                    formatTag = "LOSSLESS",
+                    sourceName = "Local Storage"
+                )
+                return
+            }
+
+            if (song.path.isNotBlank()) {
+                val path = song.path.lowercase()
+                val mime = when {
+                    path.endsWith(".m4a") || path.endsWith(".mp4") -> "audio/mp4"
+                    path.endsWith(".mp3") -> "audio/mpeg"
+                    path.endsWith(".ogg") -> "audio/ogg"
+                    path.endsWith(".opus") -> "audio/opus"
+                    path.endsWith(".webm") -> "audio/webm; codecs=\"opus\""
+                    else -> song.mimeType
+                }
+                _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                    mediaId = mediaId,
+                    mimeType = mime,
+                    bitrate = song.bitrate,
+                    sampleRate = song.sampleRate ?: (if (mime?.contains("opus") == true) 48000 else 44100),
+                    sourceName = "Local Storage"
+                )
+                return
+            }
+
+            // Online YouTube / JioSaavn song check in LRU caches
+            val videoId = song.youtubeId ?: cleanMediaId
+            val ytBitrate: Int? = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get("${videoId}_high")
+                ?.takeIf { it > 65_000 }
+            val ytMime: String? = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.get("${videoId}_high")
+            if (ytMime != null || ytBitrate != null) {
+                val mime = ytMime ?: "audio/webm; codecs=\"opus\""
+                val isOpus = mime.contains("opus", true) || mime.contains("webm", true)
+                _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                    mediaId = mediaId,
+                    mimeType = mime,
+                    bitrate = ytBitrate ?: if (isOpus) 160_000 else 128_000,
+                    sampleRate = if (isOpus) 48000 else 44100,
+                    sourceName = if (song.contentUriString.contains("saavn")) "JioSaavn" else "YouTube"
+                )
+                return
+            } else {
+                // Online song: pre-seed with expected stream quality (Opus 160k or JioSaavn 320k)
+                val isSaavn = song.contentUriString.contains("saavn")
+                _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                    mediaId = mediaId,
+                    mimeType = if (isSaavn) "audio/mp4; codecs=\"mp4a.40.2\"" else "audio/webm; codecs=\"opus\"",
+                    bitrate = if (isSaavn) 320_000 else 160_000,
+                    sampleRate = if (isSaavn) 44100 else 48000,
+                    sourceName = if (isSaavn) "JioSaavn" else "YouTube"
+                )
+                return
+            }
+        }
+
+        if (cleanMediaId.isNotBlank()) {
+            _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                mediaId = mediaId,
+                mimeType = "audio/webm; codecs=\"opus\"",
+                bitrate = 160_000,
+                sampleRate = 48000,
+                sourceName = "YouTube"
+            )
+            return
+        }
+
         _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId)
     }
 
@@ -4896,6 +5051,53 @@ class PlayerViewModel @Inject constructor(
                 return@runCatching
             }
 
+            val cleanMediaId = mediaId.removePrefix("youtube_")
+
+            // 1. Lossless sources check
+            val losslessResult = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
+                .resultFor(cleanMediaId)
+                ?: com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.resultFor(mediaId)
+            if (losslessResult != null) {
+                val tag = when {
+                    losslessResult.isHiRes -> "HI-RES LOSSLESS"
+                    losslessResult.isLossless -> "LOSSLESS"
+                    else -> null
+                }
+                _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                    mediaId = mediaId,
+                    mimeType = losslessResult.mimeType,
+                    bitrate = losslessResult.bitrate.takeIf { it > 0 },
+                    sampleRate = losslessResult.sampleRate,
+                    bitDepth = losslessResult.bitDepth,
+                    formatTag = tag,
+                    sourceName = losslessResult.source.name
+                )
+                return@runCatching
+            }
+
+            // 2. Check playing URI directly
+            val playingUri = player.currentMediaItem?.localConfiguration?.uri
+            val playingUriString = playingUri?.toString().orEmpty()
+            val isSaavn = playingUriString.contains("saavncdn.com") || playingUriString.contains("jiosaavn.com")
+            if (isSaavn) {
+                val saavnBitrate = when {
+                    playingUriString.contains("_320") -> 320_000
+                    playingUriString.contains("_160") -> 160_000
+                    playingUriString.contains("_96") -> 96_000
+                    else -> 320_000
+                }
+                _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                    mediaId = mediaId,
+                    mimeType = "audio/mp4; codecs=\"mp4a.40.2\"",
+                    bitrate = saavnBitrate,
+                    sampleRate = 44100,
+                    formatTag = null,
+                    sourceName = "JioSaavn"
+                )
+                return@runCatching
+            }
+
+            // 3. Check selected audio format from ExoPlayer tracks
             val selectedAudioFormat = tracks.groups
                 .asSequence()
                 .filter { it.type == C.TRACK_TYPE_AUDIO }
@@ -4907,18 +5109,48 @@ class PlayerViewModel @Inject constructor(
                 }
                 .firstOrNull()
 
-            val current = _playbackAudioMetadata.value.takeIf { it.mediaId == mediaId }
+            val current = _playbackAudioMetadata.value.takeIf {
+                it.mediaId == mediaId ||
+                it.mediaId?.removePrefix("youtube_") == cleanMediaId
+            }
+
+            val selectedBitrate = selectedAudioFormat?.bitrate?.takeIf { it > 0 }
+            val rawMime = selectedAudioFormat?.sampleMimeType ?: selectedAudioFormat?.containerMimeType
+
+            // Reject bogus chunk / low bitrates (e.g. 30k..65k like 50k or 51k m4a)
+            val isBogusLow = selectedBitrate != null && selectedBitrate in 30_000..65_000
+            val isExoOpus = rawMime?.contains("opus", true) == true || rawMime?.contains("webm", true) == true
+            val isExoMp4 = rawMime?.contains("mp4", true) == true || rawMime?.contains("aac", true) == true
+
+            val resolvedMime = when {
+                isExoOpus -> "audio/webm; codecs=\"opus\""
+                isExoMp4 && !isBogusLow -> "audio/mp4; codecs=\"mp4a.40.2\""
+                else -> current?.mimeType ?: "audio/webm; codecs=\"opus\""
+            }
+
+            val isResolvedOpus = resolvedMime.contains("opus", true) || resolvedMime.contains("webm", true)
+
+            val resolvedBitrate = when {
+                isBogusLow -> if (isResolvedOpus) 160_000 else 128_000
+                selectedBitrate != null && selectedBitrate > 65_000 -> selectedBitrate
+                else -> current?.bitrate?.takeIf { it > 65_000 } ?: if (isResolvedOpus) 160_000 else 128_000
+            }
+
+            val resolvedSampleRate = when {
+                isResolvedOpus -> 48000
+                selectedAudioFormat?.sampleRate != null && (selectedAudioFormat.sampleRate ?: 0) > 0 -> selectedAudioFormat.sampleRate
+                else -> current?.sampleRate ?: 44100
+            }
+
             val metadata = PlaybackAudioMetadata(
                 mediaId = mediaId,
-                mimeType = selectedAudioFormat?.sampleMimeType
-                    ?: selectedAudioFormat?.containerMimeType
-                    ?: current?.mimeType,
-                bitrate = selectedAudioFormat?.bitrate?.takeIf { it > 0 }
-                    ?: current?.bitrate,
-                sampleRate = selectedAudioFormat?.sampleRate?.takeIf { it > 0 }
-                    ?: current?.sampleRate,
+                mimeType = resolvedMime,
+                bitrate = resolvedBitrate,
+                sampleRate = resolvedSampleRate,
                 channelCount = selectedAudioFormat?.channelCount?.takeIf { it > 0 } ?: current?.channelCount,
-                bitDepth = selectedAudioFormat?.pcmEncoding?.let(::extractBitDepthFromPcmEncoding) ?: current?.bitDepth
+                bitDepth = selectedAudioFormat?.pcmEncoding?.let(::extractBitDepthFromPcmEncoding) ?: current?.bitDepth,
+                formatTag = current?.formatTag,
+                sourceName = current?.sourceName ?: "YouTube"
             )
 
             _playbackAudioMetadata.value = metadata
@@ -4932,18 +5164,44 @@ class PlayerViewModel @Inject constructor(
         player: Player,
         metadata: PlaybackAudioMetadata
     ) {
-        val shouldProbe = metadata.mimeType.isNullOrBlank() || metadata.bitrate == null || metadata.sampleRate == null
-        if (!shouldProbe) return
-
         val mediaItem = player.currentMediaItem ?: return
         val mediaId = mediaItem.mediaId
         val uri = mediaItem.localConfiguration?.uri ?: return
 
         val playingUriString = uri.toString()
-        val isYoutube = mediaId.startsWith("youtube_") &&
+
+        // Lossless sources (ArchiveTune port): check first so lossless always takes precedence
+        val cleanMediaId = mediaId.removePrefix("youtube_")
+        val losslessResult = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
+            .resultFor(cleanMediaId)
+            ?: com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.resultFor(mediaId)
+        if (losslessResult != null) {
+            val tag = when {
+                losslessResult.isHiRes -> "HI-RES LOSSLESS"
+                losslessResult.isLossless -> "LOSSLESS"
+                else -> null
+            }
+            _playbackAudioMetadata.update { current ->
+                if (current.mediaId != mediaId && current.mediaId?.removePrefix("youtube_") != cleanMediaId) return@update current
+                current.copy(
+                    mimeType = losslessResult.mimeType,
+                    bitrate = losslessResult.bitrate.takeIf { it > 0 } ?: current.bitrate,
+                    sampleRate = losslessResult.sampleRate ?: current.sampleRate,
+                    bitDepth = losslessResult.bitDepth ?: current.bitDepth,
+                    formatTag = tag,
+                    sourceName = losslessResult.source.name
+                )
+            }
+            return
+        }
+
+        val shouldProbe = metadata.mimeType.isNullOrBlank() || metadata.bitrate == null || metadata.sampleRate == null || (metadata.bitrate ?: 0) < 96_000
+        if (!shouldProbe) return
+
+        val isYoutube = (mediaId.startsWith("youtube_") || !mediaId.contains("/")) &&
                 (playingUriString.contains("googlevideo.com") || playingUriString.contains("youtube.com"))
         if (isYoutube) {
-            val videoId = mediaId.substringAfter("youtube_")
+            val videoId = mediaId.removePrefix("youtube_")
             
             // 1. Try to find cache key by exact URL match
             var cacheKey = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamUrlLruCache.snapshot().entries
@@ -4951,7 +5209,6 @@ class PlayerViewModel @Inject constructor(
             
             // 2. If it's a remote URL and no exact match, try matching entries for this videoId where itag parameter matches
             if (cacheKey == null && uri.toString().startsWith("http")) {
-                val playingUriString = uri.toString()
                 cacheKey = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamUrlLruCache.snapshot().entries
                     .filter { it.key.startsWith("${videoId}_") }
                     .find { entry ->
@@ -4968,29 +5225,20 @@ class PlayerViewModel @Inject constructor(
                     .find { it.startsWith("${videoId}_") }
             }
 
-            // Look up the cached bitrate
-            var cachedBitrate = cacheKey?.let { com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get(it) }
+            // Look up the cached bitrate (only accept > 65k)
+            var cachedBitrate = cacheKey?.let { com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get(it) }?.takeIf { it > 65_000 }
             if (cachedBitrate == null) {
-                cachedBitrate = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.let { cache ->
-                    cache.get("${videoId}_high")
-                        ?: cache.get("${videoId}_low")
-                        ?: cache.snapshot().keys.find { it.startsWith("${videoId}_") }?.let { cache.get(it) }
-                }
+                cachedBitrate = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get("${videoId}_high")?.takeIf { it > 65_000 }
             }
 
             // Look up the cached mime type
             var cachedMime = cacheKey?.let { com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.get(it) }
             if (cachedMime == null) {
-                cachedMime = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.let { cache ->
-                    cache.get("${videoId}_high")
-                        ?: cache.get("${videoId}_low")
-                        ?: cache.snapshot().keys.find { it.startsWith("${videoId}_") }?.let { cache.get(it) }
-                }
+                cachedMime = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.get("${videoId}_high")
             }
 
             // Bulletproof fallback: Parse the itag parameter from the YouTube URL or detect JioSaavn quality if cache missed
             if (cachedBitrate == null || cachedMime == null) {
-                val playingUriString = uri.toString()
                 if (playingUriString.startsWith("http")) {
                     if (playingUriString.contains("saavncdn.com") || playingUriString.contains("jiosaavn.com")) {
                         if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
@@ -5014,21 +5262,13 @@ class PlayerViewModel @Inject constructor(
                                     if (cachedBitrate == null) cachedBitrate = 128_000
                                     if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
                                 }
-                                "250" -> {
-                                    if (cachedBitrate == null) cachedBitrate = 70_000
-                                    if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
-                                }
-                                "249" -> {
-                                    if (cachedBitrate == null) cachedBitrate = 50_000
-                                    if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
-                                }
                                 "171" -> {
                                     if (cachedBitrate == null) cachedBitrate = 128_000
                                     if (cachedMime == null) cachedMime = "audio/webm; codecs=\"vorbis\""
                                 }
-                                "139" -> {
-                                    if (cachedBitrate == null) cachedBitrate = 48_000
-                                    if (cachedMime == null) cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
+                                else -> {
+                                    if (cachedBitrate == null) cachedBitrate = 160_000
+                                    if (cachedMime == null) cachedMime = "audio/webm; codecs=\"opus\""
                                 }
                             }
                         }
@@ -5037,10 +5277,12 @@ class PlayerViewModel @Inject constructor(
             }
             
             _playbackAudioMetadata.update { current ->
-                if (current.mediaId != mediaId) return@update current
+                if (current.mediaId != mediaId && current.mediaId?.removePrefix("youtube_") != cleanMediaId) return@update current
+                val finalBitrate = if (cachedBitrate != null && cachedBitrate > 65_000) cachedBitrate else current.bitrate?.takeIf { it > 65_000 } ?: 160_000
                 current.copy(
-                    bitrate = current.bitrate ?: cachedBitrate,
-                    mimeType = current.mimeType ?: cachedMime
+                    bitrate = finalBitrate,
+                    mimeType = cachedMime ?: current.mimeType ?: "audio/webm; codecs=\"opus\"",
+                    sourceName = if (playingUriString.contains("saavn")) "JioSaavn" else "YouTube"
                 )
             }
             
@@ -5132,13 +5374,21 @@ class PlayerViewModel @Inject constructor(
                 }
             }.getOrNull() ?: return@launch
 
+            val localTag = when {
+                (probedMetadata.sampleRate ?: 0) > 48000 || (probedMetadata.bitDepth ?: 0) >= 24 -> "HI-RES LOSSLESS"
+                probedMetadata.mimeType?.contains("flac", true) == true ||
+                    probedMetadata.mimeType?.contains("alac", true) == true ||
+                    probedMetadata.mimeType?.contains("wav", true) == true -> "LOSSLESS"
+                else -> null
+            }
             _playbackAudioMetadata.update { current ->
                 val isSameMediaItem = current.mediaId == mediaId
                 if (!isSameMediaItem) return@update current
                 current.copy(
                     mimeType = current.mimeType ?: probedMetadata.mimeType,
                     bitrate = current.bitrate ?: probedMetadata.bitrate,
-                    sampleRate = current.sampleRate ?: probedMetadata.sampleRate
+                    sampleRate = current.sampleRate ?: probedMetadata.sampleRate,
+                    formatTag = current.formatTag ?: localTag
                 )
             }
         }
@@ -5318,15 +5568,11 @@ class PlayerViewModel @Inject constructor(
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if (isRemoteSessionControllingPlayback()) return
-                playbackStateHolder.onPlaybackOccurrenceTransition(mediaItem?.mediaId)
-                preparePlaybackAudioMetadataForMedia(mediaItem?.mediaId)
-                // Schedule a deferred metadata refresh to catch format data that arrives
-                // slightly after the transition event (ExoPlayer provides track info async)
-                viewModelScope.launch {
-                    delay(300L)
-                    if (playerCtrl.currentMediaItem?.mediaId == mediaItem?.mediaId) {
-                        refreshPlaybackAudioMetadata(playerCtrl)
-                    }
+                val currentId = mediaItem?.mediaId
+                playbackStateHolder.onPlaybackOccurrenceTransition(currentId)
+                preparePlaybackAudioMetadataForMedia(currentId)
+                if (currentId != null) {
+                    scheduleDynamicPlaybackMetadataRefresh(playerCtrl, currentId)
                 }
                 transitionSchedulerJob?.cancel()
                 lyricsStateHolder.cancelLoading()
@@ -5487,7 +5733,12 @@ class PlayerViewModel @Inject constructor(
                 }
 
                 if (playbackState == Player.STATE_READY) {
-                    clearPreparingSongIfMatching(playerCtrl.currentMediaItem?.mediaId)
+                    val currentId = playerCtrl.currentMediaItem?.mediaId
+                    if (currentId != null) {
+                        refreshPlaybackAudioMetadata(playerCtrl)
+                        scheduleDynamicPlaybackMetadataRefresh(playerCtrl, currentId)
+                    }
+                    clearPreparingSongIfMatching(currentId)
                     val readyPosition = playerCtrl.currentPosition.coerceAtLeast(0L)
                     val songDurationHint = playbackStateHolder.stablePlayerState.value.currentSong?.duration ?: 0L
                     val resolvedDuration = playbackStateHolder.resolveDurationForPlaybackState(

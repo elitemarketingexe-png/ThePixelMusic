@@ -286,6 +286,9 @@ fun SongInfoBottomSheet(
         RoundedCornerShape(8.dp)
     }
 
+    val songLocationInfo by songInfoViewModel.songLocationInfo.collectAsStateWithLifecycle()
+    val isResolvingAudioMeta by songInfoViewModel.isResolvingAudioMeta.collectAsStateWithLifecycle()
+
     val audioMetaLabel = remember(audioMeta) {
         val meta = audioMeta ?: return@remember null
         val formatLabel = AudioMetaUtils.mimeTypeToFormat(meta.mimeType)
@@ -294,14 +297,17 @@ fun SongInfoBottomSheet(
         val parts = buildList {
             meta.sampleRate?.takeIf { it > 0 }
                 ?.let { add(String.format(java.util.Locale.US, "%.1f kHz", it / 1000.0)) }
+            meta.bitDepth?.takeIf { it > 0 }
+                ?.let { add("$it-bit") }
             meta.bitrate?.takeIf { it > 0 }
-                ?.let { add("${it / 1000} kbps") }
+                ?.let {
+                    val kbps = it / 1000
+                    val formatted = java.text.NumberFormat.getIntegerInstance().format(kbps)
+                    add("$formatted kbps")
+                }
             formatLabel?.let { add(it) }
         }
         parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
-    }
-    val songLocationInfo = remember(song.path, song.contentUriString) {
-        songInfoViewModel.getSongLocationInfo(song)
     }
 
     LaunchedEffect(song.id) {
@@ -999,21 +1005,51 @@ fun SongInfoBottomSheet(
                                                         iconDescription = stringResource(R.string.cd_audio_format_icon),
                                                         shape = infoSegmentItemShape,
                                                     )
+                                                } else if (isResolvingAudioMeta) {
+                                                    SongInfoSegmentedListItem(
+                                                        headline = stringResource(R.string.song_info_label_song_metadata),
+                                                        supporting = "Resolving audio format...",
+                                                        icon = Icons.Rounded.Info,
+                                                        iconDescription = stringResource(R.string.cd_audio_format_icon),
+                                                        shape = infoSegmentItemShape,
+                                                    )
                                                 }
 
-                                                SongInfoSegmentedListItem(
-                                                    headline = songLocationInfo.label,
-                                                    supporting = songLocationInfo.value,
-                                                    icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
-                                                    iconDescription = stringResource(
-                                                        if (songLocationInfo.isCloud) {
-                                                            R.string.cd_provider_icon
-                                                        } else {
-                                                            R.string.cd_file_icon
-                                                        }
-                                                    ),
-                                                    shape = infoSegmentItemShape,
-                                                )
+                                                val providerText = songLocationInfo.provider
+                                                if (!providerText.isNullOrBlank()) {
+                                                    SongInfoSegmentedListItem(
+                                                        headline = "Provider",
+                                                        supporting = providerText,
+                                                        icon = Icons.Rounded.Cloud,
+                                                        iconDescription = stringResource(R.string.cd_provider_icon),
+                                                        shape = infoSegmentItemShape,
+                                                    )
+                                                }
+
+                                                val filePathText = songLocationInfo.filePath
+                                                if (!filePathText.isNullOrBlank()) {
+                                                    SongInfoSegmentedListItem(
+                                                        headline = "Path",
+                                                        supporting = filePathText,
+                                                        icon = Icons.Rounded.AudioFile,
+                                                        iconDescription = stringResource(R.string.cd_file_icon),
+                                                        shape = infoSegmentItemShape,
+                                                    )
+                                                } else if (providerText.isNullOrBlank()) {
+                                                    SongInfoSegmentedListItem(
+                                                        headline = songLocationInfo.label,
+                                                        supporting = songLocationInfo.value,
+                                                        icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
+                                                        iconDescription = stringResource(
+                                                            if (songLocationInfo.isCloud) {
+                                                                R.string.cd_provider_icon
+                                                            } else {
+                                                                R.string.cd_file_icon
+                                                            }
+                                                        ),
+                                                        shape = infoSegmentItemShape,
+                                                    )
+                                                }
                                             }
                                         }
                                         item {
@@ -1073,6 +1109,7 @@ fun SongInfoBottomSheet(
                         selectedIndex = pagerState.currentPage,
                         onClick = {
                             scope.launch {
+                                songInfoViewModel.loadAudioMeta(song)
                                 pagerState.animateScrollToPage(1)
                             }
                         },

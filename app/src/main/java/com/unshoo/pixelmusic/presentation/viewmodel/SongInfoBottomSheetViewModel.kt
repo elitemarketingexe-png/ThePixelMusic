@@ -1,12 +1,15 @@
 package com.unshoo.pixelmusic.presentation.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.unshoo.pixelmusic.data.database.MusicDao
 import com.unshoo.pixelmusic.data.database.toArtist
+import com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
 import com.unshoo.pixelmusic.data.model.Artist
 import com.unshoo.pixelmusic.data.model.Song
+import com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
 import com.unshoo.pixelmusic.data.repository.MusicRepository
 import com.unshoo.pixelmusic.data.telegram.TelegramRepository
 import com.unshoo.pixelmusic.data.service.wear.PhoneWatchTransferState
@@ -17,6 +20,7 @@ import com.unshoo.pixelmusic.utils.AudioMeta
 import com.unshoo.pixelmusic.utils.AudioMetaUtils
 import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -30,9 +34,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @HiltViewModel
 class SongInfoBottomSheetViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val wearPhoneTransferSender: WearPhoneTransferSender,
     private val transferStateStore: PhoneWatchTransferStateStore,
     private val musicDao: MusicDao,
@@ -42,12 +48,22 @@ class SongInfoBottomSheetViewModel @Inject constructor(
 ) : ViewModel() {
 
     data class SongLocationInfo(
-        val label: String,
-        val value: String,
-        val isCloud: Boolean,
+        val label: String = "Provider",
+        val value: String = "",
+        val isCloud: Boolean = false,
+        val provider: String? = null,
+        val filePath: String? = null,
     )
 
     private val _audioMeta = MutableStateFlow<AudioMeta?>(null)
+    val audioMeta: StateFlow<AudioMeta?> = _audioMeta.asStateFlow()
+
+    private val _songLocationInfo = MutableStateFlow(SongLocationInfo(label = "Provider", value = "", isCloud = false))
+    val songLocationInfo: StateFlow<SongLocationInfo> = _songLocationInfo.asStateFlow()
+
+    private val _isResolvingAudioMeta = MutableStateFlow(false)
+    val isResolvingAudioMeta: StateFlow<Boolean> = _isResolvingAudioMeta.asStateFlow()
+
     private val _resolvedArtists = MutableStateFlow<List<Artist>>(emptyList())
     val resolvedArtists: StateFlow<List<Artist>> = _resolvedArtists.asStateFlow()
     private val _isPixelMusicWatchAvailable = MutableStateFlow(false)
@@ -93,8 +109,6 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         initialValue = false,
     )
 
-    val audioMeta: StateFlow<AudioMeta?> = _audioMeta.asStateFlow()
-
     fun loadArtistsForSong(song: Song) {
         val refs = song.artists
         if (refs.isEmpty() || refs.size < 2) {
@@ -116,33 +130,191 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         }
     }
 
+    private fun getLocalFilePath(song: Song): String? {
+        return when {
+            song.path.isNotBlank() && File(song.path).exists() -> song.path
+            else -> null
+        }
+    }
+
     fun loadAudioMeta(song: Song) {
+        _songLocationInfo.value = getSongLocationInfo(song)
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val meta = AudioMetaUtils.getAudioMetadata(
-                musicDao = musicDao,
-                id = song.id.toLongOrNull() ?: -1L,
-                filePath = song.path,
-                deepScan = false
+            val localPath = getLocalFilePath(song)
+            val isPureLocal = isLocalSongForWatchTransfer(song) &&
+                !song.id.startsWith("youtube_") && song.youtubeId == null &&
+                getCloudProviderLabel(song.contentUriString) == null
+
+            if (isPureLocal && localPath != null) {
+                val meta = AudioMetaUtils.getAudioMetadata(
+                    musicDao = musicDao,
+                    id = song.id.toLongOrNull() ?: -1L,
+                    filePath = localPath,
+                    deepScan = true
+                )
+                _audioMeta.value = meta.copy(provider = "Local Storage")
+                _songLocationInfo.value = SongLocationInfo(
+                    label = "Path",
+                    value = localPath,
+                    isCloud = false,
+                    provider = "Local Storage",
+                    filePath = localPath
+                )
+                return@launch
+            }
+
+            // Online / streaming track (YouTube, Lossless, etc.)
+            val videoId = song.youtubeId
+                ?: song.contentUriString.substringAfter("youtube://").takeIf { it.isNotBlank() && !it.startsWith("http") }
+                ?: song.id.removePrefix("youtube_")
+
+            // 1. Check if LosslessStreamResolver already resolved this track
+            val cachedLossless = LosslessStreamResolver.resultFor(videoId)
+                ?: LosslessStreamResolver.resultFor(song.id)
+            if (cachedLossless != null) {
+                val providerStr = "${cachedLossless.source.name} (${cachedLossless.label})"
+                _audioMeta.value = AudioMeta(
+                    mimeType = cachedLossless.mimeType,
+                    bitrate = cachedLossless.bitrate,
+                    sampleRate = cachedLossless.sampleRate,
+                    bitDepth = cachedLossless.bitDepth,
+                    formatLabel = cachedLossless.label,
+                    provider = providerStr
+                )
+                _songLocationInfo.value = SongLocationInfo(
+                    label = "Provider",
+                    value = providerStr,
+                    isCloud = true,
+                    provider = providerStr,
+                    filePath = localPath
+                )
+                return@launch
+            }
+
+            // 2. If lossless streaming is enabled, resolve it dynamically
+            val isLosslessEnabled = LosslessStreamResolver.isEnabled(context)
+            if (isLosslessEnabled && videoId.isNotBlank()) {
+                _isResolvingAudioMeta.value = true
+                try {
+                    val artistsList = song.artist.split(",", "&", "feat.", "ft.", ";")
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .ifEmpty { listOf(song.artist).filter { it.isNotBlank() } }
+                    val resolved = LosslessStreamResolver.resolve(
+                        context = context,
+                        request = LosslessStreamResolver.Request(
+                            mediaId = videoId,
+                            title = song.title,
+                            artists = artistsList,
+                            album = song.album,
+                            durationMs = song.duration.takeIf { it > 0 }
+                        ),
+                        lowDataMode = false
+                    )
+                    if (resolved != null) {
+                        val providerStr = "${resolved.source.name} (${resolved.label})"
+                        _audioMeta.value = AudioMeta(
+                            mimeType = resolved.mimeType,
+                            bitrate = resolved.bitrate,
+                            sampleRate = resolved.sampleRate,
+                            bitDepth = resolved.bitDepth,
+                            formatLabel = resolved.label,
+                            provider = providerStr
+                        )
+                        _songLocationInfo.value = SongLocationInfo(
+                            label = "Provider",
+                            value = providerStr,
+                            isCloud = true,
+                            provider = providerStr,
+                            filePath = localPath
+                        )
+                        _isResolvingAudioMeta.value = false
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    Timber.w(e, "Error resolving lossless metadata in SongInfo")
+                } finally {
+                    _isResolvingAudioMeta.value = false
+                }
+            }
+
+            // 3. Lossless not found or disabled: if local file exists on disk, read its actual metadata!
+            if (localPath != null) {
+                val meta = AudioMetaUtils.getAudioMetadata(
+                    musicDao = musicDao,
+                    id = song.id.toLongOrNull() ?: -1L,
+                    filePath = localPath,
+                    deepScan = true
+                )
+                val fallbackProvider = getCloudProviderLabel(song.contentUriString)
+                    ?: if (song.youtubeId != null || song.id.startsWith("youtube_")) "YouTube Music" else "Local Storage"
+                _audioMeta.value = meta.copy(provider = fallbackProvider)
+                _songLocationInfo.value = SongLocationInfo(
+                    label = "Path",
+                    value = localPath,
+                    isCloud = false,
+                    provider = fallbackProvider,
+                    filePath = localPath
+                )
+                return@launch
+            }
+
+            // 4. Pure online streaming fallback: check actual YouTube / JioSaavn stream info
+            val ytBitrate = YoutubeHelper.streamBitrateLruCache.get("${videoId}_high")
+                ?: YoutubeHelper.streamBitrateLruCache.get("${videoId}_low")
+                ?: YoutubeHelper.streamBitrateLruCache.snapshot().entries.find { it.key.startsWith("${videoId}_") }?.value
+            val ytMime = YoutubeHelper.streamMimeTypeLruCache.get("${videoId}_high")
+                ?: YoutubeHelper.streamMimeTypeLruCache.get("${videoId}_low")
+                ?: YoutubeHelper.streamMimeTypeLruCache.snapshot().entries.find { it.key.startsWith("${videoId}_") }?.value
+
+            val bitrate = ytBitrate ?: 160_000
+            val mime = ytMime ?: "audio/webm; codecs=\"opus\""
+            val sampleRate = if (mime.contains("opus", true)) 48000 else 44100
+            val fallbackProvider = getCloudProviderLabel(song.contentUriString)
+                ?: if (song.contentUriString.contains("saavn")) "JioSaavn" else "YouTube Music"
+            _audioMeta.value = AudioMeta(
+                mimeType = mime,
+                bitrate = bitrate,
+                sampleRate = sampleRate,
+                bitDepth = 16,
+                formatLabel = null,
+                provider = fallbackProvider
             )
-            _audioMeta.value = meta
+            _songLocationInfo.value = SongLocationInfo(
+                label = "Provider",
+                value = fallbackProvider,
+                isCloud = true,
+                provider = fallbackProvider,
+                filePath = null
+            )
         }
     }
 
     fun getSongLocationInfo(song: Song): SongLocationInfo {
-        val provider = getCloudProviderLabel(song.contentUriString)
-        return if (provider != null) {
-            SongLocationInfo(
-                label = "Provider",
-                value = provider,
-                isCloud = true,
-            )
-        } else {
-            SongLocationInfo(
-                label = "Path",
-                value = song.path,
-                isCloud = false,
-            )
+        val videoId = song.youtubeId
+            ?: song.contentUriString.substringAfter("youtube://").takeIf { it.isNotBlank() && !it.startsWith("http") }
+            ?: song.id.removePrefix("youtube_")
+        val cachedLossless = LosslessStreamResolver.resultFor(videoId)
+            ?: LosslessStreamResolver.resultFor(song.id)
+
+        val localPath = getLocalFilePath(song)
+        val cloudProvider = getCloudProviderLabel(song.contentUriString)
+            ?: if (song.youtubeId != null || song.id.startsWith("youtube_")) "YouTube Music" else null
+
+        val providerName = when {
+            cachedLossless != null -> "${cachedLossless.source.name} (${cachedLossless.label})"
+            cloudProvider != null -> cloudProvider
+            localPath != null -> "Local Storage"
+            else -> "YouTube Music"
         }
+
+        return SongLocationInfo(
+            label = if (localPath != null && cachedLossless == null) "Path" else "Provider",
+            value = if (localPath != null && cachedLossless == null) localPath else providerName,
+            isCloud = localPath == null || cachedLossless != null,
+            provider = providerName,
+            filePath = localPath,
+        )
     }
 
     fun refreshWatchAvailability() {
@@ -322,7 +494,12 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         return when {
             contentUriString.startsWith("telegram://") -> "Telegram"
             contentUriString.startsWith("gdrive://") -> "Google Drive"
-            contentUriString.startsWith("youtube://") || contentUriString.contains("youtube") -> "YouTube"
+            contentUriString.startsWith("navidrome://") -> "Navidrome"
+            contentUriString.startsWith("jellyfin://") -> "Jellyfin"
+            contentUriString.startsWith("netease://") -> "NetEase Cloud Music"
+            contentUriString.startsWith("qqmusic://") -> "QQ Music"
+            contentUriString.contains("saavn") -> "JioSaavn"
+            contentUriString.startsWith("youtube://") || contentUriString.contains("youtube") || contentUriString.contains("googlevideo") -> "YouTube Music"
             else -> null
         }
     }

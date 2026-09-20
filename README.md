@@ -159,6 +159,17 @@ Key UI/UX visual paradigms adopted from PixelPlayerOSS include:
    * Android Studio will sync Gradle dependencies automatically.
 3. **Configure API Keys (Optional but recommended):**
    * If you wish to use the AI Playlist generation features, insert your respective Gemini / DeepSeek API keys inside `local.properties`.
+   * **Lossless streaming (ArchiveTune Source Pool):** create a read key in the ArchivePool dashboard
+     (https://archivepool.vercel.app — the key is shown once) and add it to `local.properties`:
+     ```properties
+     SOURCE_PROVIDER_URL=https://archivepool.vercel.app   # optional, this is the default
+     SOURCE_PROVIDER_KEY=atp_xxxxxxxxxxxxxxxxxxxxxxxx      # sent as "Authorization: Bearer"
+     # POOL_CLIENT_KEY=<base64 32-byte key>               # only for legacy static-key feeds
+     ```
+     The same values can be set (or overridden) at runtime in **Settings → Lossless Sources**, which
+     is also where you sign in with your own Tidal / Qobuz / Deezer / Apple Music accounts, pick the
+     source order and per-source quality, and run health checks. With no key and no personal
+     account the feature simply stays off and playback uses JioSaavn / YouTube as before.
 4. **Compile the APK:**
    * Run the `:app:assembleDebug` or `:app:assembleRelease` Gradle tasks.
 

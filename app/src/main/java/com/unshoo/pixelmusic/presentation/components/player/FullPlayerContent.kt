@@ -115,6 +115,7 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shuffle
@@ -576,6 +577,9 @@ fun FullPlayerContent(
             playbackMetadataMimeType = playbackAudioMetadata.mimeType,
             playbackMetadataBitrate = playbackAudioMetadata.bitrate,
             playbackMetadataSampleRate = playbackAudioMetadata.sampleRate,
+            playbackMetadataBitDepth = playbackAudioMetadata.bitDepth,
+            playbackMetadataFormatTag = playbackAudioMetadata.formatTag,
+            onFormatBadgeClick = { playerViewModel.selectSongForInfo(song) },
             currentPositionProvider = currentPositionProvider,
             totalDurationValue = totalDurationValue,
             showPlayerFileInfo = showPlayerFileInfo,
@@ -1792,6 +1796,9 @@ private fun FullPlayerProgressSection(
     playbackMetadataMimeType: String?,
     playbackMetadataBitrate: Int?,
     playbackMetadataSampleRate: Int?,
+    playbackMetadataBitDepth: Int? = null,
+    playbackMetadataFormatTag: String? = null,
+    onFormatBadgeClick: () -> Unit = {},
     currentPositionProvider: () -> Long,
     totalDurationValue: Long,
     showPlayerFileInfo: Boolean,
@@ -1805,11 +1812,17 @@ private fun FullPlayerProgressSection(
     isSheetDragGestureActive: Boolean,
     loadingTweaks: FullPlayerLoadingTweaks
 ) {
-    val isMetadataForCurrentSong = playbackMetadataMediaId == song.id
-    val localSong = song.takeIf { it.isLocal && (isMetadataForCurrentSong || playbackMetadataMediaId == null) }
+    val isMetadataForCurrentSong = playbackMetadataMediaId == null ||
+        playbackMetadataMediaId == song.id ||
+        playbackMetadataMediaId == song.youtubeId ||
+        playbackMetadataMediaId.removePrefix("youtube_") == song.id.removePrefix("youtube_") ||
+        (song.youtubeId != null && playbackMetadataMediaId.removePrefix("youtube_") == song.youtubeId)
+    val localSong = song.takeIf { it.isLocal }
     val audioMimeType = if (isMetadataForCurrentSong) playbackMetadataMimeType ?: localSong?.mimeType else localSong?.mimeType
     val audioBitrate = if (isMetadataForCurrentSong) playbackMetadataBitrate ?: localSong?.bitrate else localSong?.bitrate
     val audioSampleRate = if (isMetadataForCurrentSong) playbackMetadataSampleRate ?: localSong?.sampleRate else localSong?.sampleRate
+    val audioBitDepth = if (isMetadataForCurrentSong) playbackMetadataBitDepth else null
+    val audioFormatTag = if (isMetadataForCurrentSong) playbackMetadataFormatTag else null
 
     PlayerProgressBarSection(
         songId = song.id,
@@ -1819,6 +1832,9 @@ private fun FullPlayerProgressSection(
         audioMimeType = audioMimeType,
         audioBitrate = audioBitrate,
         audioSampleRate = audioSampleRate,
+        audioBitDepth = audioBitDepth,
+        audioFormatTag = audioFormatTag,
+        onFormatBadgeClick = onFormatBadgeClick,
         showAudioFileInfo = showPlayerFileInfo,
         onSeek = onSeek,
         expansionFractionProvider = expansionFractionProvider,
@@ -2233,23 +2249,52 @@ private fun SongMetadataDisplaySection(
     }
 }
 
-private fun formatAudioMetaLabel(mimeType: String?, bitrate: Int?, sampleRate: Int?): String? {
+private fun formatAudioMetaLabel(
+    mimeType: String?,
+    bitrate: Int?,
+    sampleRate: Int?,
+    bitDepth: Int? = null,
+    formatTag: String? = null
+): String? {
+    val isFlacOrLossless = mimeType?.contains("flac", true) == true ||
+            mimeType?.contains("alac", true) == true ||
+            mimeType?.contains("wav", true) == true
+    val isHiRes = formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24
+
+    if (isHiRes) {
+        return "HI-RES LOSSLESS"
+    }
+
+    if (formatTag == "LOSSLESS" || isFlacOrLossless) {
+        val codec = mimeTypeToFormat(mimeType)
+            .takeIf { it != "-" }
+            ?.uppercase(Locale.getDefault())
+            ?: "FLAC"
+        return "LOSSLESS • $codec"
+    }
+
     val formatLabel = mimeTypeToFormat(mimeType)
         .takeIf { it != "-" }
         ?.uppercase(Locale.getDefault())
 
     val parts = buildList {
-        sampleRate?.takeIf { it > 0 }?.let { add(String.format(Locale.US, "%.1f kHz", it / 1000.0)) }
+        sampleRate?.takeIf { it > 0 }?.let { rate ->
+            if (rate % 1000 == 0) {
+                add("${rate / 1000} kHz")
+            } else {
+                add(String.format(Locale.US, "%.1f kHz", rate / 1000.0))
+            }
+        }
         bitrate?.takeIf { it > 0 }?.let { bitrateValue ->
             val kbpsLabel = "${bitrateValue / 1000} kbps"
             if (formatLabel != null) {
-                add("$kbpsLabel \u2022 $formatLabel")
+                add("$kbpsLabel • $formatLabel")
             } else {
                 add(kbpsLabel)
             }
         } ?: formatLabel?.let { add(it) }
     }
-    return parts.takeIf { it.isNotEmpty() }?.joinToString(" \u2022 ")
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" • ")
 }
 
 @Composable
@@ -2261,6 +2306,9 @@ private fun PlayerProgressBarSection(
     audioMimeType: String?,
     audioBitrate: Int?,
     audioSampleRate: Int?,
+    audioBitDepth: Int? = null,
+    audioFormatTag: String? = null,
+    onFormatBadgeClick: () -> Unit = {},
     showAudioFileInfo: Boolean,
     onSeek: (Long) -> Unit,
     expansionFractionProvider: () -> Float,
@@ -2298,12 +2346,14 @@ private fun PlayerProgressBarSection(
         kotlin.math.abs(reportedDuration - hintDuration) <= 1500L -> reportedDuration
         else -> minOf(reportedDuration, hintDuration)
     }
-    val audioMetaLabel = remember(showAudioFileInfo, audioMimeType, audioBitrate, audioSampleRate) {
+    val audioMetaLabel = remember(showAudioFileInfo, audioMimeType, audioBitrate, audioSampleRate, audioBitDepth, audioFormatTag) {
         if (showAudioFileInfo) {
             formatAudioMetaLabel(
                 mimeType = audioMimeType,
                 bitrate = audioBitrate,
-                sampleRate = audioSampleRate
+                sampleRate = audioSampleRate,
+                bitDepth = audioBitDepth,
+                formatTag = audioFormatTag
             )
         } else {
             null
@@ -2464,7 +2514,8 @@ private fun PlayerProgressBarSection(
                 isVisible = isVisible,
                 textColor = timeTextColor,
                 audioMetaLabel = displayAudioMetaLabel,
-                horizontalTrackInset = progressSectionHorizontalInset
+                horizontalTrackInset = progressSectionHorizontalInset,
+                onBadgeClick = onFormatBadgeClick
             )
         }
     }
@@ -2521,7 +2572,8 @@ private fun EfficientTimeLabels(
     isVisible: Boolean,
     textColor: Color,
     audioMetaLabel: String?,
-    horizontalTrackInset: Dp
+    horizontalTrackInset: Dp,
+    onBadgeClick: (() -> Unit)? = null
 ) {
     val coarsePositionMs by remember(isVisible, positionState) {
         derivedStateOf {
@@ -2562,25 +2614,45 @@ private fun EfficientTimeLabels(
             )
         }
 
-        if (!audioMetaLabel.isNullOrBlank()) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 58.dp),
-                shape = RoundedCornerShape(999.dp),
-                color = textColor.copy(alpha = 0.14f),
-                contentColor = textColor.copy(alpha = 0.96f)
-            ) {
-                Text(
-                    text = audioMetaLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 11.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                )
+        // Smooth format-upgrade badge: tween-only, zero spring bounce
+        AnimatedContent(
+            targetState = audioMetaLabel,
+            modifier = Modifier.align(Alignment.Center),
+            transitionSpec = {
+                (fadeIn(tween(280, easing = FastOutSlowInEasing))
+                    togetherWith fadeOut(tween(200, easing = FastOutSlowInEasing)))
+                    .using(
+                        androidx.compose.animation.SizeTransform(clip = false) { _, _ ->
+                            tween(300, easing = FastOutSlowInEasing)
+                        }
+                    )
+            },
+            label = "audioMetaBadge"
+        ) { label ->
+            if (!label.isNullOrBlank()) {
+                Surface(
+                    modifier = Modifier
+                        .padding(horizontal = 48.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .then(
+                            if (onBadgeClick != null) Modifier.clickable(onClick = onBadgeClick)
+                            else Modifier
+                        ),
+                    shape = RoundedCornerShape(999.dp),
+                    color = textColor.copy(alpha = 0.14f),
+                    contentColor = textColor.copy(alpha = 0.96f)
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                    )
+                }
             }
         }
     }

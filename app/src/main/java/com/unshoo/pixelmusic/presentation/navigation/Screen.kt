@@ -65,6 +65,12 @@ sealed class Screen(val route: String) {
     object Equalizer : Screen("equalizer")
     object DeviceCapabilities : Screen("device_capabilities")
     object YoutubeAuth : Screen("youtube_auth")
+
+    // Lossless sources (ArchiveTune port) — provider sign-in WebViews
+    object TidalLogin : Screen("lossless_tidal_login")
+    object DeezerLogin : Screen("lossless_deezer_login")
+    object QobuzLogin : Screen("lossless_qobuz_login")
+    object AppleMusicLogin : Screen("lossless_apple_music_login")
     object CloudDownloads : Screen("cloud_downloads")
 
 }

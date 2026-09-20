@@ -10,6 +10,8 @@ import com.unshoo.pixelmusic.data.model.youtube.PixelMusicSettings
 import com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.remote.saavn.SaavnService
+import com.unshoo.pixelmusic.data.remote.saavn.SaavnAudioQuality
+import com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
 import com.unshoo.pixelmusic.presentation.viewmodel.ConnectivityStateHolder
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -628,7 +630,7 @@ object YoutubeHelper {
                     StreamQualityPlan(
                         quality = StreamingAudioQuality.AUTO,
                         maxBitrateKbps = targetCeiling,
-                        preferLowFirst = !isConnectionFastAndStable
+                        preferLowFirst = false
                     )
                 }
                 StreamingAudioQuality.HIGH -> StreamQualityPlan(
@@ -650,9 +652,9 @@ object YoutubeHelper {
             }
         } catch (_: Exception) {
             StreamQualityPlan(
-                quality = StreamingAudioQuality.LOW,
-                maxBitrateKbps = StreamingAudioQuality.LOW.maxBitrateKbps,
-                preferLowFirst = true,
+                quality = StreamingAudioQuality.HIGH,
+                maxBitrateKbps = 0,
+                preferLowFirst = false,
             )
         }
     }
@@ -714,29 +716,7 @@ object YoutubeHelper {
         val plan = resolveStreamQualityPlan(context)
         val maxBitrate = plan.maxBitrateKbps
         val preferLowFirst = plan.preferLowFirst
-        val targetCacheKey = if (plan.quality == StreamingAudioQuality.AUTO) {
-            if (preferLowFirst) {
-                // Weak/unstable link: start on the lowest stream for fastest first-byte.
-                val preferredKey = if (maxBitrate > 0) "${videoId}_q$maxBitrate" else "${videoId}_high"
-                if (streamUrlLruCache.get(preferredKey)?.let { isYoutubeUrlValid(it) } == true) {
-                    preferredKey
-                } else {
-                    "${videoId}_low"
-                }
-            } else {
-                // Fast & stable link: resolve the REAL target quality directly. Forcing
-                // low-first here (the pre-fix behavior) made every uncached AUTO song do
-                // a low-quality resolve followed by a second full background re-resolve that
-                // competed with the actual stream download during first buffering.
-                if (maxBitrate > 0) "${videoId}_q$maxBitrate" else "${videoId}_high"
-            }
-        } else {
-            when {
-                preferLowFirst -> "${videoId}_low"
-                maxBitrate > 0 -> "${videoId}_q$maxBitrate"
-                else -> "${videoId}_high"
-            }
-        }
+        val targetCacheKey = if (maxBitrate > 0) "${videoId}_q$maxBitrate" else "${videoId}_high"
 
         val userPreferencesRepository = EntryPointAccessors.fromApplication(
             context.applicationContext,
@@ -745,6 +725,31 @@ object YoutubeHelper {
 
         val isSaavnEnabled = userPreferencesRepository.enableSaavnStreamingFlow.first()
         val saavnQuality = userPreferencesRepository.saavnAudioQualityFlow.first()
+
+        // If Saavn is disabled, proactively evict any stale Saavn URLs so playback never touches Saavn
+        if (!isSaavnEnabled) {
+            streamUrlLruCache.get(targetCacheKey)?.let {
+                if (isSaavnUrl(it)) {
+                    streamUrlLruCache.remove(targetCacheKey)
+                    streamMimeTypeLruCache.remove(targetCacheKey)
+                    streamBitrateLruCache.remove(targetCacheKey)
+                }
+            }
+            streamUrlLruCache.get("${videoId}_high")?.let {
+                if (isSaavnUrl(it)) {
+                    streamUrlLruCache.remove("${videoId}_high")
+                    streamMimeTypeLruCache.remove("${videoId}_high")
+                    streamBitrateLruCache.remove("${videoId}_high")
+                }
+            }
+            streamUrlLruCache.get("${videoId}_low")?.let {
+                if (isSaavnUrl(it)) {
+                    streamUrlLruCache.remove("${videoId}_low")
+                    streamMimeTypeLruCache.remove("${videoId}_low")
+                    streamBitrateLruCache.remove("${videoId}_low")
+                }
+            }
+        }
 
         // ── Cache hit at the quality the user actually wants ───────────────────
         streamUrlLruCache.get(targetCacheKey)?.let {
@@ -756,19 +761,10 @@ object YoutubeHelper {
             }
         }
         // HIGH: also accept a valid _high entry under any alias.
-        if (!preferLowFirst && maxBitrate == 0) {
+        if (maxBitrate == 0) {
             streamUrlLruCache.get("${videoId}_high")?.let {
                 if (isUrlAllowed(it, isSaavnEnabled) && isYoutubeUrlValid(it)) {
                     PixelMusicHelper.printd("$videoId : INSTANT start from cached HIGH stream")
-                    return it
-                }
-            }
-        }
-        // LOW-only path may reuse a valid low cache.
-        if (preferLowFirst) {
-            streamUrlLruCache.get("${videoId}_low")?.let {
-                if (isUrlAllowed(it, isSaavnEnabled) && isYoutubeUrlValid(it)) {
-                    PixelMusicHelper.printd("$videoId : INSTANT start from cached LOW stream")
                     return it
                 }
             }
@@ -790,6 +786,17 @@ object YoutubeHelper {
                 return savedSong.audioFilePath
             }
         }
+
+        // ── LOSSLESS SOURCES GATE (Tidal / Qobuz / Deezer / Apple Music via the Source Pool) ──
+        // Ported from ArchiveTune's resolveMultiSourceDataSpec: sits in front of JioSaavn and
+        // YouTube so a lossless copy wins whenever a pool or user account can serve one.
+        resolveLosslessStreamUrl(
+            context = context,
+            song = song,
+            savedSong = savedSong,
+            cacheKeys = listOf(targetCacheKey, "${videoId}_high"),
+            lowDataMode = plan.quality == StreamingAudioQuality.LOW,
+        )?.let { return it }
 
         // ── JIOSAAVN HIGH-FIDELITY STREAMING GATE (3s timeout → YouTube fallback) ──
         if (isSaavnEnabled) {
@@ -857,12 +864,7 @@ object YoutubeHelper {
         // ── Resolve at the selected quality FIRST (no forced low on HIGH) ──────
         // HIGH  → lowQuality=false, maxBitrate=0  → highest available instantly
         // MEDIUM→ lowQuality=false, maxBitrate=128 → best under ceiling
-        // LOW   → lowQuality=true                  → lowest available
-        val useLowQuality = if (plan.quality == StreamingAudioQuality.AUTO) {
-            preferLowFirst && targetCacheKey == "${videoId}_low"
-        } else {
-            preferLowFirst
-        }
+        val useLowQuality = plan.quality == StreamingAudioQuality.LOW
         val result = try {
             getSongUrlFromYoutube(
                 context = context,
@@ -1094,6 +1096,91 @@ object YoutubeHelper {
         return highUrl
     }
 
+    /**
+     * Lossless sources gate shared by [getSongPlayerUrl] and [getSongPlayerUrlWithQuality].
+     *
+     * Builds the same title/artist/album/duration query the JioSaavn gate uses (falling back to
+     * the saved song row and finally to a metadata fetch), runs it through
+     * [LosslessStreamResolver] (Tidal → Qobuz → Deezer → Apple Music in the user's order, each
+     * behind ArchiveTune's title/duration match gate) and, on a hit, primes the stream LRU caches
+     * under every [cacheKeys] alias exactly like the JioSaavn path does. Returns null when the
+     * feature is disabled, no source produced a usable stream, or anything threw — the caller then
+     * continues with JioSaavn / YouTube unchanged.
+     */
+    private suspend fun resolveLosslessStreamUrl(
+        context: Context,
+        song: Song,
+        savedSong: Song?,
+        cacheKeys: List<String>,
+        lowDataMode: Boolean,
+    ): String? {
+        val videoId = song.youtubeId
+        return try {
+            if (!LosslessStreamResolver.isEnabled(context)) return null
+
+            // A previous resolve for this song that is still fresh wins immediately.
+            LosslessStreamResolver.resultFor(videoId)?.let { previous ->
+                if (LosslessStreamResolver.isFreshUri(previous.uri)) {
+                    cacheKeys.forEach { key ->
+                        streamUrlLruCache.put(key, previous.uri)
+                        streamMimeTypeLruCache.put(key, previous.mimeType)
+                        streamBitrateLruCache.put(key, previous.bitrate)
+                    }
+                    PixelMusicHelper.printd("$videoId : INSTANT start from fresh lossless resolve (${previous.label})")
+                    return previous.uri
+                }
+            }
+
+            var effectiveTitle = song.title.ifBlank { savedSong?.title.orEmpty() }
+            var effectiveArtist = song.artist.ifBlank { savedSong?.artist.orEmpty() }
+            var effectiveAlbum = song.album?.ifBlank { null } ?: savedSong?.album
+            var effectiveDuration = parseDurationToSeconds(song.duration.ifBlank { savedSong?.duration.orEmpty() })
+
+            if (effectiveTitle.isBlank() && videoId.isNotBlank()) {
+                val fetched = fetchSongMetadata(videoId)
+                if (fetched != null) {
+                    effectiveTitle = fetched.title
+                    effectiveArtist = fetched.artist
+                    effectiveAlbum = fetched.album
+                    effectiveDuration = parseDurationToSeconds(fetched.duration)
+                }
+            }
+            if (effectiveTitle.isBlank()) return null
+
+            val artistsList = effectiveArtist.split(",", "&", "feat.", "ft.", ";")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .ifEmpty { listOf(effectiveArtist).filter { it.isNotBlank() } }
+
+            val result = LosslessStreamResolver.resolve(
+                context = context,
+                request = LosslessStreamResolver.Request(
+                    mediaId = videoId,
+                    title = effectiveTitle,
+                    artists = artistsList,
+                    album = effectiveAlbum,
+                    durationMs = effectiveDuration?.takeIf { it > 0 }?.let { it * 1000L },
+                ),
+                lowDataMode = lowDataMode,
+            ) ?: return null
+
+            cacheKeys.forEach { key ->
+                streamUrlLruCache.put(key, result.uri)
+                streamMimeTypeLruCache.put(key, result.mimeType)
+                streamBitrateLruCache.put(key, result.bitrate)
+            }
+            PixelMusicHelper.printd(
+                "$videoId : Playing via lossless source ${result.source.name} (${result.label}, mime=${result.mimeType}, bitrate=${result.bitrate})"
+            )
+            result.uri
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            PixelMusicHelper.printe("$videoId : Lossless resolve exception: ${e.message}, falling back")
+            null
+        }
+    }
+
     /** Register a downloaded local file path so future plays are instant (offline gate). */
     fun registerLocalFilePath(youtubeId: String, filePath: String) {
         if (filePath.isNotBlank() && File(filePath).exists()) {
@@ -1113,24 +1200,27 @@ object YoutubeHelper {
     suspend fun getSongPlayerUrlWithQuality(
         context: Context,
         song: Song,
-        maxBitrateKbps: Int = 0
+        maxBitrateKbps: Int = 0,
+        forDownload: Boolean = true
     ): String {
         val videoId = song.youtubeId
 
-        if (song.audioFilePath?.isNotBlank() == true && File(song.audioFilePath).exists()) {
+        if (!forDownload && song.audioFilePath?.isNotBlank() == true && File(song.audioFilePath).exists()) {
             return song.audioFilePath
         }
 
-        // Offline-first gate
-        val cachedLocalPath = localFilePathCache.get(videoId)
-        if (cachedLocalPath != null && File(cachedLocalPath).exists()) {
-            return cachedLocalPath
-        }
-        val localSongRepository = AppDatabase.getInstance(context).songRepository()
-        val savedSong = try { localSongRepository.getSong(videoId) } catch (_: Exception) { null }
-        if (savedSong?.audioFilePath != null && File(savedSong.audioFilePath).exists()) {
-            localFilePathCache.put(videoId, savedSong.audioFilePath)
-            return savedSong.audioFilePath
+        // Offline-first gate (skip if forDownload because we are trying to download it fresh)
+        if (!forDownload) {
+            val cachedLocalPath = localFilePathCache.get(videoId)
+            if (cachedLocalPath != null && File(cachedLocalPath).exists()) {
+                return cachedLocalPath
+            }
+            val localSongRepository = AppDatabase.getInstance(context).songRepository()
+            val savedSong = try { localSongRepository.getSong(videoId) } catch (_: Exception) { null }
+            if (savedSong?.audioFilePath != null && File(savedSong.audioFilePath).exists()) {
+                localFilePathCache.put(videoId, savedSong.audioFilePath)
+                return savedSong.audioFilePath
+            }
         }
 
         val userPreferencesRepository = EntryPointAccessors.fromApplication(
@@ -1140,16 +1230,77 @@ object YoutubeHelper {
 
         val isSaavnEnabled = userPreferencesRepository.enableSaavnStreamingFlow.first()
         val saavnQuality = userPreferencesRepository.saavnAudioQualityFlow.first()
+        val wifiQuality = userPreferencesRepository.streamingAudioQualityWifiFlow.first()
+        val isLosslessEnabled = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.isEnabled(context)
 
-        // LRU cache check with validation
         val cacheKey = if (maxBitrateKbps > 0) "${videoId}_q${maxBitrateKbps}" else "${videoId}_high"
-        streamUrlLruCache.get(cacheKey)?.let { 
-            if (isUrlAllowed(it, isSaavnEnabled) && isYoutubeUrlValid(it)) return it 
+        if (!forDownload) {
+            streamUrlLruCache.get(cacheKey)?.let { 
+                if (isUrlAllowed(it, isSaavnEnabled) && isYoutubeUrlValid(it)) return it 
+            }
         }
 
-        // JioSaavn check (3s timeout → YouTube fallback)
-        if (isSaavnEnabled) {
+        // Effective quality determination:
+        // Downloads use the dedicated download quality preference.
+        // Playback uses the streaming/saavn quality settings.
+        val downloadQuality = if (forDownload) userPreferencesRepository.downloadAudioQualityFlow.first() else null
+        val effectiveQuality = if (forDownload) {
+            when (downloadQuality) {
+                com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX -> StreamingAudioQuality.HIGH
+                com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.HIGH -> StreamingAudioQuality.HIGH
+                com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MEDIUM -> StreamingAudioQuality.MEDIUM
+                com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.LOW -> StreamingAudioQuality.LOW
+                null -> StreamingAudioQuality.HIGH
+            }
+        } else {
+            when (saavnQuality) {
+                SaavnAudioQuality.AUTO -> when (wifiQuality) {
+                    StreamingAudioQuality.LOW -> StreamingAudioQuality.LOW
+                    StreamingAudioQuality.MEDIUM -> StreamingAudioQuality.MEDIUM
+                    else -> StreamingAudioQuality.HIGH
+                }
+                SaavnAudioQuality.QUALITY_96 -> StreamingAudioQuality.LOW
+                SaavnAudioQuality.QUALITY_160 -> StreamingAudioQuality.MEDIUM
+                SaavnAudioQuality.QUALITY_320 -> StreamingAudioQuality.HIGH
+            }
+        }
+
+        // Lossless sources gate (ArchiveTune source-pool port)
+        // Downloads: only attempt Lossless (FLAC/ALAC) when user configured MAX quality.
+        // Playback: check lossless first whenever enabled.
+        val shouldTryLossless = if (forDownload) {
+            isLosslessEnabled && downloadQuality == com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX
+        } else {
+            isLosslessEnabled
+        }
+        if (shouldTryLossless) {
+            val localSongRepository = AppDatabase.getInstance(context).songRepository()
+            val savedSong = try { localSongRepository.getSong(videoId) } catch (_: Exception) { null }
+            resolveLosslessStreamUrl(
+                context = context,
+                song = song,
+                savedSong = savedSong,
+                cacheKeys = listOf(cacheKey, "${videoId}_high"),
+                lowDataMode = if (forDownload) false else (maxBitrateKbps in 1..127),
+            )?.let { return it }
+        }
+
+        // JioSaavn check:
+        // - For downloads: user settings dictate quality:
+        //   * Max / High: JioSaavn 320 kbps
+        //   * Medium: JioSaavn 160 kbps
+        //   * Low: bypass JioSaavn completely, fall back to YouTube downloads
+        // - For playback: only if JioSaavn streaming toggle is ON
+        val shouldTrySaavn = if (forDownload) {
+            downloadQuality != com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.LOW
+        } else {
+            isSaavnEnabled
+        }
+
+        if (shouldTrySaavn) {
             try {
+                val localSongRepository = AppDatabase.getInstance(context).songRepository()
+                val savedSong = try { localSongRepository.getSong(videoId) } catch (_: Exception) { null }
                 var effectiveTitle = song.title.ifBlank { savedSong?.title.orEmpty() }
                 var effectiveArtist = song.artist.ifBlank { savedSong?.artist.orEmpty() }
                 var effectiveAlbum = song.album?.ifBlank { null } ?: savedSong?.album
@@ -1171,13 +1322,27 @@ object YoutubeHelper {
                         .map { it.trim() }
                         .filter { it.isNotBlank() }
 
-                    val streamingQuality = when {
-                        maxBitrateKbps in 1..127 -> StreamingAudioQuality.LOW
-                        maxBitrateKbps in 128..255 -> StreamingAudioQuality.MEDIUM
-                        else -> StreamingAudioQuality.HIGH
+                    val streamingQuality = if (forDownload) {
+                        effectiveQuality
+                    } else {
+                        when {
+                            maxBitrateKbps in 1..127 -> StreamingAudioQuality.LOW
+                            maxBitrateKbps in 128..255 -> StreamingAudioQuality.MEDIUM
+                            else -> StreamingAudioQuality.HIGH
+                        }
                     }
 
-                    val saavnResult = withTimeoutOrNull(3000L) {
+                    val effectiveSaavnQuality = if (forDownload) {
+                        when (effectiveQuality) {
+                            StreamingAudioQuality.MEDIUM -> SaavnAudioQuality.QUALITY_160
+                            else -> SaavnAudioQuality.QUALITY_320
+                        }
+                    } else {
+                        saavnQuality
+                    }
+
+                    val timeout = if (forDownload) 5000L else 3000L
+                    val saavnResult = withTimeoutOrNull(timeout) {
                         SaavnService.resolveStream(
                             title = effectiveTitle,
                             artists = if (artistsList.isNotEmpty()) artistsList else listOf(effectiveArtist),
@@ -1185,7 +1350,7 @@ object YoutubeHelper {
                             durationSeconds = effectiveDuration,
                             streamingQuality = streamingQuality,
                             maxBitrateKbps = maxBitrateKbps,
-                            saavnQuality = saavnQuality
+                            saavnQuality = effectiveSaavnQuality
                         )
                     }
 
@@ -1194,22 +1359,36 @@ object YoutubeHelper {
                         val saavnBitrate = saavnResult.bitrateKbps * 1000
                         val mimeType = "audio/mp4"
 
-                        streamUrlLruCache.put(cacheKey, saavnUrl)
-                        streamMimeTypeLruCache.put(cacheKey, mimeType)
-                        streamBitrateLruCache.put(cacheKey, saavnBitrate)
+                        if (isSaavnEnabled) {
+                            streamUrlLruCache.put(cacheKey, saavnUrl)
+                            streamMimeTypeLruCache.put(cacheKey, mimeType)
+                            streamBitrateLruCache.put(cacheKey, saavnBitrate)
+                        }
+                        PixelMusicHelper.printd(
+                            "$videoId : ${if (forDownload) "Downloading" else "Streaming"} via JioSaavn (${saavnResult.quality}, bitrate=${saavnBitrate})"
+                        )
                         return saavnUrl
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                PixelMusicHelper.printe("$videoId : JioSaavn resolve for ${if (forDownload) "download" else "stream"} failed: ${e.message}")
+            }
         }
 
-        val urlResult = getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = maxBitrateKbps)
+        val urlResult = getSongUrlFromYoutube(
+            context = context,
+            song = song,
+            lowQuality = (forDownload && effectiveQuality == StreamingAudioQuality.LOW),
+            maxBitrateKbps = maxBitrateKbps
+        )
         val url = urlResult.first
         val mimeType = urlResult.second
         val bitrate = urlResult.third
-        streamUrlLruCache.put(cacheKey, url)
-        mimeType?.let { streamMimeTypeLruCache.put(cacheKey, it) }
-        bitrate?.let { streamBitrateLruCache.put(cacheKey, it) }
+        if (!forDownload || isSaavnEnabled) {
+            streamUrlLruCache.put(cacheKey, url)
+            mimeType?.let { streamMimeTypeLruCache.put(cacheKey, it) }
+            bitrate?.let { streamBitrateLruCache.put(cacheKey, it) }
+        }
         return url
     }
 
@@ -1444,6 +1623,12 @@ object YoutubeHelper {
      * formats pick the highest bitrate (best under the ceiling when configured; lowest first
      * only for the weak-link LOW path). Direct `url` formats only — never ciphered signatures.
      */
+    private fun codecRank(mimeType: String): Int = when {
+        mimeType.contains("opus", ignoreCase = true) -> 3
+        mimeType.contains("mp4a", ignoreCase = true) || mimeType.contains("mp4", ignoreCase = true) || mimeType.contains("aac", ignoreCase = true) -> 2
+        else -> 1
+    }
+
     private fun pickDirectAudioFormat(
         response: PlayerResponse,
         lowQuality: Boolean,
@@ -1459,14 +1644,24 @@ object YoutubeHelper {
             }
         if (directAudio.isEmpty()) return null
 
+        val preferOpusHigher = compareByDescending<PlayerResponse.StreamingData.Format> { codecRank(it.mimeType) }
+            .thenByDescending { it.bitrate }
+
+        val preferLower = compareBy<PlayerResponse.StreamingData.Format> { it.bitrate }
+            .thenByDescending { codecRank(it.mimeType) }
+
         return when {
-            lowQuality -> directAudio.minByOrNull { it.bitrate }
+            lowQuality -> directAudio.sortedWith(preferLower).firstOrNull()
             maxBitrateKbps > 0 -> {
                 val bpsCeiling = maxBitrateKbps * 1000
-                directAudio.filter { it.bitrate <= bpsCeiling }.maxByOrNull { it.bitrate }
-                    ?: directAudio.maxByOrNull { it.bitrate }
+                val withinCeiling = directAudio.filter { it.bitrate <= bpsCeiling }
+                if (withinCeiling.isNotEmpty()) {
+                    withinCeiling.sortedWith(preferOpusHigher).firstOrNull()
+                } else {
+                    directAudio.sortedWith(preferOpusHigher).firstOrNull()
+                }
             }
-            else -> directAudio.maxByOrNull { it.bitrate }
+            else -> directAudio.sortedWith(preferOpusHigher).firstOrNull()
         }
     }
 
@@ -1802,8 +1997,8 @@ object YoutubeHelper {
 
         val directFirst = compareByDescending<PlayerResponse.StreamingData.Format> { it.url != null }
         val preferHigher = directFirst
-            .thenByDescending { it.bitrate }
             .thenByDescending { codecRank(it.mimeType) }
+            .thenByDescending { it.bitrate }
             .thenByDescending { it.audioSampleRate ?: 0 }
         val preferLower = directFirst
             .thenBy { it.bitrate }
@@ -1880,13 +2075,24 @@ object YoutubeHelper {
         }
     }
 
+    fun isSaavnUrl(url: String): Boolean =
+        url.contains("saavncdn.com", ignoreCase = true) ||
+        url.contains("jiosaavn.com", ignoreCase = true) ||
+        url.contains("saavn", ignoreCase = true)
+
     private fun isUrlAllowed(url: String, isSaavnEnabled: Boolean): Boolean =
-        isSaavnEnabled || (!url.contains("saavncdn.com", ignoreCase = true) && !url.contains("jiosaavn.com", ignoreCase = true))
+        isSaavnEnabled || !isSaavnUrl(url)
 
     private suspend fun isYoutubeUrlValid(url: String): Boolean = withContext(Dispatchers.IO) {
         // HOT PATH: never hit the network here. Cache revalidation must stay O(1).
         // Network probes belong in validateStatus during first resolve only.
         if (url.isBlank()) return@withContext false
+        // Lossless-source URIs (Tidal/Qobuz CDN links, deezer://, tidal-dash://, flattened Apple
+        // files) carry their own freshness window tracked by the resolver — never fall through to
+        // the googlevideo `expire=` / host heuristics below, which would reject them.
+        if (LosslessStreamResolver.isLosslessUri(url)) {
+            return@withContext LosslessStreamResolver.isFreshUri(url)
+        }
         if (!url.startsWith("http")) {
             // Local file path
             return@withContext java.io.File(url).exists()

@@ -1846,11 +1846,16 @@ class MusicService : MediaLibraryService() {
             val player = mediaSession?.player ?: engine.masterPlayer
             val currentItem = player.currentMediaItem
             val currentUri = currentItem?.localConfiguration?.uri?.toString()
+            // Lossless-source streams (Tidal/Qobuz/Deezer CDN links, deezer://, tidal-dash://,
+            // flattened Apple files) expire or get evicted; they recover through the same
+            // youtube:// re-resolve path, with the resolver's cached decision dropped first.
+            val isLosslessStream = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.isLosslessUri(currentUri)
             val isYoutube = currentUri?.startsWith("youtube://") == true ||
                 currentUri?.contains("googlevideo.com") == true ||
                 currentUri?.contains("saavncdn.com") == true ||
                 currentUri?.contains("jiosaavn.com") == true ||
-                currentItem?.mediaId?.startsWith("youtube_") == true
+                currentItem?.mediaId?.startsWith("youtube_") == true ||
+                isLosslessStream
 
             val mediaId = currentItem?.mediaId
             val now = android.os.SystemClock.elapsedRealtime()
@@ -1865,7 +1870,7 @@ class MusicService : MediaLibraryService() {
                 engine.invalidateResolvedUri(currentUri)
                 val youtubeVideoId: String? = when {
                     currentUri.startsWith("youtube://") -> currentUri.removePrefix("youtube://")
-                    currentUri.contains("googlevideo.com") || currentUri.contains("saavncdn.com") || currentUri.contains("jiosaavn.com") -> {
+                    currentUri.contains("googlevideo.com") || currentUri.contains("saavncdn.com") || currentUri.contains("jiosaavn.com") || isLosslessStream -> {
                         val fromPrefix = currentItem.mediaId
                             .takeIf { it.startsWith("youtube_") }
                             ?.removePrefix("youtube_")
@@ -1874,6 +1879,12 @@ class MusicService : MediaLibraryService() {
                         id?.also { engine.invalidateResolvedUri("youtube://$it") }
                     }
                     else -> null
+                }
+                if (youtubeVideoId != null && isLosslessStream) {
+                    // Drop the resolver's cached decision so the re-resolve walks the source chain
+                    // again (fresh CDN link / next source) instead of replaying the dead stream.
+                    com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.clearResolved(youtubeVideoId)
+                    com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.invalidateStreamCache(youtubeVideoId)
                 }
                 if (youtubeVideoId != null && effectiveAttempt >= 1) {
                     com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.invalidateStreamCache(youtubeVideoId)
@@ -1926,14 +1937,15 @@ class MusicService : MediaLibraryService() {
                         val rawItem = currentItem ?: return@launch
                         val rawUriString = rawItem.localConfiguration?.uri?.toString().orEmpty()
                         // BUGFIX: also handle bare 11-char mediaIds for googlevideo remap
+                        val rawIsLossless = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.isLosslessUri(rawUriString)
                         val ytVideoId = rawItem.mediaId
                             .takeIf { it.startsWith("youtube_") }
                             ?.removePrefix("youtube_")
                             ?: rawItem.mediaId.takeIf {
-                                rawUriString.contains("googlevideo.com") && it.length == 11 && !it.contains("_")
+                                (rawUriString.contains("googlevideo.com") || rawIsLossless) && it.length == 11 && !it.contains("_")
                             }
                         val item = if (
-                            rawUriString.contains("googlevideo.com") && !ytVideoId.isNullOrBlank()
+                            (rawUriString.contains("googlevideo.com") || rawIsLossless) && !ytVideoId.isNullOrBlank()
                         ) {
                             rawItem.buildUpon()
                                 .setUri(android.net.Uri.parse("youtube://$ytVideoId"))

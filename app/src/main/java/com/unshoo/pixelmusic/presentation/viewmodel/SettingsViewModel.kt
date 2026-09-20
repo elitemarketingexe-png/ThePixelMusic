@@ -30,6 +30,7 @@ import com.unshoo.pixelmusic.data.preferences.AlbumArtQuality
 import com.unshoo.pixelmusic.data.preferences.AlbumArtColorAccuracy
 import com.unshoo.pixelmusic.data.preferences.AlbumArtPaletteStyle
 import com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality
+import com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality
 import com.unshoo.pixelmusic.data.preferences.AppLanguage
 import com.unshoo.pixelmusic.data.preferences.CollagePattern
 import com.unshoo.pixelmusic.data.preferences.FullPlayerLoadingTweaks
@@ -175,7 +176,9 @@ data class SettingsUiState(
     val showSmartMixPlaylists: Boolean = true,
     val lastfmSmartMixEnabled: Boolean = true,
     val exploreLastFmEnabled: Boolean = true,
-    val filterCoverAndLofi: Boolean = true
+    val filterCoverAndLofi: Boolean = true,
+    val downloadAudioQuality: DownloadAudioQuality = DownloadAudioQuality.HIGH,
+    val isLosslessAvailable: Boolean = false
 )
 
 data class FailedSongInfo(
@@ -946,6 +949,21 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.downloadAudioQualityFlow.collect { quality ->
+                _uiState.update { it.copy(downloadAudioQuality = quality) }
+            }
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.isLosslessConfiguredOrSignedInFlow(context).collect { available ->
+                _uiState.update { it.copy(isLosslessAvailable = available) }
+                if (!available && _uiState.value.downloadAudioQuality == DownloadAudioQuality.MAX) {
+                    userPreferencesRepository.setDownloadAudioQuality(DownloadAudioQuality.HIGH)
+                }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.playerStreamClientFlow.collect { client ->
                 _uiState.update { it.copy(playerStreamClient = client) }
             }
@@ -1543,9 +1561,15 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun setEnableSaavnStreaming(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setEnableSaavnStreaming(enabled)
-            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.clearStreamCache()
         }
     }
+
+    fun setDownloadAudioQuality(quality: DownloadAudioQuality) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDownloadAudioQuality(quality)
+        }
+    }
+
 
     fun setFloatingHeaderBarEnabled(enabled: Boolean) {
         viewModelScope.launch {

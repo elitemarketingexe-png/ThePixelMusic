@@ -222,7 +222,8 @@ fun SettingsScreen(
                     val mainCategories = SettingsCategory.entries.filter {
                         it != SettingsCategory.ABOUT && 
                         it != SettingsCategory.DEVICE_CAPABILITIES &&
-                        it != SettingsCategory.LASTFM
+                        it != SettingsCategory.LASTFM &&
+                        it != SettingsCategory.LOSSLESS_SOURCES
                     }
 
                     val totalItems = mainCategories.size + 4 // Device + Accounts + Downloads + About
@@ -690,6 +691,7 @@ private fun getCategoryColors(category: SettingsCategory, isDark: Boolean): Pair
             SettingsCategory.DEVICE_CAPABILITIES -> Color(0xFF004D61) to Color(0xFFACEFEE) // Custom teal/cyan mix
             SettingsCategory.ABOUT -> Color(0xFF3F474D) to Color(0xFFDEE3EB) 
             SettingsCategory.LASTFM -> Color(0xFF6E1B1B) to Color(0xFFFFDAD9)
+            SettingsCategory.LOSSLESS_SOURCES -> Color(0xFF1B4D6E) to Color(0xFFD1ECFF)
         }
     } else {
         when (category) {
@@ -705,6 +707,7 @@ private fun getCategoryColors(category: SettingsCategory, isDark: Boolean): Pair
             SettingsCategory.DEVICE_CAPABILITIES -> Color(0xFFACEFEE) to Color(0xFF002022)
             SettingsCategory.ABOUT -> Color(0xFFEFF1F7) to Color(0xFF44474F)
             SettingsCategory.LASTFM -> Color(0xFFFFDAD9) to Color(0xFF6E1B1B)
+            SettingsCategory.LOSSLESS_SOURCES -> Color(0xFFD1ECFF) to Color(0xFF1B4D6E)
         }
     }
 }

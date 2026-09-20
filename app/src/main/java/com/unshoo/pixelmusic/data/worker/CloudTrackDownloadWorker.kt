@@ -498,7 +498,8 @@ class CloudTrackDownloadWorker @AssistedInject constructor(
                 val streamUrl = YoutubeHelper.getSongPlayerUrlWithQuality(
                     applicationContext,
                     youtubeSong,
-                    maxBitrateKbps = 0
+                    maxBitrateKbps = 0,
+                    forDownload = true
                 )
                 if (streamUrl.isBlank()) {
                     throw IOException("Failed to resolve audio stream URL")
@@ -526,7 +527,8 @@ class CloudTrackDownloadWorker @AssistedInject constructor(
             }
             else -> throw IOException("Unsupported cloud provider: ${parsed.scheme}")
         }.also { source ->
-            if (!CloudStreamSecurity.isSafeRemoteStreamUrl(
+            val isLossless = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.isLosslessUri(source.url)
+            if (!isLossless && !CloudStreamSecurity.isSafeRemoteStreamUrl(
                     url = source.url,
                     allowedHostSuffixes = setOf("googlevideo.com", "youtube.com", "saavncdn.com", "jiosaavn.com"),
                     allowHttpForAllowedHosts = true

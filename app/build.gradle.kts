@@ -101,6 +101,37 @@ android {
             isIgnoreExitValue = true
         }.standardOutput.asText.map { it.trim() }.getOrElse("")
         buildConfigField("String", "GIT_COMMIT_HASH", "\"$gitCommitHash\"")
+
+        // ── ArchiveTune Source Pool (lossless streaming) ───────────────────────────
+        // SOURCE_PROVIDER_URL: base URL of the ArchivePool deployment (client appends
+        //   /api/accounts, /api/sources, /api/report, /api/discovery/{tidal,qobuz}).
+        // SOURCE_PROVIDER_KEY: the `atp_...` read key sent as `Authorization: Bearer`.
+        //   Can also be entered at runtime in Settings → Lossless Sources (runtime value wins).
+        // POOL_CLIENT_KEY: optional static 32-byte base64 AES key for legacy pool feeds; the
+        //   current feed derives the key from the read key (SHA-256("archivepool-client:" + key)).
+        val sourceProviderUrl =
+            (
+                localProperties.getProperty("SOURCE_PROVIDER_URL")?.takeIf { it.isNotBlank() }
+                    ?: System.getenv("SOURCE_PROVIDER_URL")?.takeIf { it.isNotBlank() }
+                    ?: "https://archivepool.vercel.app"
+                ).trim().trimEnd('/')
+        buildConfigField("String", "SOURCE_PROVIDER_URL", "\"$sourceProviderUrl\"")
+
+        val sourceProviderKey =
+            (
+                localProperties.getProperty("SOURCE_PROVIDER_KEY")
+                    ?: System.getenv("SOURCE_PROVIDER_KEY")
+                    ?: ""
+                ).trim()
+        buildConfigField("String", "SOURCE_PROVIDER_KEY", "\"$sourceProviderKey\"")
+
+        val poolClientKey =
+            (
+                localProperties.getProperty("POOL_CLIENT_KEY")
+                    ?: System.getenv("POOL_CLIENT_KEY")
+                    ?: ""
+                ).trim()
+        buildConfigField("String", "POOL_CLIENT_KEY", "\"$poolClientKey\"")
     }
 
     val keystoreExists = rootProject.file("keystore.properties").exists() && rootProject.file("vz-pixelmusic.jks").exists()
