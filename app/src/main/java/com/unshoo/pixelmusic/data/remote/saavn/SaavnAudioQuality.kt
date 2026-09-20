@@ -1,4 +1,4 @@
-﻿package com.unshoo.pixelmusic.data.remote.saavn
+package com.unshoo.pixelmusic.data.remote.saavn
 
 import com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality
 
@@ -26,12 +26,19 @@ enum class SaavnAudioQuality(val apiValue: String, val bitrateKbps: Int, val lab
             return entries.find { it.name == name } ?: AUTO
         }
 
+        fun fromStreamingQuality(quality: StreamingAudioQuality): SaavnAudioQuality = when (quality) {
+            StreamingAudioQuality.HIGH -> QUALITY_320
+            StreamingAudioQuality.MEDIUM -> QUALITY_160
+            StreamingAudioQuality.LOW -> QUALITY_96
+            StreamingAudioQuality.AUTO -> AUTO
+        }
+
         /**
          * Resolves the effective [SaavnAudioQuality] based on user preference and current network
          * streaming quality plan.
          */
         fun resolveQuality(
-            userSetting: SaavnAudioQuality,
+            userSetting: SaavnAudioQuality = AUTO,
             streamingQuality: StreamingAudioQuality,
             maxBitrateKbps: Int = 0
         ): SaavnAudioQuality {

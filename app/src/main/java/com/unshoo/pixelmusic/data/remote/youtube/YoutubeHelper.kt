@@ -9,7 +9,6 @@ import com.unshoo.pixelmusic.data.model.youtube.Song
 import com.unshoo.pixelmusic.data.model.youtube.PixelMusicSettings
 import com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
-import com.unshoo.pixelmusic.data.remote.saavn.SaavnAudioQuality
 import com.unshoo.pixelmusic.data.remote.saavn.SaavnService
 import com.unshoo.pixelmusic.presentation.viewmodel.ConnectivityStateHolder
 import dagger.hilt.EntryPoint
@@ -785,7 +784,6 @@ object YoutubeHelper {
 
             val isSaavnEnabled = userPreferencesRepository.enableSaavnStreamingFlow.first()
             if (isSaavnEnabled) {
-                val saavnQuality = userPreferencesRepository.saavnAudioQualityFlow.first()
                 var effectiveTitle = song.title.ifBlank { savedSong?.title.orEmpty() }
                 var effectiveArtist = song.artist.ifBlank { savedSong?.artist.orEmpty() }
                 var effectiveAlbum = song.album?.ifBlank { null } ?: savedSong?.album
@@ -813,8 +811,7 @@ object YoutubeHelper {
                         album = effectiveAlbum,
                         durationSeconds = effectiveDuration,
                         streamingQuality = plan.quality,
-                        maxBitrateKbps = maxBitrate,
-                        saavnQuality = saavnQuality
+                        maxBitrateKbps = maxBitrate
                     )
 
                     if (saavnResult != null && saavnResult.url.isNotBlank()) {
@@ -1094,7 +1091,6 @@ object YoutubeHelper {
 
             val isSaavnEnabled = userPreferencesRepository.enableSaavnStreamingFlow.first()
             if (isSaavnEnabled) {
-                val saavnQuality = userPreferencesRepository.saavnAudioQualityFlow.first()
                 var effectiveTitle = song.title.ifBlank { savedSong?.title.orEmpty() }
                 var effectiveArtist = song.artist.ifBlank { savedSong?.artist.orEmpty() }
                 var effectiveAlbum = song.album?.ifBlank { null } ?: savedSong?.album
@@ -1128,8 +1124,7 @@ object YoutubeHelper {
                         album = effectiveAlbum,
                         durationSeconds = effectiveDuration,
                         streamingQuality = streamingQuality,
-                        maxBitrateKbps = maxBitrateKbps,
-                        saavnQuality = saavnQuality
+                        maxBitrateKbps = maxBitrateKbps
                     )
 
                     if (saavnResult != null && saavnResult.url.isNotBlank()) {

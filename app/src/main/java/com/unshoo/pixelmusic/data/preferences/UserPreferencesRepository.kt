@@ -336,7 +336,6 @@ constructor(
         val STREAMING_AUDIO_QUALITY_MOBILE = stringPreferencesKey("streaming_audio_quality_mobile")
         val FORCE_HIGH_QUALITY_ON_MOBILE = booleanPreferencesKey("force_high_quality_on_mobile")
         val ENABLE_SAAVN_STREAMING = booleanPreferencesKey("enable_saavn_streaming")
-        val SAAVN_AUDIO_QUALITY = stringPreferencesKey("saavn_audio_quality")
         val ALBUM_ART_QUALITY_MOBILE = stringPreferencesKey("album_art_quality_mobile")
         val CACHE_LIKED_SONGS_OFFLINE = booleanPreferencesKey("cache_liked_songs_offline")
         val CACHE_MOST_PLAYED_SONGS_OFFLINE = booleanPreferencesKey("cache_most_played_songs_offline")
@@ -1136,22 +1135,24 @@ constructor(
         }
     }
 
-    /** JioSaavn streaming audio quality level. Default: AUTO (follows streaming quality). */
+    /**
+     * JioSaavn streaming audio quality level.
+     * Universally wired to the existing streaming quality settings:
+     * mirrors [streamingAudioQualityWifiFlow] so quality is universal for both YouTube and JioSaavn.
+     */
     val saavnAudioQualityFlow: Flow<SaavnAudioQuality> =
-        dataStore.data.map { preferences ->
-            try {
-                SaavnAudioQuality.valueOf(
-                    preferences[PreferencesKeys.SAAVN_AUDIO_QUALITY] ?: SaavnAudioQuality.AUTO.name
-                )
-            } catch (e: Exception) {
-                SaavnAudioQuality.AUTO
-            }
+        streamingAudioQualityWifiFlow.map { quality ->
+            SaavnAudioQuality.fromStreamingQuality(quality)
         }
 
     suspend fun setSaavnAudioQuality(quality: SaavnAudioQuality) {
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.SAAVN_AUDIO_QUALITY] = quality.name
+        val streamingQuality = when (quality) {
+            SaavnAudioQuality.QUALITY_320 -> StreamingAudioQuality.HIGH
+            SaavnAudioQuality.QUALITY_160 -> StreamingAudioQuality.MEDIUM
+            SaavnAudioQuality.QUALITY_96 -> StreamingAudioQuality.LOW
+            SaavnAudioQuality.AUTO -> StreamingAudioQuality.AUTO
         }
+        setStreamingAudioQualityWifi(streamingQuality)
     }
 
     /** Album art quality on mobile data. Default: LOW (256px). */

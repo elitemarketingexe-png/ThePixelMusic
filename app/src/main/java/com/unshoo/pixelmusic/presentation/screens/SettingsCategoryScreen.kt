@@ -6,7 +6,6 @@ import androidx.lifecycle.Lifecycle
 import com.unshoo.pixelmusic.presentation.components.BackupModuleSelectionDialog
 import com.unshoo.pixelmusic.data.preferences.AiPreferencesRepository
 import com.unshoo.pixelmusic.data.preferences.StreamingAudioQuality
-import com.unshoo.pixelmusic.data.remote.saavn.SaavnAudioQuality
 import com.unshoo.pixelmusic.data.preferences.AlbumArtQuality
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -1289,23 +1288,11 @@ fun SettingsCategoryScreen(
                                 )
                                 SwitchSettingItem(
                                     title = "JioSaavn HQ Streaming",
-                                    subtitle = "Stream and download high-quality audio (up to 320 kbps AAC) powered by JioSaavn (via vivimusic). Automatically falls back to YouTube if unavailable.",
+                                    subtitle = "Stream and download high-quality audio (up to 320 kbps AAC) powered by JioSaavn (via vivimusic). Automatically follows your streaming quality settings, falling back to YouTube if unavailable.",
                                     checked = uiState.enableSaavnStreaming,
                                     onCheckedChange = { settingsViewModel.setEnableSaavnStreaming(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
-                                if (uiState.enableSaavnStreaming) {
-                                    ThemeSelectorItem(
-                                        label = "JioSaavn Audio Quality",
-                                        description = "Select audio quality for JioSaavn streaming (up to 320 kbps AAC). Auto follows your Wi-Fi/Mobile streaming quality.",
-                                        options = SaavnAudioQuality.entries.associate { it.name to it.label },
-                                        selectedKey = uiState.saavnAudioQuality.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setSaavnAudioQuality(SaavnAudioQuality.valueOf(key))
-                                        },
-                                        leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
-                                    )
-                                }
                                 SwitchSettingItem(
                                     title = "Cache liked songs manually",
                                     subtitle = "When you like a YouTube song, download it for offline use. Off by default to prevent unexpected downloads.",
