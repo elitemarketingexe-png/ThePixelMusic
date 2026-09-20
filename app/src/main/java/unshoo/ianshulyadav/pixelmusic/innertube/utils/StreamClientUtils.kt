@@ -173,7 +173,6 @@ object StreamClientUtils {
             clientName.startsWith("ANDROID_CREATOR") -> YouTubeClient.ANDROID_CREATOR
             clientName.startsWith("ANDROID_VR") ->
                 when (requestedClientVersion) {
-                    YouTubeClient.ANDROID_VR_1_65_10.clientVersion -> YouTubeClient.ANDROID_VR_1_65_10
                     YouTubeClient.ANDROID_VR_1_61_48.clientVersion -> YouTubeClient.ANDROID_VR_1_61_48
                     YouTubeClient.ANDROID_VR_1_43_32.clientVersion -> YouTubeClient.ANDROID_VR_1_43_32
                     else -> YouTubeClient.ANDROID_VR_NO_AUTH

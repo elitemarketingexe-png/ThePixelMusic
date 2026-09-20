@@ -68,7 +68,6 @@ data class YouTubeClient(
 
     companion object {
         const val USER_AGENT_WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-        const val USER_AGENT_MOBILE_WEB = "Mozilla/5.0 (Android 14; Mobile; rv:140.0) Gecko/140.0 Firefox/140.0"
 
         const val ORIGIN_YOUTUBE_MUSIC = "https://music.youtube.com"
         const val REFERER_YOUTUBE_MUSIC = "$ORIGIN_YOUTUBE_MUSIC/"
@@ -79,14 +78,14 @@ data class YouTubeClient(
 
         val WEB = YouTubeClient(
             clientName = "WEB",
-            clientVersion = "2.20260213.00.00",
+            clientVersion = "2.20260114.00.00",
             clientId = "1",
             userAgent = USER_AGENT_WEB,
         )
 
         val WEB_REMIX = YouTubeClient(
             clientName = "WEB_REMIX",
-            clientVersion = "1.20260828.01.00",
+            clientVersion = "1.20260114.01.00",
             clientId = "67",
             userAgent = USER_AGENT_WEB,
             loginSupported = true,
@@ -95,7 +94,7 @@ data class YouTubeClient(
 
         val WEB_CREATOR = YouTubeClient(
             clientName = "WEB_CREATOR",
-            clientVersion = "1.20260213.00.00",
+            clientVersion = "1.20260114.00.00",
             clientId = "62",
             userAgent = USER_AGENT_WEB,
             loginSupported = true,
@@ -105,9 +104,9 @@ data class YouTubeClient(
 
         val TVHTML5 = YouTubeClient(
             clientName = "TVHTML5",
-            clientVersion = "7.20260213.00.00",
+            clientVersion = "7.20260114.00.00",
             clientId = "7",
-            userAgent = "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_Unknown_0/Unknown (Unknown, Unknown)",
+            userAgent = "Mozilla/5.0(SMART-TV; Linux; Tizen 4.0.0.2) AppleWebkit/605.1.15 (KHTML, like Gecko) SamsungBrowser/9.2 TV Safari/605.1.15",
             loginSupported = true,
             loginRequired = true,
             useSignatureTimestamp = true
@@ -126,10 +125,10 @@ data class YouTubeClient(
 
         val IOS = YouTubeClient(
             clientName = "IOS",
-            clientVersion = "21.03.1",
+            clientVersion = "19.29.1",
             clientId = "5",
-            userAgent = "com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)",
-            osVersion = "18.2.22C152",
+            userAgent = "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
+            osVersion = "17.5.1.21F90",
         )
 
         val MOBILE = YouTubeClient(
@@ -151,21 +150,6 @@ data class YouTubeClient(
             deviceMake = "Oculus",
             deviceModel = "Quest 3",
             androidSdkVersion = "32",
-            loginSupported = false,
-            useSignatureTimestamp = false
-        )
-
-        val ANDROID_VR_1_65_10 = YouTubeClient(
-            clientName = "ANDROID_VR",
-            clientVersion = "1.65.10",
-            clientId = "28",
-            userAgent = "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
-            osName = "Android",
-            osVersion = "12L",
-            deviceMake = "Oculus",
-            deviceModel = "Quest 3",
-            androidSdkVersion = "32",
-            friendlyName = "Android VR 1.65",
             loginSupported = false,
             useSignatureTimestamp = false
         )
@@ -208,9 +192,9 @@ data class YouTubeClient(
 
         val ANDROID_CREATOR = YouTubeClient(
             clientName = "ANDROID_CREATOR",
-            clientVersion = "25.03.101",
+            clientVersion = "23.47.101",
             clientId = "14",
-            userAgent = "com.google.android.apps.youtube.creator/25.03.101 (Linux; U; Android 15; en_US; Pixel 9 Pro Fold; Build/AP3A.241005.015.A2; Cronet/132.0.6779.0)",
+            userAgent = "com.google.android.apps.youtube.creator/23.47.101 (Linux; U; Android 15; en_US; Pixel 9 Pro Fold; Build/AP3A.241005.015.A2; Cronet/132.0.6779.0)",
             osName = "Android",
             osVersion = "15",
             deviceMake = "Google",
@@ -240,9 +224,9 @@ data class YouTubeClient(
 
         val IPADOS = YouTubeClient(
             clientName = "IOS",
-            clientVersion = "21.03.3",
+            clientVersion = "19.22.3",
             clientId = "5",
-            userAgent = "com.google.ios.youtube/21.03.3 (iPad7,6; U; CPU iPadOS 17_7_10 like Mac OS X; en-US)",
+            userAgent = "com.google.ios.youtube/19.22.3 (iPad7,6; U; CPU iPadOS 17_7_10 like Mac OS X; en-US)",
             osName = "iPadOS",
             osVersion = "17.7.10.21H450",
             deviceMake = "Apple",
@@ -255,12 +239,18 @@ data class YouTubeClient(
 
         val MWEB = YouTubeClient(
             clientName = "MWEB",
-            clientVersion = "2.20260828.03.00",
+            clientVersion = "2.20260114.00.00",
             clientId = "2",
-            userAgent = USER_AGENT_MOBILE_WEB,
+            userAgent = "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
             friendlyName = "Mobile Web",
-            loginSupported = false,
-            useSignatureTimestamp = true,
+        )
+
+        val WEB_SAFARI = YouTubeClient(
+            clientName = "WEB",
+            clientVersion = "2.20260114.00.00",
+            clientId = "1",
+            userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
+            friendlyName = "Web (Safari)",
         )
 
         val WEB_EMBEDDED = YouTubeClient(
@@ -270,6 +260,16 @@ data class YouTubeClient(
             userAgent = USER_AGENT_WEB,
             friendlyName = "Web Embedded Player",
             isEmbedded = true,
+        )
+
+        val WEB_MUSIC = YouTubeClient(
+            clientName = "WEB_REMIX",
+            clientVersion = "1.20260114.01.00",
+            clientId = "67",
+            userAgent = USER_AGENT_WEB,
+            friendlyName = "Web Music (YouTube Music)",
+            loginSupported = true,
+            useSignatureTimestamp = true,
         )
 
         val ANDROID_MUSIC = YouTubeClient(

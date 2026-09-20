@@ -20,7 +20,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -42,12 +41,10 @@ import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.A
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.ANDROID_MUSIC
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.ANDROID_VR_1_43_32
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.ANDROID_VR_1_61_48
-import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.ANDROID_VR_1_65_10
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.ANDROID_VR_NO_AUTH
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.IOS
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.IPADOS
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.MOBILE
-import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.MWEB
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.TVHTML5
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.TVHTML5_SIMPLY_EMBEDDED_PLAYER
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YouTubeClient.Companion.VISIONOS
@@ -119,10 +116,8 @@ object YoutubeHelper {
      */
     private val STREAM_FALLBACK_CLIENTS: Array<YouTubeClient> = arrayOf(
         ANDROID_VR_NO_AUTH,
-        ANDROID_VR_1_65_10,
         ANDROID_VR_1_61_48,
         ANDROID_VR_1_43_32,
-        MWEB,
         TVHTML5,
         WEB_CREATOR,
         WEB_REMIX,
@@ -576,7 +571,7 @@ object YoutubeHelper {
      * HIGH on Wi‑Fi (or forced high on mobile) → unbounded highest stream.
      * LOW/MEDIUM on metered → capped; offline → LOW.
      */
-    data class StreamQualityPlan(
+    private data class StreamQualityPlan(
         val quality: StreamingAudioQuality,
         /** 0 = no ceiling (pick highest available). */
         val maxBitrateKbps: Int,
@@ -584,7 +579,7 @@ object YoutubeHelper {
         val preferLowFirst: Boolean,
     )
 
-    suspend fun resolveStreamQualityPlan(context: Context): StreamQualityPlan {
+    private suspend fun resolveStreamQualityPlan(context: Context): StreamQualityPlan {
         return try {
             val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
                 context.applicationContext,
@@ -810,16 +805,14 @@ object YoutubeHelper {
                         .map { it.trim() }
                         .filter { it.isNotBlank() }
 
-                    val saavnResult = withTimeoutOrNull(2500L) {
-                        SaavnService.resolveStream(
-                            title = effectiveTitle,
-                            artists = if (artistsList.isNotEmpty()) artistsList else listOf(effectiveArtist),
-                            album = effectiveAlbum,
-                            durationSeconds = effectiveDuration,
-                            quality = plan.quality,
-                            maxBitrateKbps = maxBitrate
-                        )
-                    }
+                    val saavnResult = SaavnService.resolveStream(
+                        title = effectiveTitle,
+                        artists = if (artistsList.isNotEmpty()) artistsList else listOf(effectiveArtist),
+                        album = effectiveAlbum,
+                        durationSeconds = effectiveDuration,
+                        quality = plan.quality,
+                        maxBitrateKbps = maxBitrate
+                    )
 
                     if (saavnResult != null && saavnResult.url.isNotBlank()) {
                         val saavnUrl = saavnResult.url
@@ -853,7 +846,6 @@ object YoutubeHelper {
         } else {
             preferLowFirst
         }
-        var usedEmergencyLowFallback = false
         val result = try {
             getSongUrlFromYoutube(
                 context = context,
@@ -871,7 +863,6 @@ object YoutubeHelper {
             // If LOW fails, try unrestricted once more.
             try {
                 if (!useLowQuality) {
-                    usedEmergencyLowFallback = true
                     getSongUrlFromYoutube(
                         context = context,
                         song = song,
@@ -897,25 +888,18 @@ object YoutubeHelper {
         val mimeType = result.second
         val bitrate = result.third
 
-        if (usedEmergencyLowFallback) {
-            // Emergency fallback: cache ONLY as low so we don't poison high quality cache!
+        streamUrlLruCache.put(targetCacheKey, newUri)
+        mimeType?.let { streamMimeTypeLruCache.put(targetCacheKey, it) }
+        bitrate?.let { streamBitrateLruCache.put(targetCacheKey, it) }
+
+        if (useLowQuality) {
             streamUrlLruCache.put("${videoId}_low", newUri)
             mimeType?.let { streamMimeTypeLruCache.put("${videoId}_low", it) }
             bitrate?.let { streamBitrateLruCache.put("${videoId}_low", it) }
-        } else {
-            streamUrlLruCache.put(targetCacheKey, newUri)
-            mimeType?.let { streamMimeTypeLruCache.put(targetCacheKey, it) }
-            bitrate?.let { streamBitrateLruCache.put(targetCacheKey, it) }
-
-            if (useLowQuality) {
-                streamUrlLruCache.put("${videoId}_low", newUri)
-                mimeType?.let { streamMimeTypeLruCache.put("${videoId}_low", it) }
-                bitrate?.let { streamBitrateLruCache.put("${videoId}_low", it) }
-            } else if (maxBitrate == 0 || maxBitrate >= StreamingAudioQuality.HIGH.maxBitrateKbps) {
-                streamUrlLruCache.put("${videoId}_high", newUri)
-                mimeType?.let { streamMimeTypeLruCache.put("${videoId}_high", it) }
-                bitrate?.let { streamBitrateLruCache.put("${videoId}_high", it) }
-            }
+        } else if (maxBitrate == 0 || maxBitrate >= StreamingAudioQuality.HIGH.maxBitrateKbps) {
+            streamUrlLruCache.put("${videoId}_high", newUri)
+            mimeType?.let { streamMimeTypeLruCache.put("${videoId}_high", it) }
+            bitrate?.let { streamBitrateLruCache.put("${videoId}_high", it) }
         }
 
         // Trigger background warming for the actual desired target quality if we had to start on LOW first
@@ -1032,18 +1016,24 @@ object YoutubeHelper {
             return savedSong.audioFilePath
         }
 
-        val cacheKey = "${videoId}_high"
+        val maxBitrate = getTargetBitrateCeiling(context)
+        val cacheKey = if (maxBitrate > 0) "${videoId}_q$maxBitrate" else "${videoId}_high"
         streamUrlLruCache.get(cacheKey)?.let { 
             if (isYoutubeUrlValid(it)) return it 
         }
 
-        val highResult = getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = 0)
+        val highResult = getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = maxBitrate)
         val highUrl = highResult.first
         val mimeType = highResult.second
         val bitrate = highResult.third
         streamUrlLruCache.put(cacheKey, highUrl)
         mimeType?.let { streamMimeTypeLruCache.put(cacheKey, it) }
         bitrate?.let { streamBitrateLruCache.put(cacheKey, it) }
+        if (maxBitrate == 0 || maxBitrate >= 256) {
+            streamUrlLruCache.put("${videoId}_high", highUrl)
+            mimeType?.let { streamMimeTypeLruCache.put("${videoId}_high", it) }
+            bitrate?.let { streamBitrateLruCache.put("${videoId}_high", it) }
+        }
         return highUrl
     }
 
@@ -1128,16 +1118,14 @@ object YoutubeHelper {
                         else -> StreamingAudioQuality.HIGH
                     }
 
-                    val saavnResult = withTimeoutOrNull(2500L) {
-                        SaavnService.resolveStream(
-                            title = effectiveTitle,
-                            artists = if (artistsList.isNotEmpty()) artistsList else listOf(effectiveArtist),
-                            album = effectiveAlbum,
-                            durationSeconds = effectiveDuration,
-                            quality = quality,
-                            maxBitrateKbps = maxBitrateKbps
-                        )
-                    }
+                    val saavnResult = SaavnService.resolveStream(
+                        title = effectiveTitle,
+                        artists = if (artistsList.isNotEmpty()) artistsList else listOf(effectiveArtist),
+                        album = effectiveAlbum,
+                        durationSeconds = effectiveDuration,
+                        quality = quality,
+                        maxBitrateKbps = maxBitrateKbps
+                    )
 
                     if (saavnResult != null && saavnResult.url.isNotBlank()) {
                         val saavnUrl = saavnResult.url
@@ -1325,59 +1313,65 @@ object YoutubeHelper {
         maxBitrateKbps: Int,
         retries: Int
     ): Triple<String, String?, Int?>? = withContext(Dispatchers.IO) {
-        val vrClients = listOf(ANDROID_VR_1_65_10, ANDROID_VR_1_61_48)
-        val authState = YouTube.currentPlaybackAuthState().copy(webClientPoTokenEnabled = false)
+        repeat(retries) { attempt ->
+            val previousVisitorData = YouTube.visitorData
 
-        for (vrClient in vrClients) {
-            repeat(retries) { attempt ->
-                val previousVisitorData = YouTube.visitorData
+            val response = try {
+                YouTube.player(
+                    videoId = videoId,
+                    client = ANDROID_VR_1_61_48,
+                    authState = YouTube.currentPlaybackAuthState()
+                        .copy(webClientPoTokenEnabled = false),
+                ).getOrNull()
+            } catch (e: Exception) {
+                null
+            } ?: run {
+                PixelMusicHelper.printe("$videoId : ANDROID_VR player request failed (attempt ${attempt + 1}/$retries)")
+                return@withContext null
+            }
 
-                val response = try {
-                    YouTube.player(
-                        videoId = videoId,
-                        client = vrClient,
-                        authState = authState,
-                    ).getOrNull()
-                } catch (e: Exception) {
+            val status = response.playabilityStatus.status
+            val reason = response.playabilityStatus.reason.orEmpty()
+
+            if (status == "OK") {
+                val picked = pickDirectAudioFormat(response, lowQuality, maxBitrateKbps)
+                if (picked != null) {
+                    response.playbackTracking?.videostatsPlaybackUrl?.baseUrl?.let {
+                        playbackTrackingCache[videoId] = it
+                    }
+                    response.playbackTracking?.videostatsWatchtimeUrl?.baseUrl?.let {
+                        watchtimeTrackingCache[videoId] = it
+                    }
+                    PixelMusicHelper.printd(
+                        "$videoId : INSTANT stream via ANDROID_VR (bitrate=${picked.bitrate} low=$lowQuality)"
+                    )
+                    return@withContext Triple(picked.url!!, normalizeMimeType(picked.mimeType), picked.bitrate)
+                }
+
+                PixelMusicHelper.printe("$videoId : ANDROID_VR returned no direct audio formats")
+                return@withContext null
+            }
+
+            PixelMusicHelper.printe("$videoId : ANDROID_VR playability failed status=$status reason=$reason")
+
+            // umihi parity: on bot checks, rotate visitorData once and retry the same fast client;
+            // anything else is not recoverable here, so bail to the NewPipe fallback.
+            val lowerReason = reason.lowercase(Locale.US)
+            val isBot = "bot" in lowerReason || "unusual traffic" in lowerReason || "automated" in lowerReason
+            if (isBot && attempt < retries - 1) {
+                val refreshedVisitorData = try {
+                    YouTube.visitorData().getOrNull()
+                } catch (_: Exception) {
                     null
-                } ?: return@repeat
-
-                val status = response.playabilityStatus.status
-                val reason = response.playabilityStatus.reason.orEmpty()
-
-                if (status == "OK") {
-                    val picked = pickDirectAudioFormat(response, lowQuality, maxBitrateKbps)
-                    if (picked != null) {
-                        response.playbackTracking?.videostatsPlaybackUrl?.baseUrl?.let {
-                            playbackTrackingCache[videoId] = it
-                        }
-                        response.playbackTracking?.videostatsWatchtimeUrl?.baseUrl?.let {
-                            watchtimeTrackingCache[videoId] = it
-                        }
-                        PixelMusicHelper.printd(
-                            "$videoId : INSTANT stream via ${vrClient.friendlyName ?: vrClient.clientName} (bitrate=${picked.bitrate} low=$lowQuality itag=${picked.itag})"
-                        )
-                        return@withContext Triple(picked.url!!, normalizeMimeType(picked.mimeType), picked.bitrate)
-                    }
-                    return@repeat
                 }
-
-                PixelMusicHelper.printe("$videoId : ${vrClient.friendlyName ?: vrClient.clientName} playability failed status=$status reason=$reason")
-
-                // umihi parity: on bot checks, rotate visitorData once and retry the same fast client;
-                val lowerReason = reason.lowercase(Locale.US)
-                val isBot = "bot" in lowerReason || "unusual traffic" in lowerReason || "automated" in lowerReason
-                if (isBot && attempt < retries - 1) {
-                    val refreshedVisitorData = try {
-                        YouTube.visitorData().getOrNull()
-                    } catch (_: Exception) {
-                        null
-                    }
-                    if (!refreshedVisitorData.isNullOrBlank() && refreshedVisitorData != previousVisitorData) {
-                        YouTube.visitorData = refreshedVisitorData
-                        PixelMusicHelper.printd("$videoId : Retrying VR with rotated visitorData (${attempt + 2}/$retries)")
-                    }
+                if (!refreshedVisitorData.isNullOrBlank() && refreshedVisitorData != previousVisitorData) {
+                    YouTube.visitorData = refreshedVisitorData
+                    PixelMusicHelper.printd("$videoId : Retrying ANDROID_VR with rotated visitorData (${attempt + 2}/$retries)")
+                } else {
+                    return@withContext null
                 }
+            } else {
+                return@withContext null
             }
         }
         null
@@ -1403,26 +1397,14 @@ object YoutubeHelper {
             }
         if (directAudio.isEmpty()) return null
 
-        fun formatScore(f: PlayerResponse.StreamingData.Format): Long {
-            val isOpus = f.mimeType.contains("opus", ignoreCase = true)
-            val itagBonus = when (f.itag) {
-                251 -> 200_000L
-                140 -> 100_000L
-                250 -> 30_000L
-                249 -> 10_000L
-                else -> 0L
-            }
-            return f.bitrate.toLong() + (if (isOpus) 50_000L else 0L) + itagBonus
-        }
-
         return when {
             lowQuality -> directAudio.minByOrNull { it.bitrate }
             maxBitrateKbps > 0 -> {
                 val bpsCeiling = maxBitrateKbps * 1000
-                directAudio.filter { it.bitrate <= bpsCeiling }.maxByOrNull { formatScore(it) }
-                    ?: directAudio.minByOrNull { it.bitrate }
+                directAudio.filter { it.bitrate <= bpsCeiling }.maxByOrNull { it.bitrate }
+                    ?: directAudio.maxByOrNull { it.bitrate }
             }
-            else -> directAudio.maxByOrNull { formatScore(it) }
+            else -> directAudio.maxByOrNull { it.bitrate }
         }
     }
 

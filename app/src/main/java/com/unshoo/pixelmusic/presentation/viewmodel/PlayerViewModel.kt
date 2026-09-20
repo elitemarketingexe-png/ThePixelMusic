@@ -4940,20 +4940,18 @@ class PlayerViewModel @Inject constructor(
         val uri = mediaItem.localConfiguration?.uri ?: return
 
         val playingUriString = uri.toString()
-        val isRemoteMusic = mediaId.startsWith("youtube_") ||
-                playingUriString.contains("googlevideo.com") ||
-                playingUriString.contains("youtube.com") ||
-                playingUriString.contains("saavncdn.com") ||
-                playingUriString.contains("jiosaavn.com")
-        if (isRemoteMusic) {
-            val videoId = mediaId.removePrefix("youtube_")
+        val isYoutube = mediaId.startsWith("youtube_") &&
+                (playingUriString.contains("googlevideo.com") || playingUriString.contains("youtube.com"))
+        if (isYoutube) {
+            val videoId = mediaId.substringAfter("youtube_")
             
             // 1. Try to find cache key by exact URL match
             var cacheKey = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamUrlLruCache.snapshot().entries
-                .find { it.value == playingUriString }?.key
+                .find { it.value == uri.toString() }?.key
             
             // 2. If it's a remote URL and no exact match, try matching entries for this videoId where itag parameter matches
-            if (cacheKey == null && playingUriString.startsWith("http")) {
+            if (cacheKey == null && uri.toString().startsWith("http")) {
+                val playingUriString = uri.toString()
                 cacheKey = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamUrlLruCache.snapshot().entries
                     .filter { it.key.startsWith("${videoId}_") }
                     .find { entry ->
@@ -4990,23 +4988,9 @@ class PlayerViewModel @Inject constructor(
                 }
             }
 
-            // Bulletproof fallback for JioSaavn CDN audio URLs
-            if (playingUriString.contains("saavncdn.com") || playingUriString.contains("jiosaavn.com")) {
-                if (cachedBitrate == null) {
-                    cachedBitrate = when {
-                        playingUriString.contains("_320") -> 320_000
-                        playingUriString.contains("_160") -> 160_000
-                        playingUriString.contains("_96") -> 96_000
-                        else -> 320_000
-                    }
-                }
-                if (cachedMime == null) {
-                    cachedMime = "audio/mp4; codecs=\"mp4a.40.2\""
-                }
-            }
-
             // Bulletproof fallback: Parse the itag parameter from the YouTube URL if cache missed
             if (cachedBitrate == null || cachedMime == null) {
+                val playingUriString = uri.toString()
                 if (playingUriString.startsWith("http")) {
                     val itag = playingUriString.substringAfter("itag=", "").substringBefore("&")
                     if (itag.isNotEmpty()) {
