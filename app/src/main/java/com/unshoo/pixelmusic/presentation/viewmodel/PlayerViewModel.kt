@@ -5320,6 +5320,14 @@ class PlayerViewModel @Inject constructor(
                 if (isRemoteSessionControllingPlayback()) return
                 playbackStateHolder.onPlaybackOccurrenceTransition(mediaItem?.mediaId)
                 preparePlaybackAudioMetadataForMedia(mediaItem?.mediaId)
+                // Schedule a deferred metadata refresh to catch format data that arrives
+                // slightly after the transition event (ExoPlayer provides track info async)
+                viewModelScope.launch {
+                    delay(300L)
+                    if (playerCtrl.currentMediaItem?.mediaId == mediaItem?.mediaId) {
+                        refreshPlaybackAudioMetadata(playerCtrl)
+                    }
+                }
                 transitionSchedulerJob?.cancel()
                 lyricsStateHolder.cancelLoading()
                 lastRegisteredVideoId = null

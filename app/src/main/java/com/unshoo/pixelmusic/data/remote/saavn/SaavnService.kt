@@ -45,9 +45,9 @@ object SaavnService {
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(4, TimeUnit.SECONDS)
-            .readTimeout(6, TimeUnit.SECONDS)
-            .writeTimeout(4, TimeUnit.SECONDS)
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(3, TimeUnit.SECONDS)
+            .writeTimeout(3, TimeUnit.SECONDS)
             .followRedirects(true)
             .retryOnConnectionFailure(true)
             .build()
@@ -407,6 +407,11 @@ object SaavnService {
         )
         val apiQuality = effectiveQuality.apiValue
         val bitrate = effectiveQuality.bitrateKbps
+
+        Timber.tag(TAG).d(
+            "resolveStream: userSetting=$saavnQuality streamingQuality=$streamingQuality " +
+            "maxBitrate=$maxBitrateKbps → effectiveQuality=${effectiveQuality.name}(${effectiveQuality.apiValue})"
+        )
 
         // 1. Try to get stream URL directly from search results downloadUrl list (saves an extra round-trip)
         var streamUrl = selectBestUrl(matchedSong.downloadUrl, apiQuality)

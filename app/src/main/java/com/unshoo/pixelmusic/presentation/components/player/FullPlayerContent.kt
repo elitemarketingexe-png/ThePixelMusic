@@ -1806,21 +1806,10 @@ private fun FullPlayerProgressSection(
     loadingTweaks: FullPlayerLoadingTweaks
 ) {
     val isMetadataForCurrentSong = playbackMetadataMediaId == song.id
-    val audioMimeType = if (isMetadataForCurrentSong) {
-        playbackMetadataMimeType ?: song.mimeType
-    } else {
-        song.mimeType
-    }
-    val audioBitrate = if (isMetadataForCurrentSong) {
-        playbackMetadataBitrate ?: song.bitrate
-    } else {
-        song.bitrate
-    }
-    val audioSampleRate = if (isMetadataForCurrentSong) {
-        playbackMetadataSampleRate ?: song.sampleRate
-    } else {
-        song.sampleRate
-    }
+    val localSong = song.takeIf { it.isLocal && (isMetadataForCurrentSong || playbackMetadataMediaId == null) }
+    val audioMimeType = if (isMetadataForCurrentSong) playbackMetadataMimeType ?: localSong?.mimeType else localSong?.mimeType
+    val audioBitrate = if (isMetadataForCurrentSong) playbackMetadataBitrate ?: localSong?.bitrate else localSong?.bitrate
+    val audioSampleRate = if (isMetadataForCurrentSong) playbackMetadataSampleRate ?: localSong?.sampleRate else localSong?.sampleRate
 
     PlayerProgressBarSection(
         songId = song.id,
@@ -2327,7 +2316,7 @@ private fun PlayerProgressBarSection(
         } else if (!audioMetaLabel.isNullOrBlank()) {
             displayAudioMetaLabel = audioMetaLabel
         } else {
-            kotlinx.coroutines.delay(500)
+            // When metadata clears on track transition, clear immediately so previous song info doesn't linger
             displayAudioMetaLabel = null
         }
     }

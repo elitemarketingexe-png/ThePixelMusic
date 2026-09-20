@@ -1522,24 +1522,28 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun setStreamingAudioQualityWifi(quality: StreamingAudioQuality) {
         viewModelScope.launch {
             userPreferencesRepository.setStreamingAudioQualityWifi(quality)
+            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.clearStreamCache()
         }
     }
 
     fun setStreamingAudioQualityMobile(quality: StreamingAudioQuality) {
         viewModelScope.launch {
             userPreferencesRepository.setStreamingAudioQualityMobile(quality)
+            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.clearStreamCache()
         }
     }
 
     fun setForceHighQualityOnMobile(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setForceHighQualityOnMobile(enabled)
+            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.clearStreamCache()
         }
     }
 
     fun setEnableSaavnStreaming(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setEnableSaavnStreaming(enabled)
+            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.clearStreamCache()
         }
     }
 
