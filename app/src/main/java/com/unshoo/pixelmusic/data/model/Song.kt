@@ -2,6 +2,7 @@ package com.unshoo.pixelmusic.data.model
 
 import android.os.Parcelable
 import androidx.compose.runtime.Immutable
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import kotlinx.parcelize.Parcelize
 
 @Immutable
@@ -125,3 +126,35 @@ data class Song(
         }
     }
 }
+
+fun Song.getDeduplicationKey(): String {
+    val yId = youtubeId
+        ?: if (id.startsWith("youtube_")) id.removePrefix("youtube_")
+        else if (contentUriString.startsWith("youtube://")) contentUriString.removePrefix("youtube://")
+        else null
+    if (!yId.isNullOrBlank()) {
+        return "yt:$yId"
+    }
+    if (telegramChatId != null && telegramFileId != null) {
+        return "tg:${telegramChatId}_$telegramFileId"
+    }
+    if (contentUriString.startsWith("telegram://")) {
+        return "tg:${contentUriString.removePrefix("telegram://")}"
+    }
+    if (path.isNotBlank()) {
+        return "path:$path"
+    }
+    return "id:$id"
+}
+
+fun Song.getCanonicalId(): String {
+    val yId = youtubeId
+        ?: if (id.startsWith("youtube_")) id.removePrefix("youtube_")
+        else if (contentUriString.startsWith("youtube://")) contentUriString.removePrefix("youtube://")
+        else null
+    if (!yId.isNullOrBlank()) {
+        return YouTubeIdUtils.toUnifiedYoutubeSongId(yId).toString()
+    }
+    return id
+}
+

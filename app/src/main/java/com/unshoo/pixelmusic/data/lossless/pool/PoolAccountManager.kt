@@ -391,12 +391,16 @@ object PoolAccountManager {
                                         "(this is NOT a read-key problem; a bad key answers 401).",
                                     poolBaseUrl,
                                 )
-                                "No pool API at $poolBaseUrl (HTTP 404) — that URL is not an ArchivePool deployment."
+                                val endpoint = if (poolBaseUrl?.contains("archivepool.vercel", ignoreCase = true) == true) "ArchiveTune pool" else poolBaseUrl.orEmpty()
+                                "No pool API found at $endpoint (HTTP 404)."
                             }
                             result.code == 401 ->
-                                "Pool rejected the API key (HTTP 401) — SOURCE_PROVIDER_KEY is missing, revoked, " +
-                                    "or issued by a different deployment."
-                            result.code == 0 -> "Could not reach $poolBaseUrl — network error."
+                                "Pool rejected the API key (HTTP 401) — pool read key is missing, revoked, " +
+                                    "or invalid."
+                            result.code == 0 -> {
+                                val endpoint = if (poolBaseUrl?.contains("archivepool.vercel", ignoreCase = true) == true) "ArchiveTune pool" else poolBaseUrl.orEmpty()
+                                "Could not reach $endpoint — network error."
+                            }
                             else -> "Pool feed returned HTTP ${result.code}."
                         }
 

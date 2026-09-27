@@ -10,6 +10,7 @@ import com.unshoo.pixelmusic.data.DailyMixManager
 import com.unshoo.pixelmusic.data.model.Playlist
 import com.unshoo.pixelmusic.data.model.SmartPlaylistRule
 import com.unshoo.pixelmusic.data.model.Song
+import com.unshoo.pixelmusic.data.model.getDeduplicationKey
 import com.unshoo.pixelmusic.data.model.SortOption
 import com.unshoo.pixelmusic.data.playlist.M3uManager
 import com.unshoo.pixelmusic.data.preferences.PlaylistPreferencesRepository
@@ -429,6 +430,7 @@ class PlaylistViewModel @Inject constructor(
                                 }
                             } else {
                                 musicRepository.getSongsByIdsOnce(effectivePlaylist.songIds)
+                                    .distinctBy { it.getDeduplicationKey() }
                             }
                         }
 
@@ -768,14 +770,20 @@ class PlaylistViewModel @Inject constructor(
 
             val resolvedSmartRule = SmartPlaylistRule.fromStorageKey(smartRuleKey)
             val resolvedSongIds = if (songs.isNotEmpty()) {
-                ensureSongsPersisted(songs)
+                ensureSongsPersisted(songs).distinct()
             } else if (resolvedSmartRule != null) {
                 buildSmartPlaylistSongIds(
                     rule = resolvedSmartRule,
                     limit = SMART_PLAYLIST_MAX_ITEMS
                 )
             } else {
-                songIds
+                songIds.map { songId ->
+                    if (songId.startsWith("youtube_")) {
+                        toUnifiedYoutubeSongId(songId.removePrefix("youtube_")).toString()
+                    } else {
+                        songId
+                    }
+                }.distinct()
             }
             
             var finalSource = when {
@@ -1454,7 +1462,7 @@ class PlaylistViewModel @Inject constructor(
                 deletedSongIds = emptyList()
             )
         }
-        return mappedIds
+        return mappedIds.distinct()
     }
 
     /**

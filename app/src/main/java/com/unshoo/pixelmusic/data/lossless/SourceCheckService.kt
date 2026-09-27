@@ -114,6 +114,10 @@ object SourceCheckService {
                                 "apple=${PoolAccountManager.appleMusicAccounts().size} " +
                                 "amazon=${PoolAccountManager.amazonAccounts().size}"
                         val error = PoolAccountManager.lastFeedError
+                        val poolDisplay = PoolAccountManager.baseUrlOrNull
+                            ?.takeUnless { it.contains("archivepool.vercel", ignoreCase = true) }
+                            ?.let { "at $it" }
+                            ?: ""
                         when {
                             error != null && !ok ->
                                 SourceCheckResult(SourceCheckStatus.UNREACHABLE, "$error\nCached accounts: $counts")
@@ -122,12 +126,12 @@ object SourceCheckService {
                             ok ->
                                 SourceCheckResult(
                                     SourceCheckStatus.READY,
-                                    "Pool feed at ${PoolAccountManager.baseUrlOrNull} answered and decrypted. Accounts: $counts",
+                                    "ArchiveTune pool feed $poolDisplay answered and decrypted. Accounts: $counts".trim(),
                                 )
                             else ->
                                 SourceCheckResult(
                                     SourceCheckStatus.DEGRADED,
-                                    "Pool feed answered but returned no accounts yet. Accounts: $counts",
+                                    "ArchiveTune pool feed answered but returned no accounts yet. Accounts: $counts",
                                 )
                         }
                     }

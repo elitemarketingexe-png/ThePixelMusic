@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import android.util.Log
 
 import com.unshoo.pixelmusic.data.model.Song
+import com.unshoo.pixelmusic.data.model.getDeduplicationKey
 import com.unshoo.pixelmusic.data.repository.ArtistImageRepository
 import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -785,8 +786,9 @@ class MusicRepositoryImpl @Inject constructor(
                 }.map { ySong ->
                     val primaryArtistId = toUnifiedYoutubeArtistId(ySong.artist.takeIf { it.isNotBlank() } ?: "Unknown Artist")
                     val songAlbum = ySong.album?.takeIf { it.isNotBlank() } ?: "YouTube Music"
+                    val unifiedSongId = toUnifiedYoutubeSongId(ySong.youtubeId)
                     Song(
-                        id = "youtube_${ySong.youtubeId}",
+                        id = unifiedSongId.toString(),
                         title = ySong.title,
                         artist = ySong.artist,
                         artistId = primaryArtistId,
@@ -826,7 +828,32 @@ class MusicRepositoryImpl @Inject constructor(
         }
 
         return combine(localSearchFlow, downloadedFlow) { local, downloaded ->
-            (local + downloaded).distinctBy { it.id }
+            val seenKeys = HashSet<String>()
+            val result = ArrayList<Song>(local.size + downloaded.size)
+            val localKeyIndexMap = HashMap<String, Int>()
+
+            local.forEach { song ->
+                val key = song.getDeduplicationKey()
+                if (seenKeys.add(key)) {
+                    localKeyIndexMap[key] = result.size
+                    result.add(song)
+                }
+            }
+
+            downloaded.forEach { song ->
+                val key = song.getDeduplicationKey()
+                val existingIndex = localKeyIndexMap[key]
+                if (existingIndex != null) {
+                    val existing = result[existingIndex]
+                    if (existing.path.isBlank() && song.path.isNotBlank()) {
+                        result[existingIndex] = existing.copy(path = song.path)
+                    }
+                } else if (seenKeys.add(key)) {
+                    result.add(song)
+                }
+            }
+
+            result
         }.flowOn(Dispatchers.IO)
     }
 

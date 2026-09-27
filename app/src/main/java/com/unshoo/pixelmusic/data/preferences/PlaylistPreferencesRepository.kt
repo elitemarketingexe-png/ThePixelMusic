@@ -225,10 +225,17 @@ class PlaylistPreferencesRepository @Inject constructor(
         ensureMigratedIfNeeded()
         val now = System.currentTimeMillis()
         val normalizedId = if (source == "YOUTUBE" && customId != null) customId.removePrefix("VL") else customId
+        val normalizedSongIds = songIds.map { songId ->
+            if (songId.startsWith("youtube_")) {
+                YouTubeIdUtils.toUnifiedYoutubeSongId(songId.removePrefix("youtube_")).toString()
+            } else {
+                songId
+            }
+        }.distinct()
         val newPlaylist = Playlist(
             id = normalizedId ?: UUID.randomUUID().toString(),
             name = name,
-            songIds = songIds,
+            songIds = normalizedSongIds,
             createdAt = now,
             lastModified = now,
             isAiGenerated = isAiGenerated,
@@ -416,17 +423,26 @@ class PlaylistPreferencesRepository @Inject constructor(
                     audioFilePath = if (entity.filePath.isNotBlank()) entity.filePath else null
                 )
             }
-            if (ytSongs.isNotEmpty()) {
-                songRepository.createAll(ytSongs)
+            val existingYtIds = ytPlaylist.songs.map { it.youtubeId }.toSet()
+            val newYtSongs = ytSongs.filter { it.youtubeId !in existingYtIds }
+            if (newYtSongs.isNotEmpty()) {
+                songRepository.createAll(newYtSongs)
                 val currentSize = ytPlaylist.songs.size
-                val refs = ytSongs.mapIndexed { index, song ->
+                val refs = newYtSongs.mapIndexed { index, song ->
                     com.unshoo.pixelmusic.data.model.youtube.PlaylistSongCrossRef(ytPlaylist.info.id, song.youtubeId, currentSize + index)
                 }
                 playlistRepository.insertCrossRefs(refs)
             }
         } else {
             val existing = userPlaylistsFlow.first().find { it.id == playlistId || it.id == normalizedId } ?: return
-            val merged = (existing.songIds + songIdsToAdd).distinct()
+            val normalizeId = { id: String ->
+                if (id.startsWith("youtube_")) {
+                    YouTubeIdUtils.toUnifiedYoutubeSongId(id.removePrefix("youtube_")).toString()
+                } else {
+                    id
+                }
+            }
+            val merged = (existing.songIds + songIdsToAdd).map(normalizeId).distinct()
             updatePlaylist(existing.copy(songIds = merged))
         }
     }

@@ -1702,7 +1702,7 @@ fun SettingsCategoryScreen(
                             SettingsSubsection(title = "Lossless Audio Sources (ArchiveTune)") {
                                 SettingsItem(
                                     title = "Lossless Streaming Sources",
-                                    subtitle = "Tidal, Qobuz, Deezer, Apple Music via ArchivePool & accounts",
+                                    subtitle = "Tidal, Qobuz, Deezer, Apple Music via Archive pool & accounts",
                                     leadingIcon = { Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.primary) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = {

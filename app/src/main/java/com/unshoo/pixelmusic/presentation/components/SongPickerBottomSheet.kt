@@ -89,9 +89,12 @@ import androidx.paging.compose.itemContentType
 import coil.size.Size
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.data.model.Song
+import com.unshoo.pixelmusic.data.model.getCanonicalId
+import com.unshoo.pixelmusic.data.model.getDeduplicationKey
 import com.unshoo.pixelmusic.presentation.screens.TabAnimation
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import kotlinx.coroutines.flow.map
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
@@ -107,7 +110,12 @@ fun SongPickerBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val selectedSongIds = remember {
         mutableStateMapOf<String, Boolean>().apply {
-            initiallySelectedSongIds.forEach { put(it, true) }
+            initiallySelectedSongIds.forEach { rawId ->
+                val canonical = if (rawId.startsWith("youtube_")) {
+                    YouTubeIdUtils.toUnifiedYoutubeSongId(rawId.removePrefix("youtube_")).toString()
+                } else rawId
+                put(canonical, true)
+            }
         }
     }
 
@@ -231,8 +239,12 @@ fun SongPickerContent(
                         }
                     }
 
+                    val getConfirmedIds = {
+                        selectedSongIds.filterValues { it }.keys.toSet()
+                    }
+
                     FilledIconButton(
-                        onClick = { onConfirm(selectedSongIds.filterValues { it }.keys) },
+                        onClick = { onConfirm(getConfirmedIds()) },
                         modifier = Modifier.size(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -254,8 +266,11 @@ fun SongPickerContent(
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 16.dp)
                 ) {
+                    val getConfirmedIds = {
+                        selectedSongIds.filterValues { it }.keys.toSet()
+                    }
                     LargeExtendedFloatingActionButton(
-                        onClick = { onConfirm(selectedSongIds.filterValues { it }.keys) },
+                        onClick = { onConfirm(getConfirmedIds()) },
                         modifier = Modifier.align(Alignment.CenterEnd),
                         shape = RoundedCornerShape(20.dp),
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -311,12 +326,13 @@ fun SongPickerSelectionPane(
     val searchResults by remember(searchQuery, playerViewModel, storageFilter) {
         playerViewModel.searchSongs(searchQuery)
             .map { songs ->
-                when (storageFilter) {
+                val filtered = when (storageFilter) {
                     StorageFilter.LOCAL -> songs.filter { it.isLocal }
                     StorageFilter.TELEGRAM -> songs.filter { it.isTelegram }
                     StorageFilter.YOUTUBE -> songs.filter { it.isYouTube }
                     else -> songs
                 }
+                filtered.distinctBy { it.getDeduplicationKey() }
             }
             .map<List<Song>, List<Song>?> { it }
     }.collectAsStateWithLifecycle(initialValue = searchResultsInitialValue)
@@ -608,13 +624,14 @@ private fun SongPickerRow(
     selectedSongIds: MutableMap<String, Boolean>,
     albumShape: androidx.compose.ui.graphics.Shape
 ) {
+    val canonicalId = song.getCanonicalId()
+    val isChecked = selectedSongIds[canonicalId] == true
     Row(
         Modifier
             .fillMaxWidth()
             .clip(CircleShape)
             .clickable {
-                val currentSelection = selectedSongIds[song.id] ?: false
-                selectedSongIds[song.id] = !currentSelection
+                if (isChecked) selectedSongIds.remove(canonicalId) else selectedSongIds[canonicalId] = true
             }
             .background(
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -624,9 +641,9 @@ private fun SongPickerRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
-            checked = selectedSongIds[song.id] ?: false,
-            onCheckedChange = { isChecked ->
-                selectedSongIds[song.id] = isChecked
+            checked = isChecked,
+            onCheckedChange = { checked ->
+                if (checked) selectedSongIds[canonicalId] = true else selectedSongIds.remove(canonicalId)
             }
         )
         Box(

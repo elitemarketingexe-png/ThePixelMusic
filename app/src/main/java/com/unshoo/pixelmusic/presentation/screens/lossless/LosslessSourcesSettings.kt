@@ -161,7 +161,7 @@ fun LosslessSourcesSettings(
         )
     }
 
-    LosslessSubsection(title = "Source Pool (ArchivePool)") {
+    LosslessSubsection(title = "Source Pool (ArchiveTune)") {
         AiApiKeyItem(
             apiKey = state.poolApiKey,
             onApiKeySave = viewModel::savePoolApiKey,
@@ -178,12 +178,16 @@ fun LosslessSourcesSettings(
                     )
                 },
         )
+        val displayPoolUrl = remember(state.poolBaseUrl) {
+            when {
+                state.poolBaseUrl.isBlank() -> "ArchiveTune pool (default)"
+                state.poolBaseUrl.contains("archivepool.vercel", ignoreCase = true) -> "ArchiveTune pool"
+                else -> state.poolBaseUrl
+            }
+        }
         SettingsItem(
             title = "Pool URL",
-            subtitle =
-                state.poolBaseUrl.ifBlank {
-                    BuildConfig.SOURCE_PROVIDER_URL.ifBlank { "Not configured" } + " (default)"
-                },
+            subtitle = displayPoolUrl,
             leadingIcon = { Icon(Icons.Outlined.Link, null, tint = secondary) },
             onClick = { showPoolUrlDialog = true },
         )
@@ -460,10 +464,11 @@ fun LosslessSourcesSettings(
     }
 
     if (showPoolUrlDialog) {
+        val initialPoolUrl = if (state.poolBaseUrl.contains("archivepool.vercel", ignoreCase = true)) "" else state.poolBaseUrl
         MultilineInputDialog(
             title = "Pool URL",
-            hint = "https://archivepool.vercel.app (leave empty to use the build-time default)",
-            initial = state.poolBaseUrl,
+            hint = "ArchiveTune pool URL (leave empty to use default)",
+            initial = initialPoolUrl,
             singleLine = true,
             onDismiss = { showPoolUrlDialog = false },
             onSave = { viewModel.savePoolBaseUrl(it); showPoolUrlDialog = false },
