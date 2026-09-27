@@ -363,29 +363,33 @@ class PlaylistViewModel @Inject constructor(
                         return@launch
                     }
 
+                    val cleanPlaylistId = playlistId.removePrefix("VL")
                     val playlist = playlistPreferencesRepository.userPlaylistsFlow.first()
-                        .find { it.id == playlistId }
+                        .find { it.id == playlistId || it.id == cleanPlaylistId || "VL${it.id}" == playlistId }
 
                     if (playlist != null) {
                         val orderMode = _uiState.value.playlistOrderModes[playlistId]
                             ?: PlaylistSongsOrderMode.Manual
 
-                        val effectivePlaylist = if (playlist.source == "YOUTUBE" && playlist.songIds.isEmpty()) {
+                        val isYt = playlist.source.equals("YOUTUBE", ignoreCase = true)
+                        val effectivePlaylist = if (isYt && playlist.songIds.isEmpty()) {
                             withContext(Dispatchers.IO) {
-                                val ytPlaylist = com.unshoo.pixelmusic.data.database.youtube.AppDatabase
+                                val ytDb = com.unshoo.pixelmusic.data.database.youtube.AppDatabase
                                     .getInstance(context)
                                     .playlistRepository()
-                                    .getPlaylistById(playlistId)
+                                val ytPlaylist = ytDb.getPlaylistById(cleanPlaylistId)
+                                    ?: ytDb.getPlaylistById("VL$cleanPlaylistId")
                                 ytPlaylist?.takeIf { it.songs.isNotEmpty() }?.let { hydrated ->
                                     playlist.copy(
+                                        source = "YOUTUBE",
                                         songIds = hydrated.songs.map { "youtube_${it.youtubeId}" },
                                         displaySongCount = hydrated.info.lastSyncSongCount.takeIf { count -> count > 0 }
                                             ?: hydrated.songs.size
                                     )
                                 }
-                            } ?: playlist
+                            } ?: playlist.copy(source = "YOUTUBE")
                         } else {
-                            playlist
+                            if (isYt) playlist.copy(source = "YOUTUBE") else playlist
                         }
 
                         val songsList: List<Song> = withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -489,7 +493,7 @@ class PlaylistViewModel @Inject constructor(
                         }
 
                         // Background fetch & sync for synced YouTube playlists
-                        if (playlist.source == "YOUTUBE") {
+                        if (playlist.source.equals("YOUTUBE", ignoreCase = true)) {
                             viewModelScope.launch(Dispatchers.IO) {
                                 if (YouTubeItemFilter.isPodcastOrEpisode(playlist.name, playlistId)) {
                                     withContext(Dispatchers.Main) {
@@ -1018,6 +1022,53 @@ class PlaylistViewModel @Inject constructor(
     fun togglePinPlaylist(playlistId: String) {
         viewModelScope.launch {
             playlistPreferencesRepository.togglePinPlaylist(playlistId)
+        }
+    }
+
+    fun togglePlaylistLike(playlist: Playlist, songs: List<Song> = emptyList()) {
+        viewModelScope.launch {
+            val cleanId = playlist.id.removePrefix("VL")
+            val isCurrentlyLiked = playlistPreferencesRepository.userPlaylistsFlow.first().any {
+                it.id.removePrefix("VL") == cleanId
+            }
+            val newLikedState = !isCurrentlyLiked
+
+            if (newLikedState) {
+                val info = PlaylistInfo(
+                    id = cleanId,
+                    title = playlist.name,
+                    coverHref = playlist.coverImageUri.orEmpty(),
+                    coverPath = null,
+                    lastSyncSongCount = songs.size,
+                    lastSyncTimestamp = System.currentTimeMillis()
+                )
+                val ytSongs = songs.map { song ->
+                    val yId = song.youtubeId ?: if (song.id.startsWith("youtube_")) song.id.removePrefix("youtube_") else song.id
+                    val durationStr = if (song.duration > 0) com.unshoo.pixelmusic.utils.formatDuration(song.duration) else ""
+                    com.unshoo.pixelmusic.data.model.youtube.Song(
+                        youtubeId = yId,
+                        title = song.title,
+                        artist = song.artist,
+                        album = song.album,
+                        albumBrowseId = song.albumBrowseId,
+                        duration = durationStr,
+                        thumbnailHref = song.albumArtUriString ?: ""
+                    )
+                }
+                persistenceManager.persistPlaylist(info, ytSongs)
+                if (songs.isEmpty()) {
+                    loadPlaylistDetails(playlist.id)
+                }
+            } else {
+                persistenceManager.deletePlaylist(cleanId)
+                persistenceManager.deletePlaylist(playlist.id)
+            }
+
+            if (YouTube.hasLoginCookie()) {
+                withContext(Dispatchers.IO) {
+                    YouTube.likePlaylist(if (playlist.id.startsWith("VL")) playlist.id else "VL$cleanId", newLikedState)
+                }
+            }
         }
     }
 

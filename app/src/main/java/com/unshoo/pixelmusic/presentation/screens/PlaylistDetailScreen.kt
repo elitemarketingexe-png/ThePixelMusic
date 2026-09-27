@@ -65,6 +65,8 @@ import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
@@ -234,7 +236,21 @@ fun PlaylistDetailScreen(
     val isFolderPlaylist = currentPlaylist?.id?.startsWith(FOLDER_PLAYLIST_PREFIX) == true
     val songsInPlaylist = uiState.currentPlaylistSongs
     val playlistDisplaySongCount = currentPlaylist?.displaySongCount ?: songsInPlaylist.size
-    val isYoutubePlaylistHydrating = currentPlaylist?.source == "YOUTUBE" && currentPlaylist.songIds.isEmpty() && songsInPlaylist.isEmpty()
+    val isYoutubePlaylist = remember(currentPlaylist, playlistId, uiState.playlists, songsInPlaylist) {
+        val cleanId = playlistId.removePrefix("VL")
+        val curCleanId = (currentPlaylist?.id ?: "").removePrefix("VL")
+        val ytPrefixes = setOf("VL", "PL", "OLAK", "RD", "LM", "FL", "_downloaded_")
+        currentPlaylist?.source.equals("YOUTUBE", ignoreCase = true) ||
+        currentPlaylist?.source.equals("YOUTUBE_MUSIC", ignoreCase = true) ||
+        ytPrefixes.any { playlistId.startsWith(it) || (currentPlaylist?.id ?: "").startsWith(it) } ||
+        uiState.playlists.any { it.source.equals("YOUTUBE", ignoreCase = true) && it.id.removePrefix("VL") in setOf(cleanId, curCleanId) } ||
+        (songsInPlaylist.isNotEmpty() && songsInPlaylist.all { it.isYouTube || it.id.startsWith("youtube_") || it.contentUriString.startsWith("youtube://") || it.youtubeId != null })
+    }
+    val isPlaylistLiked = remember(uiState.playlists, currentPlaylist, playlistId) {
+        val targetIds = setOf(playlistId.removePrefix("VL"), (currentPlaylist?.id ?: "").removePrefix("VL"))
+        uiState.playlists.any { it.id.removePrefix("VL") in targetIds }
+    }
+    val isYoutubePlaylistHydrating = isYoutubePlaylist && currentPlaylist?.songIds.isNullOrEmpty() && songsInPlaylist.isEmpty()
     val isPlaylistFullyDownloaded by remember(songsInPlaylist) {
         derivedStateOf {
             songsInPlaylist.isNotEmpty() && songsInPlaylist.all { it.path.isNotBlank() }
@@ -316,7 +332,7 @@ fun PlaylistDetailScreen(
     var playlistSheetSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var localReorderableSongs by remember(songsInPlaylist) {
         mutableStateOf(
-            if (currentPlaylist?.source == "YOUTUBE" && songsInPlaylist.size > 15) {
+            if (isYoutubePlaylist && songsInPlaylist.size > 15) {
                 songsInPlaylist.take(15)
             } else {
                 songsInPlaylist
@@ -329,7 +345,7 @@ fun PlaylistDetailScreen(
     }
 
     LaunchedEffect(songsInPlaylist) {
-        if (currentPlaylist?.source == "YOUTUBE" && songsInPlaylist.size > 15) {
+        if (isYoutubePlaylist && songsInPlaylist.size > 15) {
             kotlinx.coroutines.delay(120)
             localReorderableSongs = songsInPlaylist
             itemKeys = songsInPlaylist.indices.map { "${songsInPlaylist[it].id}_$it" }
@@ -564,7 +580,7 @@ fun PlaylistDetailScreen(
                                         currentPlaylist.id
                                     )
                                     if (playerStableState.isShuffleEnabled) playerViewModel.toggleShuffle()
-                                } else if (currentPlaylist.source == "YOUTUBE") {
+                                } else if (isYoutubePlaylist) {
                                     playerViewModel.playRadio(
                                         unshoo.ianshulyadav.pixelmusic.innertube.models.WatchEndpoint(playlistId = currentPlaylist.id),
                                         currentPlaylist.name
@@ -574,7 +590,7 @@ fun PlaylistDetailScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(76.dp),
-                            enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty(),
+                            enabled = isYoutubePlaylist || localReorderableSongs.isNotEmpty(),
                             shape = playButtonShape
                         ) {
                             Icon(
@@ -648,25 +664,40 @@ fun PlaylistDetailScreen(
                             )
 
                             Button(
-                                onClick = { showAddSongsSheet = true },
+                                onClick = {
+                                    if (isYoutubePlaylist) {
+                                        playlistViewModel.togglePlaylistLike(currentPlaylist, songsInPlaylist)
+                                        Toast.makeText(
+                                            context,
+                                            if (isPlaylistLiked) "Removed from library" else "Saved to library",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        showAddSongsSheet = true
+                                    }
+                                },
                                 shape = CircleShape,
                                 contentPadding = PaddingValues(horizontal = 12.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    containerColor = if (!isYoutubePlaylist || isPlaylistLiked) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = if (!isYoutubePlaylist || isPlaylistLiked) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
                                     .height(actionButtonsHeight)
                                     .animateContentSize()
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Add,
-                                    contentDescription = addSongsCd,
+                                    imageVector = when {
+                                        !isYoutubePlaylist -> Icons.Rounded.Add
+                                        isPlaylistLiked -> Icons.Rounded.Favorite
+                                        else -> Icons.Rounded.FavoriteBorder
+                                    },
+                                    contentDescription = if (isYoutubePlaylist) (if (isPlaylistLiked) "Unlike playlist" else "Like playlist") else addSongsCd,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = addLabel,
+                                    text = if (isYoutubePlaylist) (if (isPlaylistLiked) "Liked" else "Like") else addLabel,
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
@@ -798,10 +829,10 @@ fun PlaylistDetailScreen(
                                     Icon(Icons.Filled.MusicOff, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.height(8.dp))
                                     Text(playlistEmptyTitle, style = MaterialTheme.typography.titleMedium)
-                                    val emptyMessage = if (isFolderPlaylist) {
-                                        playlistEmptyFolder
-                                    } else {
-                                        playlistEmptyAddHint
+                                    val emptyMessage = when {
+                                        isFolderPlaylist -> playlistEmptyFolder
+                                        isYoutubePlaylist -> playlistEmptyTitle
+                                        else -> playlistEmptyAddHint
                                     }
                                     Text(emptyMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -925,7 +956,7 @@ fun PlaylistDetailScreen(
         }
     }
 
-    if (showAddSongsSheet && currentPlaylist != null && !isFolderPlaylist) {
+    if (showAddSongsSheet && currentPlaylist != null && !isFolderPlaylist && !isYoutubePlaylist) {
         SongPickerBottomSheet(
             playerViewModel = playerViewModel,
             initiallySelectedSongIds = currentPlaylist.songIds.toSet(),

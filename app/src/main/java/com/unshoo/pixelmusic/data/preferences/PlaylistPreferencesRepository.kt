@@ -190,10 +190,10 @@ class PlaylistPreferencesRepository @Inject constructor(
         }
         val ytIds = mappedYtPlaylists.map { it.id }.toSet()
         val localWithPins = localPlaylists
-            .filterNot { it.source == "YOUTUBE" && it.id in ytIds }
+            .filterNot { it.id.removePrefix("VL") in ytIds || it.source.equals("YOUTUBE", ignoreCase = true) }
             .map { it.copy(isPinned = pinnedIds.contains(it.id)) }
         val ytWithPins = mappedYtPlaylists.map { it.copy(isPinned = pinnedIds.contains(it.id)) }
-        (localWithPins + ytWithPins).distinctBy { it.id }
+        (ytWithPins + localWithPins).distinctBy { it.id }
     }
 
     val playlistSongOrderModesFlow: Flow<Map<String, String>> =
