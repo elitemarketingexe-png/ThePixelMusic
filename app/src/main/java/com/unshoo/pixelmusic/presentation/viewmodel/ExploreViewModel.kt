@@ -377,12 +377,12 @@ class ExploreViewModel @Inject constructor(
                     it.contains("SAPISID=") || it.contains("__Secure-3PAPISID=")
                 } == true
 
-                // Filter out undesirable sections in a single pass & keep videos hidden
+                // Preserve video sections (e.g. Music videos for you) while keeping pure audio for other shelves
                 val rawSections = combinedSections.map { section ->
-                    section.copy(items = section.items.filterVideo(true))
+                    val isVideoSection = section.title.contains("video", ignoreCase = true)
+                    if (isVideoSection) section else section.copy(items = section.items.filterVideo(true))
                 }.filter { section ->
                     val title = section.title.lowercase()
-                    !title.contains("new music videos") &&
                     !title.contains("trending") &&
                     !title.contains("long listens") &&
                     !title.contains("local") &&
@@ -512,10 +512,10 @@ class ExploreViewModel @Inject constructor(
 
             if (continuationHome != null && continuationHome.sections.isNotEmpty()) {
                 val newRawSections = continuationHome.sections.map { section ->
-                    section.copy(items = section.items.filterVideo(true))
+                    val isVideoSection = section.title.contains("video", ignoreCase = true)
+                    if (isVideoSection) section else section.copy(items = section.items.filterVideo(true))
                 }.filter { section ->
                     val title = section.title.lowercase()
-                    !title.contains("new music videos") &&
                     !title.contains("trending") &&
                     !title.contains("long listens") &&
                     !title.contains("local") &&

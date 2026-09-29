@@ -251,20 +251,6 @@ fun ExploreScreen(
     } else {
         exploreUiState.homePageSections
     }
-    val regionalSections = remember(rawRegionalSections, isOnline, effectiveQuickPicks) {
-        if (!isOnline) {
-            emptyList()
-        } else {
-            rawRegionalSections.filter { section ->
-                val title = section.title.lowercase()
-                !title.contains("new music videos") &&
-                !title.contains("local") &&
-                (!title.contains("quick") || effectiveQuickPicks.isEmpty()) &&
-                section.items.isNotEmpty()
-            }
-        }
-    }
-
     val shouldLoadMore = remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
@@ -298,12 +284,10 @@ fun ExploreScreen(
         }
     }
 
-    val newReleases = remember(state.feedData.newReleases, exploreUiState.newReleaseAlbums, isOnline) {
+    val newReleases = remember(exploreUiState.newReleaseAlbums, state.feedData.newReleases, isOnline) {
         if (!isOnline) {
             emptyList()
-        } else if (state.feedData.newReleases.isNotEmpty()) {
-            state.feedData.newReleases
-        } else {
+        } else if (exploreUiState.newReleaseAlbums.isNotEmpty()) {
             exploreUiState.newReleaseAlbums
                 .distinctBy { it.browseId }
                 .map { album ->
@@ -314,6 +298,8 @@ fun ExploreScreen(
                         artworkUrl = album.thumbnail
                     )
                 }
+        } else {
+            state.feedData.newReleases
         }
     }
 
@@ -329,6 +315,27 @@ fun ExploreScreen(
                     artworkUrl = local.albumArtUriString,
                     browseId = local.id.toString()
                 )
+            }
+        }
+    }
+
+    val regionalSections = remember(rawRegionalSections, isOnline, effectiveQuickPicks, newReleases, albumsForYou) {
+        if (!isOnline) {
+            emptyList()
+        } else {
+            rawRegionalSections.filter { section ->
+                val title = section.title.lowercase()
+                val isNewReleasesShelf = title.contains("new release") || title.contains("new releases") ||
+                    title.contains("novedades") || title.contains("release radar") || title.contains("new for you") ||
+                    title.contains("new album") || title.contains("latest release")
+                val isAlbumsShelf = title.contains("albums for you") || title.contains("recommended albums") ||
+                    title.contains("featured albums")
+
+                !title.contains("local") &&
+                (!title.contains("quick") || effectiveQuickPicks.isEmpty()) &&
+                (!isNewReleasesShelf || newReleases.isEmpty()) &&
+                (!isAlbumsShelf || albumsForYou.isEmpty()) &&
+                section.items.isNotEmpty()
             }
         }
     }
@@ -2608,8 +2615,11 @@ private fun RegionalExploreSection(
         } else null
     )
 
-    val filteredItems = remember(section.items) {
-        section.items.filterVideo(true)
+    val isVideoSection = remember(section.title) {
+        section.title.contains("video", ignoreCase = true)
+    }
+    val filteredItems = remember(section.items, isVideoSection) {
+        if (isVideoSection) section.items else section.items.filterVideo(true)
     }
 
     FeedMediaRow {

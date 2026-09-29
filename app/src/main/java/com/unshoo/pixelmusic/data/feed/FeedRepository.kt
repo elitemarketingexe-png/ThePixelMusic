@@ -80,16 +80,34 @@ class FeedRepository @Inject constructor(
 
         val releaseCandidates = sections.filter { s ->
             val t = s.title.lowercase()
-            t.contains("new release") || t.contains("new album") || t.contains("fresh") || t.contains("novedades")
-        }.flatMap { it.items }.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem>().map { album ->
-            YouTubePlaylistSummary(
-                id = album.browseId,
-                title = album.title,
-                author = album.artists?.firstOrNull()?.name ?: "Album",
-                artworkUrl = album.thumbnail
+            !t.contains("video") && !t.contains("videos") && (
+                t.contains("new release") || t.contains("new releases") ||
+                t.contains("new album") || t.contains("latest release") ||
+                t.contains("new music") || t.contains("recent release") ||
+                t.contains("novedades") || t.contains("nouveautés") ||
+                t.contains("veröffentlichungen") || t.contains("release radar") ||
+                t.contains("new for you") || t.contains("fresh")
             )
-        }.ifEmpty {
-            sections.flatMap { it.items }.filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem>().take(10).map { album ->
+        }.flatMap { it.items }.mapNotNull { item ->
+            when (item) {
+                is unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem -> YouTubePlaylistSummary(
+                    id = item.browseId,
+                    title = item.title,
+                    author = item.artists?.firstOrNull()?.name ?: "Album",
+                    artworkUrl = item.thumbnail
+                )
+                is unshoo.ianshulyadav.pixelmusic.innertube.models.PlaylistItem -> YouTubePlaylistSummary(
+                    id = item.id,
+                    title = item.title,
+                    author = item.author?.name ?: "Release",
+                    artworkUrl = item.thumbnail
+                )
+                else -> null
+            }
+        }.distinctBy { it.id }.ifEmpty {
+            runCatching {
+                unshoo.ianshulyadav.pixelmusic.innertube.YouTube.newReleaseAlbums().getOrNull()
+            }.getOrNull().orEmpty().map { album ->
                 YouTubePlaylistSummary(
                     id = album.browseId,
                     title = album.title,
@@ -124,7 +142,13 @@ class FeedRepository @Inject constructor(
                 )
             }
 
-        val homeAlbums = sections.flatMap { it.items }
+        val homeAlbums = sections.filter { s ->
+            val t = s.title.lowercase()
+            !t.contains("new release") && !t.contains("new album") && (
+                t.contains("album") || t.contains("disc") || t.contains("for you")
+            )
+        }.ifEmpty { sections }
+            .flatMap { it.items }
             .filterIsInstance<unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem>()
             .map { album ->
                 FeedAlbum(
@@ -333,10 +357,13 @@ class FeedRepository @Inject constructor(
                 }
             }.awaitAll().flatten()
 
-        val newReleases: List<YouTubePlaylistSummary> = (matchedReleases + artistReleases)
-            .ifEmpty { releaseCandidates }
-            .ifEmpty { previous?.newReleases.orEmpty() }
-            .distinctBy { it.id }.shuffled(random).take(15)
+        val newReleases: List<YouTubePlaylistSummary> = if (releaseCandidates.isNotEmpty()) {
+            releaseCandidates.take(15)
+        } else if (matchedReleases.isNotEmpty() || artistReleases.isNotEmpty()) {
+            (matchedReleases + artistReleases).distinctBy { it.id }.take(15)
+        } else {
+            previous?.newReleases.orEmpty()
+        }
 
         val discoveryResults = discoverySeeds.zip(discoveryDef.await())
         val discoveryTracks = discoveryResults.flatMap { it.second }.filter(::filterTrack).distinctBy { it.videoId }

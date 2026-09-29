@@ -251,6 +251,8 @@
     <string name="player_menu_add_to_playlist">Add to Playlist</string>
     <string name="not_interested">Not interested</string>
     <string name="marked_not_interested">Marked as not interested</string>
+    <string name="action_dislike">Dislike</string>
+    <string name="action_disliked">Disliked</string>
     <string name="cd_player_more_options">More options</string>
     <string name="cd_player_theme">Change theme</string>
 

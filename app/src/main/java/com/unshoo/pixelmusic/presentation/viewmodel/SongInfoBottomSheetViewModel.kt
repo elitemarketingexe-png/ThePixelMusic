@@ -556,6 +556,19 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         }
     }
 
+    fun setNotInterested(song: Song, notInterested: Boolean, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                // Locally suppress or restore recommendation status without disliking on YouTube account
+                musicRepository.setDislikedStatus(song.id, notInterested)
+                onResult(true)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update not interested / recommend less status")
+                onResult(false)
+            }
+        }
+    }
+
 
     fun addToYouTubePlaylist(playlistId: String, song: Song, onResult: (String?) -> Unit) {
         val videoId = song.youtubeId ?: if (song.contentUriString.startsWith("youtube://")) {

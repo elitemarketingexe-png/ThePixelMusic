@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -221,10 +222,14 @@ fun SongInfoBottomSheet(
             song.isYouTube
     }
     var isDislikedState by remember(song.id, song.isDisliked) { mutableStateOf(song.isDisliked) }
+    var isNotInterestedState by remember(song.id) { mutableStateOf(false) }
 
     LaunchedEffect(isFavorite) {
         if (isFavorite && isDislikedState) {
             isDislikedState = false
+        }
+        if (isFavorite && isNotInterestedState) {
+            isNotInterestedState = false
         }
     }
 
@@ -768,48 +773,91 @@ fun SongInfoBottomSheet(
                                                 }
                                             }
 
-                                            if (isYouTubeSong) {
-                                                item {
+                                            item {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(IntrinsicSize.Min),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    if (isYouTubeSong) {
+                                                        FilledTonalButton(
+                                                            modifier = Modifier
+                                                                .weight(0.5f)
+                                                                .heightIn(min = 66.dp),
+                                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                                containerColor = if (isDislikedState) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                                                contentColor = if (isDislikedState) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                            ),
+                                                            shape = CircleShape,
+                                                            onClick = {
+                                                                val targetState = !isDislikedState
+                                                                songInfoViewModel.dislikeOnYouTube(song, targetState) { ytSuccess ->
+                                                                    isDislikedState = targetState
+                                                                    if (targetState) {
+                                                                        isNotInterestedState = false
+                                                                        if (isFavorite) {
+                                                                            onToggleFavorite()
+                                                                        }
+                                                                        val msg = if (songInfoViewModel.isLoggedIn()) {
+                                                                            if (ytSuccess) {
+                                                                                "Disliked on YouTube"
+                                                                            } else {
+                                                                                "Disliked locally (YouTube sync failed)"
+                                                                            }
+                                                                        } else {
+                                                                            "Disliked locally"
+                                                                        }
+                                                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                                    } else {
+                                                                        Toast.makeText(context, "Removed dislike", Toast.LENGTH_SHORT).show()
+                                                                    }
+                                                                }
+                                                            }
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = if (isDislikedState) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                                                                contentDescription = stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike)
+                                                            )
+                                                            Spacer(Modifier.width(8.dp))
+                                                            Text(
+                                                                stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike)
+                                                            )
+                                                        }
+                                                    }
+
                                                     FilledTonalButton(
                                                         modifier = Modifier
-                                                            .fillMaxWidth()
+                                                            .weight(if (isYouTubeSong) 0.5f else 1f)
                                                             .heightIn(min = 66.dp),
                                                         colors = ButtonDefaults.filledTonalButtonColors(
-                                                            containerColor = if (isDislikedState) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                                            contentColor = if (isDislikedState) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                            containerColor = if (isNotInterestedState) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                                            contentColor = if (isNotInterestedState) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                                         ),
                                                         shape = CircleShape,
                                                         onClick = {
-                                                            val targetState = !isDislikedState
-                                                            songInfoViewModel.dislikeOnYouTube(song, targetState) { ytSuccess ->
-                                                                isDislikedState = targetState
+                                                            val targetState = !isNotInterestedState
+                                                            isNotInterestedState = targetState
+                                                            if (targetState && isDislikedState) {
+                                                                isDislikedState = false
+                                                            }
+                                                            songInfoViewModel.setNotInterested(song, targetState) {
                                                                 if (targetState) {
-                                                                    if (isFavorite) {
-                                                                        onToggleFavorite()
-                                                                    }
-                                                                    val msg = if (songInfoViewModel.isLoggedIn()) {
-                                                                        if (ytSuccess) {
-                                                                            "Tuned out: YouTube won't recommend this again"
-                                                                        } else {
-                                                                            "Marked not interested (Failed to sync with YouTube)"
-                                                                        }
-                                                                    } else {
-                                                                        "Marked not interested (Log in to YouTube to sync)"
-                                                                    }
-                                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                                    Toast.makeText(context, "Tuned out: Will recommend this song less", Toast.LENGTH_SHORT).show()
                                                                 } else {
-                                                                    Toast.makeText(context, "Removed from not interested", Toast.LENGTH_SHORT).show()
+                                                                    Toast.makeText(context, "Removed from tuned out", Toast.LENGTH_SHORT).show()
                                                                 }
                                                             }
                                                         }
                                                     ) {
                                                         Icon(
-                                                            imageVector = if (isDislikedState) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                                                            contentDescription = stringResource(R.string.not_interested)
+                                                            imageVector = Icons.Rounded.Block,
+                                                            contentDescription = stringResource(if (isNotInterestedState) R.string.marked_not_interested else R.string.not_interested)
                                                         )
                                                         Spacer(Modifier.width(8.dp))
                                                         Text(
-                                                            if (isDislikedState) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested)
+                                                            if (isNotInterestedState) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested)
                                                         )
                                                     }
                                                 }

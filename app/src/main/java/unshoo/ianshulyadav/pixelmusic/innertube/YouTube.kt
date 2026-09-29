@@ -747,12 +747,14 @@ object YouTube {
             return@runCatching homeContinuation(continuation).getOrThrow()
         }
 
-        val forceAnon = !personalizedExploreEnabled
+        val hasAuth = hasLoginCookie()
+        val forceAnon = !hasAuth && !personalizedExploreEnabled
+        val setLogin = hasAuth || !forceAnon
         val response = innerTube.browse(
             WEB_REMIX,
             browseId = "FEmusic_home",
             params = params,
-            setLogin = !forceAnon,
+            setLogin = setLogin,
             forceAnonymous = forceAnon
         ).body<BrowseResponse>()
         val continuation = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
@@ -768,12 +770,14 @@ object YouTube {
     }
 
     private suspend fun homeContinuation(continuation: String): Result<HomePage> = runCatching {
-        val forceAnon = !personalizedExploreEnabled
+        val hasAuth = hasLoginCookie()
+        val forceAnon = !hasAuth && !personalizedExploreEnabled
+        val setLogin = hasAuth || !forceAnon
         val response =
             innerTube.browse(
                 WEB_REMIX,
                 continuation = continuation,
-                setLogin = !forceAnon,
+                setLogin = setLogin,
                 forceAnonymous = forceAnon
             ).body<BrowseResponse>()
         val sections = response.continuationContents?.sectionListContinuation?.contents
@@ -792,12 +796,14 @@ object YouTube {
 
     suspend fun explore(browseId: String? = null, params: String? = null): Result<ExplorePage> = runCatching {
         val targetBrowseId = browseId ?: "FEmusic_explore"
-        val forceAnon = !personalizedExploreEnabled
+        val hasAuth = hasLoginCookie()
+        val forceAnon = !hasAuth && !personalizedExploreEnabled
+        val setLogin = hasAuth || !forceAnon
         val response = innerTube.browse(
             WEB_REMIX,
             browseId = targetBrowseId,
             params = params,
-            setLogin = !forceAnon,
+            setLogin = setLogin,
             forceAnonymous = forceAnon
         ).body<BrowseResponse>()
         val sectionListRender = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
@@ -824,11 +830,13 @@ object YouTube {
     }
 
     suspend fun newReleaseAlbums(): Result<List<AlbumItem>> = runCatching {
-        val forceAnon = !personalizedExploreEnabled
+        val hasAuth = hasLoginCookie()
+        val forceAnon = !hasAuth && !personalizedExploreEnabled
+        val setLogin = hasAuth || !forceAnon
         val response = innerTube.browse(
             WEB_REMIX,
             browseId = "FEmusic_new_releases_albums",
-            setLogin = !forceAnon,
+            setLogin = setLogin,
             forceAnonymous = forceAnon
         ).body<BrowseResponse>()
         val contents =
