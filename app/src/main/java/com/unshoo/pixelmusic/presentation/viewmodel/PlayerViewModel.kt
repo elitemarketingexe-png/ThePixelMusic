@@ -6724,6 +6724,7 @@ class PlayerViewModel @Inject constructor(
 
         if (videoId != null && unshoo.ianshulyadav.pixelmusic.innertube.YouTube.hasLoginCookie()) {
             try {
+                unshoo.ianshulyadav.pixelmusic.innertube.YouTube.likeVideo(videoId, targetFavoriteState)
                 youTubeLibrarySyncManager.syncLikedSongs()
             } catch (e: Exception) {
                 Timber.w(e, "Failed to instantly sync Liked Songs playlist")

@@ -24,6 +24,17 @@ object YouTubeIdUtils {
     }
 
     /**
+     * Extracts a pure YouTube video ID by stripping common prefixes ('youtube://', 'youtube_').
+     */
+    fun extractVideoId(rawId: String): String {
+        return when {
+            rawId.startsWith("youtube://") -> rawId.removePrefix("youtube://")
+            rawId.startsWith("youtube_") -> rawId.removePrefix("youtube_")
+            else -> rawId
+        }
+    }
+
+    /**
      * Alias for toUnifiedSongId to match legacy naming across the codebase.
      */
     fun toUnifiedYoutubeSongId(youtubeId: String): Long = toUnifiedSongId(youtubeId)

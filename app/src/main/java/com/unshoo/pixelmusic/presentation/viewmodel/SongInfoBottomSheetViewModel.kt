@@ -510,16 +510,22 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         } else if (song.id.startsWith("youtube_")) {
             song.id.substringAfter("youtube_")
         } else {
-            onResult(false)
-            return
+            null
         }
         viewModelScope.launch {
-            val result = YouTube.likeVideo(videoId, like)
-            if (result.isSuccess && like) {
-                // If liking the song, clear disliked status locally
-                musicRepository.setDislikedStatus(song.id, false)
+            if (like) {
+                try {
+                    musicRepository.setDislikedStatus(song.id, false)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to clear disliked status on like")
+                }
             }
-            onResult(result.isSuccess)
+            if (videoId != null && YouTube.hasLoginCookie()) {
+                val result = YouTube.likeVideo(videoId, like)
+                onResult(result.isSuccess)
+            } else {
+                onResult(true)
+            }
         }
     }
 
@@ -529,18 +535,24 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         } else if (song.id.startsWith("youtube_")) {
             song.id.substringAfter("youtube_")
         } else {
-            onResult(false)
-            return
+            null
         }
         viewModelScope.launch {
-            val result = YouTube.dislikeVideo(videoId, dislike)
-            if (result.isSuccess) {
+            try {
                 musicRepository.setDislikedStatus(song.id, dislike)
                 if (dislike) {
                     musicRepository.setFavoriteStatus(song.id, false)
                 }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update disliked status on dislike")
             }
-            onResult(result.isSuccess)
+
+            if (videoId != null && YouTube.hasLoginCookie()) {
+                val result = YouTube.dislikeVideo(videoId, dislike)
+                onResult(result.isSuccess)
+            } else {
+                onResult(true)
+            }
         }
     }
 

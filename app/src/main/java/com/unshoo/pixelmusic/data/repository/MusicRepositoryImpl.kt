@@ -1425,6 +1425,10 @@ class MusicRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getDislikedYoutubeIds(): Set<String> = withContext(Dispatchers.IO) {
+        musicDao.getDislikedYoutubeIds().toSet()
+    }
+
 
     override suspend fun setFavoriteStatusWithMetadata(song: Song, isFavorite: Boolean, awaitRemoteSync: Boolean) = withContext(Dispatchers.IO) {
         val youtubeId = song.youtubeId 
@@ -1460,6 +1464,7 @@ class MusicRepositoryImpl @Inject constructor(
                     isFavorite = true
                 )
             )
+            musicDao.setDislikedStatus(id, false)
         } else {
             favoritesDao.removeFavorite(id)
         }

@@ -395,17 +395,22 @@ object AutoQueueManager {
 
             val filterCoverLofi = runCatching { userPreferencesRepository?.filterCoverAndLofiFlow?.first() }.getOrNull() ?: true
             val filterKeywords = runCatching { userPreferencesRepository?.filterKeywordsFlow?.first() }.getOrNull() ?: ContentFilterUtils.DEFAULT_FILTER_KEYWORDS
+            val dislikedYtIds = runCatching { musicDaoRef?.getDislikedYoutubeIds()?.toSet() }.getOrNull() ?: emptySet()
+            val dislikedSongIds = runCatching { musicDaoRef?.getDislikedSongIds()?.map { it.toString() }?.toSet() }.getOrNull() ?: emptySet()
 
-            val newItems = fetched.filterNot { it.mediaId in existingIds }
-                .let { items ->
-                    if (filterCoverLofi) {
-                        items.filterNot { item ->
-                            val title = item.mediaMetadata.title?.toString().orEmpty()
-                            val artist = item.mediaMetadata.artist?.toString().orEmpty()
-                            ContentFilterUtils.isCoverOrLofi(title, artist, filterKeywords = filterKeywords)
-                        }
-                    } else items
-                }
+            val newItems = fetched.filterNot { item ->
+                item.mediaId in existingIds ||
+                item.mediaId in dislikedSongIds ||
+                YouTubeIdUtils.extractVideoId(item.mediaId) in dislikedYtIds
+            }.let { items ->
+                if (filterCoverLofi) {
+                    items.filterNot { item ->
+                        val title = item.mediaMetadata.title?.toString().orEmpty()
+                        val artist = item.mediaMetadata.artist?.toString().orEmpty()
+                        ContentFilterUtils.isCoverOrLofi(title, artist, filterKeywords = filterKeywords)
+                    }
+                } else items
+            }
 
             if (newItems.isNotEmpty()) {
                 consecutiveEmptyFetches = 0

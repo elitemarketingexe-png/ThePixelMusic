@@ -214,6 +214,20 @@ fun SongInfoBottomSheet(
 
     val evenCornerRadiusElems = 26.dp
 
+    val isYouTubeSong = remember(song) {
+        !song.youtubeId.isNullOrEmpty() ||
+            song.contentUriString.startsWith("youtube://") ||
+            song.id.startsWith("youtube_") ||
+            song.isYouTube
+    }
+    var isDislikedState by remember(song.id, song.isDisliked) { mutableStateOf(song.isDisliked) }
+
+    LaunchedEffect(isFavorite) {
+        if (isFavorite && isDislikedState) {
+            isDislikedState = false
+        }
+    }
+
     val listItemShape = remember {
         AbsoluteSmoothCornerShape(
             cornerRadiusTR = 20.dp, smoothnessAsPercentBR = 60, cornerRadiusBR = 20.dp,
@@ -493,7 +507,25 @@ fun SongInfoBottomSheet(
                                                     modifier = Modifier
                                                         .weight(0.25f)
                                                         .fillMaxHeight(),
-                                                    onClick = onToggleFavorite,
+                                                    onClick = {
+                                                        val targetFavoriteState = !isFavorite
+                                                        onToggleFavorite()
+                                                        if (targetFavoriteState && isDislikedState) {
+                                                            isDislikedState = false
+                                                            songInfoViewModel.dislikeOnYouTube(song, false) {}
+                                                        }
+                                                        if (isYouTubeSong && songInfoViewModel.isLoggedIn()) {
+                                                            songInfoViewModel.likeOnYouTube(song, targetFavoriteState) { success ->
+                                                                if (success) {
+                                                                    Toast.makeText(
+                                                                        context,
+                                                                        if (targetFavoriteState) "Added to YouTube Liked Songs" else "Removed from YouTube Liked Songs",
+                                                                        Toast.LENGTH_SHORT
+                                                                    ).show()
+                                                                }
+                                                            }
+                                                        }
+                                                    },
                                                     shape = favoriteButtonShape,
                                                     colors = IconButtonDefaults.filledIconButtonColors(
                                                         containerColor = favoriteButtonContainerColor,
@@ -736,122 +768,49 @@ fun SongInfoBottomSheet(
                                                 }
                                             }
 
-                                            val isYouTubeSong = !song.youtubeId.isNullOrEmpty() ||
-                                                    song.contentUriString.startsWith("youtube://") ||
-                                                    song.id.startsWith("youtube_")
                                             if (isYouTubeSong) {
                                                 item {
-                                                    var isLikedState by remember(isFavorite) { mutableStateOf(isFavorite) }
-                                                    var isDislikedState by remember(song.isDisliked) { mutableStateOf(song.isDisliked) }
-
-                                                    Column(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                                    FilledTonalButton(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor = if (isDislikedState) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                                            contentColor = if (isDislikedState) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        ),
+                                                        shape = CircleShape,
+                                                        onClick = {
+                                                            val targetState = !isDislikedState
+                                                            songInfoViewModel.dislikeOnYouTube(song, targetState) { ytSuccess ->
+                                                                isDislikedState = targetState
+                                                                if (targetState) {
+                                                                    if (isFavorite) {
+                                                                        onToggleFavorite()
+                                                                    }
+                                                                    val msg = if (songInfoViewModel.isLoggedIn()) {
+                                                                        if (ytSuccess) {
+                                                                            "Tuned out: YouTube won't recommend this again"
+                                                                        } else {
+                                                                            "Marked not interested (Failed to sync with YouTube)"
+                                                                        }
+                                                                    } else {
+                                                                        "Marked not interested (Log in to YouTube to sync)"
+                                                                    }
+                                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                                } else {
+                                                                    Toast.makeText(context, "Removed from not interested", Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            }
+                                                        }
                                                     ) {
-                                                        Row(
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .height(IntrinsicSize.Min),
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                        ) {
-                                                            FilledTonalButton(
-                                                                modifier = Modifier
-                                                                    .weight(0.5f)
-                                                                    .heightIn(min = 66.dp),
-                                                                colors = ButtonDefaults.filledTonalButtonColors(
-                                                                    containerColor = if (isLikedState) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                                                    contentColor = if (isLikedState) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                                                ),
-                                                                shape = CircleShape,
-                                                                onClick = {
-                                                                    val targetState = !isLikedState
-                                                                    if (!songInfoViewModel.isLoggedIn()) {
-                                                                        Toast.makeText(context, "Please login to YouTube Music first", Toast.LENGTH_LONG).show()
-                                                                    } else {
-                                                                        songInfoViewModel.likeOnYouTube(song, targetState) { success ->
-                                                                            if (success) {
-                                                                                isLikedState = targetState
-                                                                                if (targetState) {
-                                                                                    isDislikedState = false
-                                                                                }
-                                                                                Toast.makeText(context, if (targetState) "Liked on YouTube" else "Removed Like from YouTube", Toast.LENGTH_SHORT).show()
-                                                                                if (targetState != isFavorite) {
-                                                                                    onToggleFavorite()
-                                                                                }
-                                                                            } else {
-                                                                                Toast.makeText(context, "Failed to update YouTube like", Toast.LENGTH_SHORT).show()
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = if (isLikedState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                                                    contentDescription = "Like on YouTube"
-                                                                )
-                                                                Spacer(Modifier.width(8.dp))
-                                                                Text("Like on YouTube")
-                                                            }
-
-                                                            FilledTonalButton(
-                                                                modifier = Modifier
-                                                                    .weight(0.5f)
-                                                                    .heightIn(min = 66.dp),
-                                                                colors = ButtonDefaults.filledTonalButtonColors(
-                                                                    containerColor = if (isDislikedState) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                                                    contentColor = if (isDislikedState) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                                                ),
-                                                                shape = CircleShape,
-                                                                onClick = {
-                                                                    val targetState = !isDislikedState
-                                                                    if (!songInfoViewModel.isLoggedIn()) {
-                                                                        Toast.makeText(context, "Please login to YouTube Music first", Toast.LENGTH_LONG).show()
-                                                                    } else {
-                                                                        songInfoViewModel.dislikeOnYouTube(song, targetState) { success ->
-                                                                            if (success) {
-                                                                                isDislikedState = targetState
-                                                                                if (targetState) {
-                                                                                    isLikedState = false
-                                                                                    if (isFavorite) {
-                                                                                        onToggleFavorite()
-                                                                                    }
-                                                                                }
-                                                                                Toast.makeText(context, if (targetState) "Disliked on YouTube" else "Removed Dislike from YouTube", Toast.LENGTH_SHORT).show()
-                                                                            } else {
-                                                                                Toast.makeText(context, "Failed to update YouTube dislike", Toast.LENGTH_SHORT).show()
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = if (isDislikedState) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                                                                    contentDescription = "Dislike on YouTube"
-                                                                )
-                                                                Spacer(Modifier.width(8.dp))
-                                                                Text("Dislike")
-                                                            }
-                                                        }
-
-                                                        FilledTonalButton(
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .heightIn(min = 66.dp),
-                                                            colors = ButtonDefaults.filledTonalButtonColors(
-                                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                                            ),
-                                                            shape = CircleShape,
-                                                            onClick = onAddToPlayList
-                                                        ) {
-                                                            Icon(
-                                                                Icons.AutoMirrored.Rounded.PlaylistAdd,
-                                                                contentDescription = "Add to YouTube Playlist"
-                                                            )
-                                                            Spacer(Modifier.width(8.dp))
-                                                            Text("Add to YT Playlist")
-                                                        }
+                                                        Icon(
+                                                            imageVector = if (isDislikedState) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                                                            contentDescription = stringResource(R.string.not_interested)
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(
+                                                            if (isDislikedState) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested)
+                                                        )
                                                     }
                                                 }
                                             }

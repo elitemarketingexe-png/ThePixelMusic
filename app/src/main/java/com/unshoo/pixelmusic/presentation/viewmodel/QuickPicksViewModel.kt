@@ -489,8 +489,18 @@ class QuickPicksViewModel @Inject constructor(
             song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
         }
 
+        val dislikedYtIds = runCatching { musicRepository.getDislikedYoutubeIds() }.getOrNull() ?: emptySet()
+        val notDisliked = deduplicated.filter { song ->
+            val yId = song.youtubeId ?: if (song.contentUriString.startsWith("youtube://")) {
+                song.contentUriString.removePrefix("youtube://")
+            } else if (song.id.startsWith("youtube_")) {
+                song.id.removePrefix("youtube_")
+            } else null
+            yId == null || !dislikedYtIds.contains(yId)
+        }
+
         // Shuffle completely to make it dynamic on every view/refresh
-        deduplicated.shuffled().take(20)
+        notDisliked.shuffled().take(20)
     }
 
     private suspend fun loadAllOfflineAndDownloadedSongs(): List<Song> = withContext(Dispatchers.IO) {
@@ -579,7 +589,16 @@ class QuickPicksViewModel @Inject constructor(
             }
         }
         if (songs.isNotEmpty()) {
-            _quickPicks.value = songs.toImmutableList()
+            val dislikedYtIds = runCatching { musicRepository.getDislikedYoutubeIds() }.getOrNull() ?: emptySet()
+            val filtered = songs.filter { song ->
+                val yId = song.youtubeId ?: if (song.contentUriString.startsWith("youtube://")) {
+                    song.contentUriString.removePrefix("youtube://")
+                } else if (song.id.startsWith("youtube_")) {
+                    song.id.removePrefix("youtube_")
+                } else null
+                yId == null || !dislikedYtIds.contains(yId)
+            }
+            _quickPicks.value = filtered.toImmutableList()
         } else {
             // Offline fallback for categories if net is unreachable
             _quickPicks.value = loadAllOfflineAndDownloadedSongs().take(25).toImmutableList()

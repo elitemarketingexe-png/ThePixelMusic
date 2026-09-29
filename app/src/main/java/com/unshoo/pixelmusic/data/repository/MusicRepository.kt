@@ -309,6 +309,8 @@ interface MusicRepository {
      */
     suspend fun setDislikedStatus(songId: String, disliked: Boolean)
 
+    suspend fun getDislikedYoutubeIds(): Set<String>
+
 
     /**
      * Setea explícitamente el estado favorito de una canción, persistiendo metadatos para canciones de YouTube si es necesario.
