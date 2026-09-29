@@ -55,7 +55,9 @@ class AuthViewModel @Inject constructor(
     private fun saveCookies(cookies: Cookies) {
         viewModelScope.launch {
             datastoreRepository.saveCookies(cookies)
-            YouTube.cookie = cookies.toRawCookie()
+            val raw = cookies.toRawCookie()
+            YouTube.cookie = raw
+            YouTube.useLoginForBrowse = raw.contains("SAPISID=") || raw.contains("__Secure-3PAPISID=")
         }
     }
 

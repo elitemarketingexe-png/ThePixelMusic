@@ -5,11 +5,15 @@
 package com.unshoo.pixelmusic.presentation.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,6 +28,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -156,7 +161,9 @@ import unshoo.ianshulyadav.pixelmusic.innertube.models.ArtistItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.PlaylistItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YTItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.filterVideo
 import unshoo.ianshulyadav.pixelmusic.innertube.pages.HomePage
+import com.unshoo.pixelmusic.data.remote.youtube.toNativeSong
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -182,13 +189,27 @@ fun ExploreScreen(
     val state by feedViewModel.uiState.collectAsStateWithLifecycle()
     val exploreUiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
     val quickPicksRaw by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
-    val quickPicks = remember(quickPicksRaw, isOnline) {
+    val ytHomeQuickPicks = remember(exploreUiState.homePageSections) {
+        exploreUiState.homePageSections
+            .firstOrNull { it.title.contains("quick", ignoreCase = true) }
+            ?.items
+            ?.filterIsInstance<SongItem>()
+            ?.filterVideo(true)
+            ?.map { it.toNativeSong() }
+            .orEmpty()
+    }
+    val effectiveQuickPicks = remember(quickPicksRaw, ytHomeQuickPicks) {
+        if (quickPicksRaw.isNotEmpty()) quickPicksRaw else ytHomeQuickPicks
+    }
+    val quickPicks = remember(effectiveQuickPicks, isOnline) {
         if (!isOnline) {
-            quickPicksRaw.filter { com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) }
+            effectiveQuickPicks.filter { com.unshoo.pixelmusic.utils.OfflineAudioResolver.hasOfflineAudio(context, it) }
         } else {
-            quickPicksRaw
+            effectiveQuickPicks
         }
     }
+    val categories by quickPicksViewModel.categories.collectAsStateWithLifecycle()
+    val selectedCategory by quickPicksViewModel.selectedCategory.collectAsStateWithLifecycle()
     val quickPicksDisplayMode by playerViewModel.quickPicksDisplayMode.collectAsStateWithLifecycle()
     val localAlbums by playerViewModel.albumsFlow.collectAsStateWithLifecycle()
     val localArtists by playerViewModel.artistsFlow.collectAsStateWithLifecycle()
@@ -230,16 +251,15 @@ fun ExploreScreen(
     } else {
         exploreUiState.homePageSections
     }
-    val regionalSections = remember(rawRegionalSections, isOnline) {
+    val regionalSections = remember(rawRegionalSections, isOnline, effectiveQuickPicks) {
         if (!isOnline) {
             emptyList()
         } else {
             rawRegionalSections.filter { section ->
                 val title = section.title.lowercase()
                 !title.contains("new music videos") &&
-                !title.contains("quick picks") &&
-                !title.contains("quickpicks") &&
                 !title.contains("local") &&
+                (!title.contains("quick") || effectiveQuickPicks.isEmpty()) &&
                 section.items.isNotEmpty()
             }
         }
@@ -413,7 +433,20 @@ fun ExploreScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
-                    // 1. Quick Picks Section (RETAINED as requested!)
+                    // 0. Material 3 Expressive Category / Mood Chips
+                    if (categories.size > 1) {
+                        item(key = "quick_picks_categories") {
+                            ExploreCategoryChipsRow(
+                                categories = categories,
+                                selectedCategory = selectedCategory,
+                                onCategorySelect = { category ->
+                                    quickPicksViewModel.setCategory(category)
+                                }
+                            )
+                        }
+                    }
+
+                    // 1. Quick Picks Section (RETAINED & WIRED WITH HOME QUICKPICKS)
                     if (quickPicks.isNotEmpty()) {
                         item(key = "quick_picks_section") {
                             QuickPicksSection(
@@ -2575,8 +2608,12 @@ private fun RegionalExploreSection(
         } else null
     )
 
+    val filteredItems = remember(section.items) {
+        section.items.filterVideo(true)
+    }
+
     FeedMediaRow {
-        itemsIndexed(section.items, key = { idx, item -> "regional_${section.title}_${item.id}_$idx" }) { index, item ->
+        itemsIndexed(filteredItems, key = { idx, item -> "regional_${section.title}_${item.id}_$idx" }) { index, item ->
             when (item) {
                 is SongItem -> {
                     val track = songTracks.firstOrNull { it.videoId == item.id } ?: YouTubeMusicTrack(
@@ -2631,6 +2668,62 @@ private fun RegionalExploreSection(
                         onClick = {
                             navController.navigateSafely(Screen.ArtistDetail.createRoute(item.id))
                         }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreCategoryChipsRow(
+    categories: List<String>,
+    selectedCategory: String,
+    onCategorySelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (categories.isEmpty()) return
+    val haptics = LocalHapticFeedback.current
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(categories, key = { it }) { category ->
+            val isSelected = category.equals(selectedCategory, ignoreCase = true)
+            val containerColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                label = "cat_container"
+            )
+            val contentColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                label = "cat_content"
+            )
+
+            Surface(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onCategorySelect(category)
+                },
+                shape = CircleShape,
+                color = containerColor,
+                contentColor = contentColor,
+                tonalElevation = if (isSelected) 3.dp else 0.dp,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 38.dp)
+                    .animateContentSize()
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = category,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1
                     )
                 }
             }

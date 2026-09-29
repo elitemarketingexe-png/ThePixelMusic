@@ -41,11 +41,14 @@ class MainViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collect { rawCookie ->
                     val isInitialValue = lastKnownCookie == null
+                    val hasAuth = rawCookie.contains("SAPISID=") || rawCookie.contains("__Secure-3PAPISID=")
                     unshoo.ianshulyadav.pixelmusic.innertube.YouTube.cookie = rawCookie
+                    unshoo.ianshulyadav.pixelmusic.innertube.YouTube.useLoginForBrowse = hasAuth
                     lastKnownCookie = rawCookie
                     if (rawCookie.isNotEmpty()) {
                         refreshProfile(rawCookie, delayForColdStart = isInitialValue)
                     } else {
+                        unshoo.ianshulyadav.pixelmusic.innertube.YouTube.useLoginForBrowse = false
                         profileRefreshJob?.cancel()
                         profileRefreshJob = null
                         datastoreRepository.saveYtProfile("", "", "")

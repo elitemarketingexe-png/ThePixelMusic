@@ -768,8 +768,14 @@ object YouTube {
     }
 
     private suspend fun homeContinuation(continuation: String): Result<HomePage> = runCatching {
+        val forceAnon = !personalizedExploreEnabled
         val response =
-            innerTube.browse(WEB_REMIX, continuation = continuation).body<BrowseResponse>()
+            innerTube.browse(
+                WEB_REMIX,
+                continuation = continuation,
+                setLogin = !forceAnon,
+                forceAnonymous = forceAnon
+            ).body<BrowseResponse>()
         val sections = response.continuationContents?.sectionListContinuation?.contents
             ?.mapNotNull {
                 HomePage.Section.fromSectionListContent(it)
@@ -786,7 +792,14 @@ object YouTube {
 
     suspend fun explore(browseId: String? = null, params: String? = null): Result<ExplorePage> = runCatching {
         val targetBrowseId = browseId ?: "FEmusic_explore"
-        val response = innerTube.browse(WEB_REMIX, browseId = targetBrowseId, params = params).body<BrowseResponse>()
+        val forceAnon = !personalizedExploreEnabled
+        val response = innerTube.browse(
+            WEB_REMIX,
+            browseId = targetBrowseId,
+            params = params,
+            setLogin = !forceAnon,
+            forceAnonymous = forceAnon
+        ).body<BrowseResponse>()
         val sectionListRender = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer
         val sections = sectionListRender?.contents
@@ -811,7 +824,13 @@ object YouTube {
     }
 
     suspend fun newReleaseAlbums(): Result<List<AlbumItem>> = runCatching {
-        val response = innerTube.browse(WEB_REMIX, browseId = "FEmusic_new_releases_albums").body<BrowseResponse>()
+        val forceAnon = !personalizedExploreEnabled
+        val response = innerTube.browse(
+            WEB_REMIX,
+            browseId = "FEmusic_new_releases_albums",
+            setLogin = !forceAnon,
+            forceAnonymous = forceAnon
+        ).body<BrowseResponse>()
         val contents =
             response.contents
                 ?.singleColumnBrowseResultsRenderer

@@ -429,9 +429,17 @@ class QuickPicksViewModel @Inject constructor(
                 _categories.value = updatedCategories.toImmutableList()
 
                 val items = mutableListOf<SongItem>()
-                // Extract items from home sections (including Trending songs for you section if present)
+                val quickPicksShelf = homePage.sections.firstOrNull {
+                    it.title.contains("quick", ignoreCase = true)
+                }
+                if (quickPicksShelf != null) {
+                    items.addAll(quickPicksShelf.items.filterIsInstance<SongItem>())
+                }
+                // Extract items from remaining home sections
                 homePage.sections.forEach { section ->
-                    items.addAll(section.items.filterIsInstance<SongItem>())
+                    if (section != quickPicksShelf) {
+                        items.addAll(section.items.filterIsInstance<SongItem>())
+                    }
                 }
                 items.filterVideo(pureYtMusicOnly)
             } catch (e: Exception) {

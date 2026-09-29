@@ -37,6 +37,7 @@ import unshoo.ianshulyadav.pixelmusic.innertube.models.ArtistItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.PlaylistItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.YTItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.filterVideo
 import unshoo.ianshulyadav.pixelmusic.innertube.pages.ChartsPage
 import unshoo.ianshulyadav.pixelmusic.innertube.pages.HomePage
 import com.unshoo.pixelmusic.data.database.toSong
@@ -152,7 +153,7 @@ class ExploreViewModel @Inject constructor(
         viewModelScope.launch {
             YouTube.personalizedExploreEnabled = runCatching {
                 userPreferencesRepository.youtubePersonalizedExploreFlow.first()
-            }.getOrDefault(false)
+            }.getOrDefault(true)
 
             userPreferencesRepository.youtubePersonalizedExploreFlow
                 .distinctUntilChanged()
@@ -376,19 +377,19 @@ class ExploreViewModel @Inject constructor(
                     it.contains("SAPISID=") || it.contains("__Secure-3PAPISID=")
                 } == true
 
-                // Filter out undesirable sections in a single pass
-                val rawSections = combinedSections.filter { section ->
+                // Filter out undesirable sections in a single pass & keep videos hidden
+                val rawSections = combinedSections.map { section ->
+                    section.copy(items = section.items.filterVideo(true))
+                }.filter { section ->
                     val title = section.title.lowercase()
                     !title.contains("new music videos") &&
                     !title.contains("trending") &&
                     !title.contains("long listens") &&
                     !title.contains("local") &&
-                    !title.contains("quick picks") &&
-                    !title.contains("quickpicks") &&
                     section.items.isNotEmpty()
                 }.distinctBy { it.title }
 
-                // Extract personalized new releases directly from user's YouTube Home feed (zero extra network calls)
+                // Extract personalized new releases directly from user's YouTube Home feed (or fallback to authenticated new releases)
                 val personalizedNewReleases = rawSections.filter { section ->
                     val t = section.title.lowercase()
                     !t.contains("video") && !t.contains("videos") && (
@@ -415,6 +416,14 @@ class ExploreViewModel @Inject constructor(
                     }
                 }.distinctBy { it.browseId }
 
+                val resolvedNewReleases = if (personalizedNewReleases.isNotEmpty()) {
+                    personalizedNewReleases
+                } else {
+                    withContext(Dispatchers.IO) {
+                        runCatching { YouTube.newReleaseAlbums().getOrNull() }.getOrNull().orEmpty()
+                    }
+                }
+
                 // Progressive streaming: map to domain UI models once
                 val uiSections = rawSections.map { it.toUiModel() }
                 val rawChips = initialHome.chips ?: emptyList()
@@ -432,7 +441,7 @@ class ExploreViewModel @Inject constructor(
                         isContinuationLoading = false,
                         homePageSections = rawSections,
                         homePageContinuation = currentContinuation,
-                        newReleaseAlbums = personalizedNewReleases,
+                        newReleaseAlbums = resolvedNewReleases,
                         moodChips = rawChips,
                         isAdvancedExploreEnabled = isAdvancedExploreEnabled
                     )
@@ -502,14 +511,14 @@ class ExploreViewModel @Inject constructor(
             }
 
             if (continuationHome != null && continuationHome.sections.isNotEmpty()) {
-                val newRawSections = continuationHome.sections.filter { section ->
+                val newRawSections = continuationHome.sections.map { section ->
+                    section.copy(items = section.items.filterVideo(true))
+                }.filter { section ->
                     val title = section.title.lowercase()
                     !title.contains("new music videos") &&
                     !title.contains("trending") &&
                     !title.contains("long listens") &&
                     !title.contains("local") &&
-                    !title.contains("quick picks") &&
-                    !title.contains("quickpicks") &&
                     section.items.isNotEmpty()
                 }
 
