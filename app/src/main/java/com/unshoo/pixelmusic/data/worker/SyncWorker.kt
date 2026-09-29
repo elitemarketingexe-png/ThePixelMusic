@@ -187,7 +187,10 @@ constructor(
                     val timeSinceLastScan = System.currentTimeMillis() - lastSyncTimestamp
                     val forceFilesystemScan = forceMetadata
                     val shouldRunMediaScan = forceFilesystemScan || 
-                            (lastSyncTimestamp > 0L && timeSinceLastScan >= mediaScanCooldownMs)
+                            syncMode == SyncMode.FULL ||
+                            syncMode == SyncMode.REBUILD ||
+                            lastSyncTimestamp <= 0L ||
+                            (timeSinceLastScan >= mediaScanCooldownMs)
                     if (shouldRunMediaScan) {
                         triggerMediaScanForNewFiles(directoryResolver)
                     } else {
@@ -1072,6 +1075,10 @@ constructor(
         var year = raw.year
         var genre: String? = genreMap[raw.id] ?: raw.genre // Use mapped genre as default, or direct genre from main cursor
 
+        var duration = raw.duration
+        var sampleRate = audioMetadata?.sampleRate
+        var bitrate = audioMetadata?.bitrate
+
         val shouldAugmentMetadata =
                 deepScan ||
                         raw.filePath.endsWith(".wav", true) ||
@@ -1079,6 +1086,10 @@ constructor(
                         raw.filePath.endsWith(".ogg", true) ||
                         raw.filePath.endsWith(".oga", true) ||
                         raw.filePath.endsWith(".aiff", true) ||
+                        raw.filePath.endsWith(".alac", true) ||
+                        raw.filePath.endsWith(".caf", true) ||
+                        raw.duration <= 0 ||
+                        raw.mimeType?.contains("alac", ignoreCase = true) == true ||
                         // Fallback: if MediaStore returned default/missing metadata,
                         // try TagLib+JAudioTagger to read actual tags from the file.
                         // MediaStore uses "<unknown>" for unreadable fields;
@@ -1102,6 +1113,15 @@ constructor(
                         if (meta.trackNumber != null) trackNumber = meta.trackNumber
                         if (meta.discNumber != null) discNumber = meta.discNumber
                         if (meta.year != null) year = meta.year
+                        if (meta.durationMs != null && meta.durationMs > 0 && (duration <= 0 || deepScan)) {
+                            duration = meta.durationMs
+                        }
+                        if (sampleRate == null && meta.sampleRate != null) {
+                            sampleRate = meta.sampleRate
+                        }
+                        if (bitrate == null && meta.bitrate != null) {
+                            bitrate = meta.bitrate
+                        }
 
                         meta.artwork?.let { art ->
                             albumArtUriString = LocalArtworkUri.buildSongUri(raw.id)
@@ -1123,7 +1143,7 @@ constructor(
                 albumId = raw.albumId,
                 contentUriString = contentUriString,
                 albumArtUriString = albumArtUriString,
-                duration = raw.duration,
+                duration = duration,
                 genre = genre?.takeIf { it.isNotBlank() } ?: "Local Music",
                 filePath = raw.filePath,
                 parentDirectoryPath = parentDir,
@@ -1135,9 +1155,13 @@ constructor(
                             if (seconds > 0) TimeUnit.SECONDS.toMillis(seconds)
                             else System.currentTimeMillis()
                         },
-                mimeType = audioMetadata?.mimeType ?: raw.mimeType,
-                sampleRate = audioMetadata?.sampleRate,
-                bitrate = audioMetadata?.bitrate,
+                mimeType = audioMetadata?.mimeType ?: raw.mimeType ?: when (val ext = raw.filePath.substringAfterLast('.', "").lowercase()) {
+                    "alac" -> "audio/alac"
+                    "caf" -> "audio/x-caf"
+                    else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+                },
+                sampleRate = sampleRate,
+                bitrate = bitrate,
                 sourceType = SourceType.LOCAL
         )
     }
@@ -1173,7 +1197,7 @@ constructor(
 
             // Collect audio files from filesystem that are NOT in MediaStore
             val audioExtensions =
-                    setOf("mp3", "flac", "m4a", "wav", "ogg", "opus", "aac", "wma", "aiff")
+                    setOf("mp3", "flac", "m4a", "wav", "ogg", "opus", "aac", "wma", "aiff", "alac", "caf")
             val newFilesToScan = linkedSetOf<String>()
 
             var walkedFileCount = 0
@@ -1228,14 +1252,23 @@ constructor(
 
             Log.i(TAG, "Found ${newFilesToScan.size} NEW audio files to scan")
 
-            // Scan only the new files
+            // Scan only the new files with explicit mime types so non-standard extensions like .alac/.caf get MEDIA_TYPE_AUDIO
             val latch = CountDownLatch(1)
             var scannedCount = 0
+
+            val mimeTypes = newFilesToScan.map { path ->
+                val ext = path.substringAfterLast('.', "").lowercase()
+                when (ext) {
+                    "alac" -> "audio/alac"
+                    "caf" -> "audio/x-caf"
+                    else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "audio/*"
+                }
+            }.toTypedArray()
 
             MediaScannerConnection.scanFile(
                 applicationContext, 
                 newFilesToScan.toTypedArray(),
-                null
+                mimeTypes
             ) { _, _ ->
                 scannedCount++
                 if (scannedCount >= newFilesToScan.size) {

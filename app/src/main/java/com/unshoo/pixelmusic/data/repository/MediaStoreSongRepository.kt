@@ -11,6 +11,7 @@ import androidx.paging.map
 import com.unshoo.pixelmusic.data.database.MusicDao
 import com.unshoo.pixelmusic.data.database.FavoritesDao
 import com.unshoo.pixelmusic.data.database.toSong
+import com.unshoo.pixelmusic.data.media.AudioMetadataReader
 import com.unshoo.pixelmusic.data.model.ArtistRef
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.observer.MediaStoreObserver
@@ -242,6 +243,17 @@ class MediaStoreSongRepository @Inject constructor(
                         )
                     }
 
+                    val rawDuration = cursor.getLong(durationCol)
+                    val duration = if (rawDuration > 0) rawDuration else {
+                        runCatching { AudioMetadataReader.read(File(path))?.durationMs }.getOrNull() ?: 0L
+                    }
+                    val rawMimeType = if (mimeTypeCol != -1) cursor.getString(mimeTypeCol) else null
+                    val mimeType = rawMimeType ?: when (val ext = path.substringAfterLast('.', "").lowercase()) {
+                        "alac" -> "audio/alac"
+                        "caf" -> "audio/x-caf"
+                        else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+                    }
+
                     val song = Song(
                         id = id.toString(),
                         title = displayTitle,
@@ -254,7 +266,7 @@ class MediaStoreSongRepository @Inject constructor(
                         path = path,
                         contentUriString = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString(),
                         albumArtUriString = albumArtUriString,
-                        duration = cursor.getLong(durationCol),
+                        duration = duration,
                         genre = songIdToGenreMap[id],
                         lyrics = null,
                         isFavorite = favoriteIds.contains(id),
@@ -262,7 +274,7 @@ class MediaStoreSongRepository @Inject constructor(
                         year = cursor.getInt(yearCol),
                         dateAdded = cursor.getLong(dateAddedCol),
                         dateModified = cursor.getLong(dateModifiedCol),
-                        mimeType = if (mimeTypeCol != -1) cursor.getString(mimeTypeCol) else null,
+                        mimeType = mimeType,
                         bitrate = null,
                         sampleRate = null
                     )
