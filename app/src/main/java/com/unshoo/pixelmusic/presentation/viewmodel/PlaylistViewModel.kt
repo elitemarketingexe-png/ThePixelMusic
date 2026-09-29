@@ -1374,8 +1374,11 @@ class PlaylistViewModel @Inject constructor(
             if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
                 loadPlaylistDetails(playlistId)
             }
-            val playlist = playlistPreferencesRepository.userPlaylistsFlow.first().find { it.id == playlistId }
-            if (playlist != null && playlist.source == "YOUTUBE") {
+            val cleanId = playlistId.removePrefix("VL")
+            val playlist = playlistPreferencesRepository.userPlaylistsFlow.first().find {
+                it.id == playlistId || it.id == cleanId || "VL${it.id}" == playlistId
+            }
+            if (playlist != null && playlist.source.equals("YOUTUBE", ignoreCase = true)) {
                 val settings = datastoreRepository.settings.first()
                 if (!settings.cookies.isEmpty()) {
                     val songs = musicRepository.getSongsByIdsOnce(songIdsToAdd)
@@ -1384,7 +1387,7 @@ class PlaylistViewModel @Inject constructor(
                         try {
                             withContext(Dispatchers.IO) {
                                 videoIds.forEach { videoId ->
-                                    YouTube.addToPlaylist(playlist.id, videoId)
+                                    YouTube.addToPlaylist(cleanId, videoId)
                                 }
                             }
                         } catch (e: Exception) {

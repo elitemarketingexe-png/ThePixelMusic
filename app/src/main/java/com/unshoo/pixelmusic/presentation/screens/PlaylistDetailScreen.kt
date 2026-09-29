@@ -663,43 +663,63 @@ fun PlaylistDetailScreen(
                                 label = "removeIconColor"
                             )
 
-                            Button(
-                                onClick = {
-                                    if (isYoutubePlaylist) {
+                            if (isYoutubePlaylist) {
+                                Button(
+                                    onClick = {
                                         playlistViewModel.togglePlaylistLike(currentPlaylist, songsInPlaylist)
                                         Toast.makeText(
                                             context,
                                             if (isPlaylistLiked) "Removed from library" else "Saved to library",
                                             Toast.LENGTH_SHORT
                                         ).show()
-                                    } else {
-                                        showAddSongsSheet = true
-                                    }
-                                },
-                                shape = CircleShape,
-                                contentPadding = PaddingValues(horizontal = 12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (!isYoutubePlaylist || isPlaylistLiked) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    contentColor = if (!isYoutubePlaylist || isPlaylistLiked) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface
-                                ),
-                                modifier = Modifier
-                                    .height(actionButtonsHeight)
-                                    .animateContentSize()
-                            ) {
-                                Icon(
-                                    imageVector = when {
-                                        !isYoutubePlaylist -> Icons.Rounded.Add
-                                        isPlaylistLiked -> Icons.Rounded.Favorite
-                                        else -> Icons.Rounded.FavoriteBorder
                                     },
-                                    contentDescription = if (isYoutubePlaylist) (if (isPlaylistLiked) "Unlike playlist" else "Like playlist") else addSongsCd,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = if (isYoutubePlaylist) (if (isPlaylistLiked) "Liked" else "Like") else addLabel,
-                                    style = MaterialTheme.typography.labelLarge
-                                )
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isPlaylistLiked) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        contentColor = if (isPlaylistLiked) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    modifier = Modifier
+                                        .height(actionButtonsHeight)
+                                        .animateContentSize()
+                                ) {
+                                    Icon(
+                                        imageVector = if (isPlaylistLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                        contentDescription = if (isPlaylistLiked) "Unlike playlist" else "Like playlist",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isPlaylistLiked) "Liked" else "Like",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
+                            }
+
+                            if (!isYoutubePlaylist || isPlaylistLiked) {
+                                Button(
+                                    onClick = { showAddSongsSheet = true },
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    ),
+                                    modifier = Modifier
+                                        .height(actionButtonsHeight)
+                                        .animateContentSize()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Add,
+                                        contentDescription = addSongsCd,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = addLabel,
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
                             }
 
                             Button(
@@ -831,7 +851,7 @@ fun PlaylistDetailScreen(
                                     Text(playlistEmptyTitle, style = MaterialTheme.typography.titleMedium)
                                     val emptyMessage = when {
                                         isFolderPlaylist -> playlistEmptyFolder
-                                        isYoutubePlaylist -> playlistEmptyTitle
+                                        isYoutubePlaylist && !isPlaylistLiked -> playlistEmptyTitle
                                         else -> playlistEmptyAddHint
                                     }
                                     Text(emptyMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -956,7 +976,7 @@ fun PlaylistDetailScreen(
         }
     }
 
-    if (showAddSongsSheet && currentPlaylist != null && !isFolderPlaylist && !isYoutubePlaylist) {
+    if (showAddSongsSheet && currentPlaylist != null && !isFolderPlaylist && (!isYoutubePlaylist || isPlaylistLiked)) {
         SongPickerBottomSheet(
             playerViewModel = playerViewModel,
             initiallySelectedSongIds = currentPlaylist.songIds.toSet(),
