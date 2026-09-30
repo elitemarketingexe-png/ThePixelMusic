@@ -90,52 +90,22 @@ object SpotifyPlaylistParser {
 
             val title = entity.optString("name").ifBlank { entity.optString("title", "Imported Spotify Playlist") }
             val coverUrl: String? = run {
-                // 1. Check visualIdentity.image array (highest resolution, e.g. 640x640)
                 val viImages = entity.optJSONObject("visualIdentity")?.optJSONArray("image")
                 if (viImages != null && viImages.length() > 0) {
-                    var bestUrl: String? = null
-                    var maxDim = -1
-                    for (i in 0 until viImages.length()) {
-                        val img = viImages.optJSONObject(i) ?: continue
-                        val url = img.optString("url")
-                        val w = img.optInt("maxWidth", 0)
-                        if (url.isNotBlank() && w >= maxDim) {
-                            maxDim = w
-                            bestUrl = url
-                        }
-                    }
-                    if (!bestUrl.isNullOrBlank()) return@run bestUrl
+                    val url = viImages.optJSONObject(viImages.length() - 1)?.optString("url")
+                    if (!url.isNullOrBlank()) return@run url
                 }
-
-                // 2. Check coverArt.sources array
-                val coverArtObj = entity.optJSONObject("coverArt")
-                val caSources = coverArtObj?.optJSONArray("sources")
+                val caSources = entity.optJSONObject("coverArt")?.optJSONArray("sources")
                 if (caSources != null && caSources.length() > 0) {
                     val url = caSources.optJSONObject(0)?.optString("url")
                     if (!url.isNullOrBlank()) return@run url
                 }
-
-                // 3. Check entity.images array
                 val images = entity.optJSONArray("images")
                 if (images != null && images.length() > 0) {
                     val url = images.optJSONObject(0)?.optString("url")
                     if (!url.isNullOrBlank()) return@run url
                 }
-
-                // 4. Direct coverArt string if present
-                val directCoverArt = entity.optString("coverArt")
-                if (directCoverArt.isNotBlank() && directCoverArt.startsWith("http")) {
-                    return@run directCoverArt
-                }
-
-                // 5. Check og:image in HTML as fallback
-                val ogMatcher = Pattern.compile("""<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["']([^"']+)["']""").matcher(html)
-                if (ogMatcher.find()) {
-                    val ogUrl = ogMatcher.group(1)
-                    if (!ogUrl.isNullOrBlank()) return@run ogUrl
-                }
-
-                null
+                entity.optString("coverArt").takeIf { it.startsWith("http") }
             }
 
             val tracks = mutableListOf<SpotifyParsedTrack>()

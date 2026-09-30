@@ -894,22 +894,9 @@ class PlaylistViewModel @Inject constructor(
                             }
                             resolvedSongIds.add(songToSave.id)
 
-                            // Fallback: If playlist still lacks a cover, download and use the first matched song's cover
+                            // Fallback: If playlist still lacks a cover, use first matched song's cover
                             if (currentCoverPath.isNullOrBlank() && !songToSave.albumArtUriString.isNullOrBlank()) {
-                                try {
-                                    val songCover = saveCoverImageToInternalStorage(
-                                        uri = Uri.parse(songToSave.albumArtUriString),
-                                        uniqueId = newPlaylist.id,
-                                        cropScale = 1f,
-                                        cropPanX = 0f,
-                                        cropPanY = 0f
-                                    )
-                                    if (!songCover.isNullOrBlank()) {
-                                        currentCoverPath = songCover
-                                    }
-                                } catch (e: Exception) {
-                                    currentCoverPath = songToSave.albumArtUriString
-                                }
+                                currentCoverPath = songToSave.albumArtUriString
                             }
 
                             // Periodically update playlist entry in Room DB every 5 tracks or on last track
