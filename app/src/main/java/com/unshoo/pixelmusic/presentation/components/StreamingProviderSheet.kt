@@ -48,7 +48,7 @@ fun StreamingProviderSheet(
 ) {
     val context = LocalContext.current
     val providerSegmentContainerShape = RoundedCornerShape(20.dp)
-    val providerSegmentItemShape = RoundedCornerShape(8.dp)
+    val providerSegmentItemShape = RoundedCornerShape(14.dp)
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -95,10 +95,10 @@ fun StreamingProviderSheet(
                         .fillMaxWidth()
                         .padding(4.dp)
                         .clip(providerSegmentContainerShape),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     ProviderRow(
-                        iconPainter = painterResource(R.drawable.ic_youtube),
+                        iconPainter = painterResource(R.drawable.ic_youtube_music),
                         iconTint = Color(0xFFFF0000),
                         title = "YouTube Music",
                         subtitle = "Stream and import playlists",
@@ -232,7 +232,7 @@ private fun ProviderRow(
                         Image(
                             painter = iconPainter,
                             contentDescription = null,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     } else {
                         Icon(
@@ -253,8 +253,8 @@ private fun ProviderRow(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = null,
                         modifier = Modifier
-                            .padding(horizontal = 6.dp, vertical = 6.dp)
-                            .size(26.dp),
+                            .padding(7.dp)
+                            .size(18.dp),
                         tint = arrowTint
                     )
                 }

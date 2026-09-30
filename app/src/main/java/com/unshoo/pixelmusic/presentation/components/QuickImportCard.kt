@@ -1,8 +1,11 @@
 package com.unshoo.pixelmusic.presentation.components
 
 import android.widget.Toast
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material3.Card
@@ -49,6 +53,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.unshoo.pixelmusic.R
@@ -167,9 +172,10 @@ fun QuickImportCard(
                 val isSpotify = selectedSource == QuickImportSource.SPOTIFY
                 val spotifyBg by animateColorAsState(
                     targetValue = if (isSpotify) spotifyGreen else Color.Transparent,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                     label = "spotifyBg"
                 )
-                val spotifyContentColor = if (isSpotify) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                val spotifyContentColor = if (isSpotify) Color.White else MaterialTheme.colorScheme.onSurface
 
                 Row(
                     modifier = Modifier
@@ -186,7 +192,7 @@ fun QuickImportCard(
                     Icon(
                         painter = painterResource(R.drawable.ic_spotify),
                         contentDescription = null,
-                        tint = spotifyContentColor,
+                        tint = if (isSpotify) Color.White else spotifyGreen,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -203,9 +209,10 @@ fun QuickImportCard(
                 val isYouTube = selectedSource == QuickImportSource.YOUTUBE
                 val ytBg by animateColorAsState(
                     targetValue = if (isYouTube) youtubeRed else Color.Transparent,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                     label = "ytBg"
                 )
-                val ytContentColor = if (isYouTube) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                val ytTextColor = if (isYouTube) Color.White else MaterialTheme.colorScheme.onSurface
 
                 Row(
                     modifier = Modifier
@@ -219,19 +226,27 @@ fun QuickImportCard(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_youtube),
-                        contentDescription = null,
-                        tint = ytContentColor,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (isYouTube) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_youtube_cutout),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(R.drawable.ic_youtube),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "YouTube",
                         fontWeight = if (isYouTube) FontWeight.Bold else FontWeight.Medium,
                         fontFamily = GoogleSansRounded,
                         fontSize = 14.sp,
-                        color = ytContentColor
+                        color = ytTextColor
                     )
                 }
             }
@@ -239,13 +254,16 @@ fun QuickImportCard(
             // Description text
             Text(
                 text = if (selectedSource == QuickImportSource.SPOTIFY) {
-                    "Import playlist from Spotify"
+                    "Import public playlist from Spotify"
                 } else {
-                    "Import public playlist from YT"
+                    "Import public playlist from YT Music"
                 },
                 style = MaterialTheme.typography.bodySmall,
+                fontFamily = GoogleSansRounded,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                modifier = Modifier.padding(horizontal = 4.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             // URL Input pill container
@@ -260,7 +278,7 @@ fun QuickImportCard(
                         .fillMaxWidth()
                         .padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Link,
@@ -281,7 +299,10 @@ fun QuickImportCard(
                                     "https://music.youtube.com/playlist?list=..."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                fontFamily = GoogleSansRounded,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -292,7 +313,8 @@ fun QuickImportCard(
                             singleLine = true,
                             enabled = !isLoading,
                             textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontFamily = GoogleSansRounded
                             ),
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             keyboardOptions = KeyboardOptions(
@@ -303,6 +325,20 @@ fun QuickImportCard(
                                 onDone = { submit() }
                             )
                         )
+                    }
+
+                    if (urlText.isNotEmpty() && !isLoading) {
+                        IconButton(
+                            onClick = { urlText = "" },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Clear",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     // Circular Submit Action Button
