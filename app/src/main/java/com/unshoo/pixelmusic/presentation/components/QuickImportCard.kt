@@ -239,9 +239,9 @@ fun QuickImportCard(
             // Description text
             Text(
                 text = if (selectedSource == QuickImportSource.SPOTIFY) {
-                    "Import playlist tracks seamlessly from Spotify"
+                    "Import playlist from Spotify"
                 } else {
-                    "Import public playlist directly from YouTube"
+                    "Import public playlist from YT"
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
