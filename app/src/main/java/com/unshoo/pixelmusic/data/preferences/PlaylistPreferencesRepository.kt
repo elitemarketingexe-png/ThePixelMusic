@@ -327,7 +327,20 @@ class PlaylistPreferencesRepository @Inject constructor(
             
             val existingLocal = localPlaylistDao.getPlaylistById(normalizedId) ?: localPlaylistDao.getPlaylistById(playlist.id)
             if (existingLocal != null) {
-                localPlaylistDao.upsertPlaylist(existingLocal.copy(name = playlist.name))
+                localPlaylistDao.upsertPlaylist(
+                    existingLocal.copy(
+                        name = playlist.name,
+                        coverImageUri = playlist.coverImageUri ?: existingLocal.coverImageUri,
+                        coverColorArgb = playlist.coverColorArgb ?: existingLocal.coverColorArgb,
+                        coverIconName = playlist.coverIconName ?: existingLocal.coverIconName,
+                        coverShapeType = playlist.coverShapeType ?: existingLocal.coverShapeType,
+                        coverShapeDetail1 = playlist.coverShapeDetail1 ?: existingLocal.coverShapeDetail1,
+                        coverShapeDetail2 = playlist.coverShapeDetail2 ?: existingLocal.coverShapeDetail2,
+                        coverShapeDetail3 = playlist.coverShapeDetail3 ?: existingLocal.coverShapeDetail3,
+                        coverShapeDetail4 = playlist.coverShapeDetail4 ?: existingLocal.coverShapeDetail4,
+                        lastModified = System.currentTimeMillis()
+                    )
+                )
                 localPlaylistDao.replacePlaylistSongs(existingLocal.id, playlist.songIds)
             }
 

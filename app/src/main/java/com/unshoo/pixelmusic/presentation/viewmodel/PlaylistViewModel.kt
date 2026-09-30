@@ -817,6 +817,29 @@ class PlaylistViewModel @Inject constructor(
 
                 // 2. Map Spotify tracks to YouTube Music IDs sequentially in background
                 viewModelScope.launch(Dispatchers.IO) {
+                    var currentCoverPath: String? = parsed.coverUrl
+
+                    // Download Spotify playlist cover art to internal storage
+                    if (!parsed.coverUrl.isNullOrBlank()) {
+                        try {
+                            val localCover = saveCoverImageToInternalStorage(
+                                uri = Uri.parse(parsed.coverUrl),
+                                uniqueId = newPlaylist.id,
+                                cropScale = 1f,
+                                cropPanX = 0f,
+                                cropPanY = 0f
+                            )
+                            if (!localCover.isNullOrBlank()) {
+                                currentCoverPath = localCover
+                                playlistPreferencesRepository.updatePlaylist(
+                                    newPlaylist.copy(coverImageUri = localCover)
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Timber.w(e, "Failed to download Spotify playlist cover to local storage")
+                        }
+                    }
+
                     val resolvedSongIds = mutableListOf<String>()
 
                     parsed.tracks.forEachIndexed { index, track ->
@@ -848,7 +871,7 @@ class PlaylistViewModel @Inject constructor(
                                     albumArtist = track.artist,
                                     path = track.spotifyUrl,
                                     contentUriString = track.spotifyUrl,
-                                    albumArtUriString = track.coverUrl ?: parsed.coverUrl,
+                                    albumArtUriString = track.coverUrl ?: currentCoverPath,
                                     duration = track.durationMs,
                                     genre = "Spotify",
                                     lyrics = null,
@@ -871,10 +894,31 @@ class PlaylistViewModel @Inject constructor(
                             }
                             resolvedSongIds.add(songToSave.id)
 
+                            // Fallback: If playlist still lacks a cover, download and use the first matched song's cover
+                            if (currentCoverPath.isNullOrBlank() && !songToSave.albumArtUriString.isNullOrBlank()) {
+                                try {
+                                    val songCover = saveCoverImageToInternalStorage(
+                                        uri = Uri.parse(songToSave.albumArtUriString),
+                                        uniqueId = newPlaylist.id,
+                                        cropScale = 1f,
+                                        cropPanX = 0f,
+                                        cropPanY = 0f
+                                    )
+                                    if (!songCover.isNullOrBlank()) {
+                                        currentCoverPath = songCover
+                                    }
+                                } catch (e: Exception) {
+                                    currentCoverPath = songToSave.albumArtUriString
+                                }
+                            }
+
                             // Periodically update playlist entry in Room DB every 5 tracks or on last track
                             if ((index + 1) % 5 == 0 || index == parsed.tracks.lastIndex) {
                                 playlistPreferencesRepository.updatePlaylist(
-                                    newPlaylist.copy(songIds = resolvedSongIds.toList())
+                                    newPlaylist.copy(
+                                        coverImageUri = currentCoverPath,
+                                        songIds = resolvedSongIds.toList()
+                                    )
                                 )
                             }
 
@@ -889,7 +933,10 @@ class PlaylistViewModel @Inject constructor(
 
                     // Final update
                     playlistPreferencesRepository.updatePlaylist(
-                        newPlaylist.copy(songIds = resolvedSongIds.toList())
+                        newPlaylist.copy(
+                            coverImageUri = currentCoverPath,
+                            songIds = resolvedSongIds.toList()
+                        )
                     )
                     _playlistSyncProgress.update { it - newPlaylist.id }
                     _syncingPlaylists.update { it - newPlaylist.id }
