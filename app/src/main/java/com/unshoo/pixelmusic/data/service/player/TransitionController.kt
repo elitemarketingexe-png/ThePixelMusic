@@ -242,7 +242,7 @@ class TransitionController @Inject constructor(
 
                 if (transitionPoint <= player.currentPosition) {
                     val remaining = (duration - player.currentPosition).coerceAtLeast(0L)
-                    if (remaining > 0L) {
+                    if (remaining > 500L) {
                         val adjustedDuration = remaining.coerceAtMost(effectiveDuration)
                         Timber.tag("TransitionDebug").w("Already past transition point! Triggering immediately.")
                         engine.setPauseAtEndOfMediaItems(shouldPause = true)
@@ -290,7 +290,7 @@ class TransitionController @Inject constructor(
                 // Final check to ensure the job wasn't cancelled while waiting.
                 if (isActive) {
                     val remaining = (duration - player.currentPosition).coerceAtLeast(0L)
-                    if (remaining > 0L) {
+                    if (remaining > 500L) {
                         val adjustedDuration = remaining.coerceAtMost(effectiveDuration)
                         Timber.tag("TransitionDebug").d("FIRING TRANSITION NOW!")
                         engine.setPauseAtEndOfMediaItems(shouldPause = true)

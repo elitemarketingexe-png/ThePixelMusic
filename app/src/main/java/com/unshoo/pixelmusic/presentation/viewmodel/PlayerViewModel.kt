@@ -5531,6 +5531,7 @@ class PlayerViewModel @Inject constructor(
         mediaControllerPlaybackListener?.let(playerCtrl::removeListener)
         mediaControllerPlaybackListener = object : Player.Listener {
             override fun onVolumeChanged(volume: Float) {
+                if (dualPlayerEngine.isTransitionRunning()) return
                 _trackVolume.value = volume
             }
 
