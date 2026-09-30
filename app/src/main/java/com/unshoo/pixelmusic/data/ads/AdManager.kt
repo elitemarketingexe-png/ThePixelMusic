@@ -25,13 +25,26 @@ object AdManager {
     private var rewardedAd: RewardedAd? = null
     private var isLoading = false
 
-    fun initialize(context: Context) {
-        try {
-            MobileAds.initialize(context.applicationContext) {}
-            loadRewardedAd(context.applicationContext)
-        } catch (e: Throwable) {
-            Log.e(TAG, "AdMob initialization failed", e)
+    @Volatile
+    private var isInitialized = false
+
+    fun ensureInitialized(context: Context) {
+        if (!isInitialized) {
+            synchronized(this) {
+                if (!isInitialized) {
+                    try {
+                        MobileAds.initialize(context.applicationContext) {}
+                        isInitialized = true
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "AdMob initialization failed", e)
+                    }
+                }
+            }
         }
+    }
+
+    fun initialize(context: Context) {
+        // No-op for startup: do not preload ads until explicitly requested by the user
     }
 
     private fun getAdUnitId(): String {
@@ -40,6 +53,7 @@ object AdManager {
 
     fun loadRewardedAd(context: Context) {
         try {
+            ensureInitialized(context)
             if (rewardedAd != null || isLoading) return
             isLoading = true
             val adRequest = AdRequest.Builder().build()

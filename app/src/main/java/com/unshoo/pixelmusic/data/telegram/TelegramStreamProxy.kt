@@ -63,8 +63,10 @@ class TelegramStreamProxy @Inject constructor(
                         LogUtils.d("StreamProxy", "TDLib ready, proceeding with request")
                     }
                     
-                    // 1. Ensure download is started/active
-                    var fileInfo = telegramRepository.downloadFile(fileId, 1)
+                    // 1. Ensure download is started/active with maximum priority (32)
+                    // Priority 32 ensures TDLib downloads the file in seconds rather than trickling
+                    // over minutes, avoiding prolonged background thread spinning and heating.
+                    var fileInfo = telegramRepository.downloadFile(fileId, 32)
                     
                     // 2. Wait for path to be assigned (TDLib might take a moment to allocate the file path)
                     var pathWaitCount = 0
@@ -187,13 +189,10 @@ class TelegramStreamProxy @Inject constructor(
                         val raf = RandomAccessFile(file, "r")
                         try {
                             var currentPos = start
-                            val buffer = ByteArray(64 * 1024) // Increased to 64KB for smoother streaming
+                            val buffer = ByteArray(128 * 1024) // Increased to 128KB for smoother streaming and lower loop overhead
                             var noDataCount = 0
                             // Exponential backoff while the reader is waiting for TDLib to
-                            // deliver more bytes. The previous fixed 50ms delay combined with
-                            // a per-iteration getFile() call kept the IO thread and TDLib
-                            // database churning during any stall, which showed up as sustained
-                            // CPU heat on weaker devices during cloud playback.
+                            // deliver more bytes.
                             var stallDelayMs = 50L
                             val maxStallDelayMs = 400L
 
@@ -246,8 +245,8 @@ class TelegramStreamProxy @Inject constructor(
                                     currentPos += read
                                     noDataCount = 0
                                 } else {
-                                    // Should not happen if logic matches, but safety check
-                                    delay(10)
+                                    // Avoid tight polling if RAF read returns 0
+                                    delay(50)
                                 }
                             }
                         } catch (e: Exception) {

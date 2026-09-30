@@ -167,7 +167,9 @@ import com.unshoo.pixelmusic.presentation.components.subcomps.LibraryActionRow
 import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.components.MultiSelectionBottomSheet
 import com.unshoo.pixelmusic.presentation.components.AlbumMultiSelectionOptionSheet
+import androidx.compose.material3.HorizontalDivider
 import com.unshoo.pixelmusic.presentation.components.PlaylistMultiSelectionBottomSheet
+import com.unshoo.pixelmusic.presentation.components.QuickImportCard
 import com.unshoo.pixelmusic.presentation.components.PlaylistCreationTypeDialog
 import com.unshoo.pixelmusic.presentation.components.CreateAiPlaylistDialog
 import com.unshoo.pixelmusic.presentation.components.subcomps.SelectionActionRow
@@ -2441,6 +2443,12 @@ fun LibraryScreen(
             onImportCsv = {
                 showImportSheet = false
                 csvImportLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*"))
+            },
+            onImportSpotify = { url, onDone ->
+                playlistViewModel.importFromSpotifyUrl(url, onDone)
+            },
+            onImportYouTube = { url, onDone ->
+                playlistViewModel.importFromYouTubeUrl(url, onDone)
             }
         )
     }
@@ -2724,6 +2732,8 @@ private fun ImportPlaylistSheet(
     onDismiss: () -> Unit,
     onImportM3u: () -> Unit,
     onImportCsv: () -> Unit,
+    onImportSpotify: (url: String, onDone: (Result<String>) -> Unit) -> Unit,
+    onImportYouTube: (url: String, onDone: (Result<String>) -> Unit) -> Unit,
 ) {
     val importPlaylistTitle = stringResource(R.string.presentation_batch_b_import_playlist)
     val importM3uLabel = stringResource(R.string.presentation_batch_b_import_m3u)
@@ -2753,6 +2763,17 @@ private fun ImportPlaylistSheet(
                 fontFamily = GoogleSansRounded,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
+
+            QuickImportCard(
+                onImportSpotify = onImportSpotify,
+                onImportYouTube = onImportYouTube,
+                onSuccess = { onDismiss() }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
             )
 
             // M3U import tile

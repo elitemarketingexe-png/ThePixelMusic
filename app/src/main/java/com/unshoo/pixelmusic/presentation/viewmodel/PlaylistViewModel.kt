@@ -18,11 +18,14 @@ import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.remote.youtube.DatastoreRepository
 import com.unshoo.pixelmusic.data.repository.MusicRepository
 import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
+import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
+import com.unshoo.pixelmusic.data.playlist.SpotifyPlaylistParser
 import com.unshoo.pixelmusic.data.remote.youtube.toNativeSong
 import com.unshoo.pixelmusic.data.remote.youtube.toYoutubeSong
 import com.unshoo.pixelmusic.data.remote.youtube.YouTubeItemFilter
 import com.unshoo.pixelmusic.data.repository.YouTubeLibraryPersistenceManager
 import com.unshoo.pixelmusic.data.model.youtube.PlaylistInfo
+import timber.log.Timber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -126,6 +129,9 @@ class PlaylistViewModel @Inject constructor(
 
     private val _syncingPlaylists = MutableStateFlow<Set<String>>(emptySet())
     val syncingPlaylists: StateFlow<Set<String>> = _syncingPlaylists.asStateFlow()
+
+    private val _playlistSyncProgress = MutableStateFlow<Map<String, Pair<Int, Int>>>(emptyMap())
+    val playlistSyncProgress: StateFlow<Map<String, Pair<Int, Int>>> = _playlistSyncProgress.asStateFlow()
 
     private var currentPlaylistSetVideoIds: List<String> = emptyList()
 
@@ -433,8 +439,27 @@ class PlaylistViewModel @Inject constructor(
                                     )
                                 }
                             } else {
-                                musicRepository.getSongsByIdsOnce(effectivePlaylist.songIds)
+                                var songs = musicRepository.getSongsByIdsOnce(effectivePlaylist.songIds)
                                     .distinctBy { it.getDeduplicationKey() }
+
+                                // BUG FIX: If this is a YouTube playlist and songs count is less than expected,
+                                // load cached songs from AppDatabase's playlist repository so songs are never wiped out!
+                                if (effectivePlaylist.source.equals("YOUTUBE", ignoreCase = true) && songs.size < effectivePlaylist.songIds.size) {
+                                    val cleanId = playlistId.removePrefix("VL")
+                                    val cachedYtPlaylist = com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                                        .playlistRepository()
+                                        .getPlaylistById(cleanId)
+                                        ?: com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                                            .playlistRepository()
+                                            .getPlaylistById(playlistId)
+
+                                    if (cachedYtPlaylist != null && cachedYtPlaylist.songs.isNotEmpty()) {
+                                        val nativeYtSongs = cachedYtPlaylist.songs.map { it.toNativeSong() }
+                                        musicRepository.insertYoutubeSongs(nativeYtSongs)
+                                        songs = nativeYtSongs
+                                    }
+                                }
+                                songs
                             }
                         }
 
@@ -495,6 +520,15 @@ class PlaylistViewModel @Inject constructor(
                         // Background fetch & sync for synced YouTube playlists
                         if (playlist.source.equals("YOUTUBE", ignoreCase = true)) {
                             viewModelScope.launch(Dispatchers.IO) {
+                                val syncEnabled = userPreferencesRepository.youtubeSyncPlaylistsAndLikesFlow.first()
+                                if (!syncEnabled) {
+                                    withContext(Dispatchers.Main) {
+                                        if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
+                                            _uiState.update { it.copy(isLoading = false) }
+                                        }
+                                    }
+                                    return@launch
+                                }
                                 if (YouTubeItemFilter.isPodcastOrEpisode(playlist.name, playlistId)) {
                                     withContext(Dispatchers.Main) {
                                         if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
@@ -633,10 +667,15 @@ class PlaylistViewModel @Inject constructor(
                             // Do NOT create a new local entry — the user is just browsing from Explore.
                             val existing = playlistPreferencesRepository.userPlaylistsFlow.first().find { it.id == playlistId }
                             if (existing != null) {
+                                val updatedSongIds = if (existing.songIds.size > firstPageSongs.size) {
+                                    existing.songIds
+                                } else {
+                                    firstPageSongs.map { it.id }
+                                }
                                 playlistPreferencesRepository.updatePlaylist(
                                     existing.copy(
                                         name = ytPlaylist.title,
-                                        songIds = firstPageSongs.map { it.id },
+                                        songIds = updatedSongIds,
                                         coverImageUri = ytPlaylist.thumbnail
                                     )
                                 )
@@ -644,10 +683,20 @@ class PlaylistViewModel @Inject constructor(
 
                             currentPlaylistSetVideoIds = ytPlaylistPage.songs.mapNotNull { it.setVideoId }
 
+                            val cachedSongs = if (existing != null && existing.songIds.size > firstPageSongs.size) {
+                                musicRepository.getSongsByIdsOnce(existing.songIds)
+                            } else emptyList()
+
+                            val displaySongs = if (cachedSongs.isNotEmpty()) {
+                                cachedSongs
+                            } else {
+                                firstPageSongs
+                            }
+
                             _uiState.update {
                                 it.copy(
-                                    currentPlaylistDetails = playlistModel,
-                                    currentPlaylistSongs = firstPageSongs,
+                                    currentPlaylistDetails = playlistModel.copy(songIds = displaySongs.map { s -> s.id }),
+                                    currentPlaylistSongs = displaySongs,
                                     playlistSongsOrderMode = PlaylistSongsOrderMode.Manual,
                                     isLoading = false,
                                     playlistNotFound = false
@@ -732,6 +781,209 @@ class PlaylistViewModel @Inject constructor(
                         currentPlaylistSongs = emptyList()
                     )
                 }
+            }
+        }
+    }
+
+    fun importFromSpotifyUrl(url: String, onComplete: (Result<String>) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val parseResult = SpotifyPlaylistParser.parse(url)
+                if (parseResult.isFailure) {
+                    onComplete(Result.failure(parseResult.exceptionOrNull() ?: Exception("Failed to parse Spotify playlist")))
+                    return@launch
+                }
+                val parsed = parseResult.getOrThrow()
+                if (parsed.tracks.isEmpty()) {
+                    onComplete(Result.failure(Exception("No tracks found in playlist")))
+                    return@launch
+                }
+
+                // 1. Immediately create local playlist
+                val customId = "spotify_${parsed.id}"
+                val newPlaylist = playlistPreferencesRepository.createPlaylist(
+                    name = parsed.title,
+                    songIds = emptyList(),
+                    coverImageUri = parsed.coverUrl,
+                    customId = customId,
+                    source = "SPOTIFY"
+                )
+
+                val totalTracks = parsed.tracks.size
+                _playlistSyncProgress.update { it + (newPlaylist.id to Pair(0, totalTracks)) }
+                _syncingPlaylists.update { it + newPlaylist.id }
+
+                onComplete(Result.success(newPlaylist.id))
+
+                // 2. Map Spotify tracks to YouTube Music IDs sequentially in background
+                viewModelScope.launch(Dispatchers.IO) {
+                    val resolvedSongIds = mutableListOf<String>()
+
+                    parsed.tracks.forEachIndexed { index, track ->
+                        try {
+                            val query = "${track.title} ${track.artist}"
+                            val searchResult = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG)
+                            val matchedItem = searchResult.getOrNull()?.items
+                                ?.filterIsInstance<SongItem>()
+                                ?.minByOrNull { item ->
+                                    val durDiff = item.duration?.let { durSec ->
+                                        kotlin.math.abs((durSec * 1000L) - track.durationMs)
+                                    } ?: Long.MAX_VALUE
+                                    durDiff
+                                } ?: searchResult.getOrNull()?.items?.filterIsInstance<SongItem>()?.firstOrNull()
+
+                            val songToSave: Song = if (matchedItem != null) {
+                                matchedItem.toNativeSong().copy(
+                                    path = track.spotifyUrl.ifBlank { matchedItem.toNativeSong().path }
+                                )
+                            } else {
+                                Song(
+                                    id = "spotify_${parsed.id}_$index",
+                                    title = track.title,
+                                    artist = track.artist,
+                                    artistId = 0L,
+                                    artists = emptyList(),
+                                    album = track.album.ifBlank { parsed.title },
+                                    albumId = 0L,
+                                    albumArtist = track.artist,
+                                    path = track.spotifyUrl,
+                                    contentUriString = track.spotifyUrl,
+                                    albumArtUriString = track.coverUrl ?: parsed.coverUrl,
+                                    duration = track.durationMs,
+                                    genre = "Spotify",
+                                    lyrics = null,
+                                    isFavorite = false,
+                                    trackNumber = index + 1,
+                                    discNumber = null,
+                                    year = 0,
+                                    dateAdded = System.currentTimeMillis(),
+                                    dateModified = System.currentTimeMillis(),
+                                    mimeType = "audio/opus",
+                                    bitrate = 128000,
+                                    sampleRate = 44100,
+                                    youtubeId = null,
+                                    albumBrowseId = null
+                                )
+                            }
+
+                            if (songToSave.youtubeId != null) {
+                                musicRepository.insertYoutubeSongs(listOf(songToSave))
+                            }
+                            resolvedSongIds.add(songToSave.id)
+
+                            // Periodically update playlist entry in Room DB every 5 tracks or on last track
+                            if ((index + 1) % 5 == 0 || index == parsed.tracks.lastIndex) {
+                                playlistPreferencesRepository.updatePlaylist(
+                                    newPlaylist.copy(songIds = resolvedSongIds.toList())
+                                )
+                            }
+
+                            _playlistSyncProgress.update { it + (newPlaylist.id to Pair(index + 1, totalTracks)) }
+
+                            // Smooth 150ms delay between search requests
+                            kotlinx.coroutines.delay(150L)
+                        } catch (e: Exception) {
+                            Timber.w(e, "Error resolving Spotify track: ${track.title}")
+                        }
+                    }
+
+                    // Final update
+                    playlistPreferencesRepository.updatePlaylist(
+                        newPlaylist.copy(songIds = resolvedSongIds.toList())
+                    )
+                    _playlistSyncProgress.update { it - newPlaylist.id }
+                    _syncingPlaylists.update { it - newPlaylist.id }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error importing Spotify playlist")
+                onComplete(Result.failure(e))
+            }
+        }
+    }
+
+    fun importFromYouTubeUrl(url: String, onComplete: (Result<String>) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val cleanId = when {
+                    url.contains("list=") -> url.substringAfter("list=").substringBefore("&")
+                    url.contains("playlist?list=") -> url.substringAfter("playlist?list=").substringBefore("&")
+                    else -> url.trim().removePrefix("VL")
+                }
+
+                if (cleanId.isBlank()) {
+                    onComplete(Result.failure(IllegalArgumentException("Invalid YouTube playlist URL or ID")))
+                    return@launch
+                }
+
+                val ytResult = withContext(Dispatchers.IO) {
+                    YouTube.playlist(cleanId)
+                }
+
+                if (ytResult.isFailure) {
+                    onComplete(Result.failure(ytResult.exceptionOrNull() ?: Exception("Failed to fetch YouTube playlist")))
+                    return@launch
+                }
+
+                val page = ytResult.getOrThrow()
+                val ytPlaylist = page.playlist
+                val initialSongs = page.songs.toMutableList()
+                var continuation = page.songsContinuation ?: page.continuation
+
+                val nativeInitial = initialSongs.map { it.toNativeSong() }
+                withContext(Dispatchers.IO) {
+                    musicRepository.insertYoutubeSongs(nativeInitial)
+                }
+
+                val customId = "yt_import_$cleanId"
+                val newPlaylist = playlistPreferencesRepository.createPlaylist(
+                    name = ytPlaylist.title,
+                    songIds = nativeInitial.map { it.id },
+                    coverImageUri = ytPlaylist.thumbnail,
+                    customId = customId,
+                    source = "YOUTUBE"
+                )
+
+                val totalCount = ytPlaylist.songCountText
+                    ?.split(" ")?.firstOrNull()?.filter { it.isDigit() }?.toIntOrNull()
+                    ?: initialSongs.size
+
+                _playlistSyncProgress.update { it + (newPlaylist.id to Pair(nativeInitial.size, totalCount)) }
+                _syncingPlaylists.update { it + newPlaylist.id }
+                onComplete(Result.success(newPlaylist.id))
+
+                if (continuation != null) {
+                    viewModelScope.launch(Dispatchers.IO) {
+                        val allSongsList = nativeInitial.toMutableList()
+                        var currentContinuation: String? = continuation
+                        var pages = 0
+                        while (currentContinuation != null && pages < 25) {
+                            val token = currentContinuation ?: break
+                            val contResult = YouTube.playlistContinuation(token)
+                            if (contResult.isSuccess) {
+                                val contPage = contResult.getOrThrow()
+                                val newBatch = contPage.songs.map { it.toNativeSong() }
+                                musicRepository.insertYoutubeSongs(newBatch)
+                                allSongsList.addAll(newBatch)
+                                currentContinuation = contPage.continuation
+                                pages++
+                                _playlistSyncProgress.update { it + (newPlaylist.id to Pair(allSongsList.size, totalCount)) }
+                            } else {
+                                break
+                            }
+                        }
+                        playlistPreferencesRepository.updatePlaylist(
+                            newPlaylist.copy(songIds = allSongsList.map { it.id })
+                        )
+                        _playlistSyncProgress.update { it - newPlaylist.id }
+                        _syncingPlaylists.update { it - newPlaylist.id }
+                    }
+                } else {
+                    _playlistSyncProgress.update { it - newPlaylist.id }
+                    _syncingPlaylists.update { it - newPlaylist.id }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error importing YouTube playlist")
+                onComplete(Result.failure(e))
             }
         }
     }

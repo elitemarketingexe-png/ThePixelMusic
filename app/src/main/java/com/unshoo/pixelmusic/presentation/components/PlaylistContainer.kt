@@ -394,6 +394,8 @@ fun PlaylistItem(
     onPlaylistSelectionToggle: () -> Unit = {}
 ) {
     val playlistViewModel: PlaylistViewModel = hiltViewModel()
+    val syncProgressMap by playlistViewModel.playlistSyncProgress.collectAsStateWithLifecycle()
+    val syncProgress = syncProgressMap[playlist.id]
     val playlistPreviewSongIds = remember(playlist.songIds) {
         playlist.songIds.take(4)
     }
@@ -526,21 +528,51 @@ fun PlaylistItem(
                         )
                     }
                 }
-                val playlistCountText = when {
-                    playlist.displaySongCount != null -> formatSongCount(playlist.displaySongCount)
-                    playlist.source == "YOUTUBE" && playlist.songIds.isEmpty() -> ""
-                    else -> formatSongCount(playlist.songIds.size)
+                val baseCount = playlist.displaySongCount ?: playlist.songIds.size
+                val baseCountText = if (playlist.source == "YOUTUBE" && playlist.songIds.isEmpty() && playlist.displaySongCount == null) {
+                    ""
+                } else {
+                    formatSongCount(baseCount)
                 }
 
-                Text(
-                    text = playlistCountText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+                if (syncProgress != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        if (baseCountText.isNotBlank()) {
+                            Text(
+                                text = "$baseCountText • ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Sync,
+                            contentDescription = "Syncing",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "Syncing ${syncProgress.first}/${syncProgress.second}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                } else {
+                    Text(
+                        text = baseCountText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
 
             val sourceLabel = when (playlist.source?.uppercase()) {
+                "SPOTIFY" -> "Spotify"
                 "YOUTUBE" -> "YouTube"
                 "TELEGRAM", "TELEGRAM_TOPIC" -> "Telegram"
                 "NETEASE" -> "Netease"

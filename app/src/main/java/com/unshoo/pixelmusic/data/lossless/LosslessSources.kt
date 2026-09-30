@@ -120,8 +120,20 @@ object LosslessSources {
                 .collect { (arl, premium) -> DeezerAudioProvider.setManualArl(arl, premium) }
         }
 
-        runCatching { SourceRefreshWorker.schedule(app) }
-            .onFailure { Timber.tag(TAG).w(it, "Could not schedule SourceRefreshWorker") }
+        scope.launch(Dispatchers.IO) {
+            dataStore.data
+                .map { it[LosslessStreamingEnabledKey] ?: false }
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    if (enabled) {
+                        runCatching { SourceRefreshWorker.schedule(app) }
+                            .onFailure { Timber.tag(TAG).w(it, "Could not schedule SourceRefreshWorker") }
+                    } else {
+                        runCatching { SourceRefreshWorker.cancel(app) }
+                            .onFailure { Timber.tag(TAG).w(it, "Could not cancel SourceRefreshWorker") }
+                    }
+                }
+        }
     }
 
     private suspend fun startupTidalScan(app: Context) {

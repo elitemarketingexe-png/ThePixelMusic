@@ -81,7 +81,7 @@ class FeedRepository @Inject constructor(
         val releaseCandidates = sections.filter { s ->
             val t = s.title.lowercase()
             !t.contains("video") && !t.contains("videos") && (
-                t.contains("new release") || t.contains("new releases") ||
+                t.contains("new release") ||
                 t.contains("new album") || t.contains("latest release") ||
                 t.contains("new music") || t.contains("recent release") ||
                 t.contains("novedades") || t.contains("nouveautés") ||
@@ -357,13 +357,10 @@ class FeedRepository @Inject constructor(
                 }
             }.awaitAll().flatten()
 
-        val newReleases: List<YouTubePlaylistSummary> = if (releaseCandidates.isNotEmpty()) {
-            releaseCandidates.take(15)
-        } else if (matchedReleases.isNotEmpty() || artistReleases.isNotEmpty()) {
-            (matchedReleases + artistReleases).distinctBy { it.id }.take(15)
-        } else {
-            previous?.newReleases.orEmpty()
-        }
+        val newReleases: List<YouTubePlaylistSummary> = releaseCandidates
+            .ifEmpty { (matchedReleases + artistReleases).distinctBy { it.id } }
+            .ifEmpty { previous?.newReleases.orEmpty() }
+            .take(15)
 
         val discoveryResults = discoverySeeds.zip(discoveryDef.await())
         val discoveryTracks = discoveryResults.flatMap { it.second }.filter(::filterTrack).distinctBy { it.videoId }

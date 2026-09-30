@@ -238,10 +238,10 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
             kotlinx.coroutines.delay(1000L)
             awaitMainThreadIdle()
             try {
-                com.unshoo.pixelmusic.data.ads.AdManager.initialize(this@PixelMusicApplication)
+                // Keep app open counter for support prompts, but do NOT initialize or preload ads on startup
                 com.unshoo.pixelmusic.data.ads.AdManager.incrementAppOpenCount(this@PixelMusicApplication)
             } catch (e: Throwable) {
-                Timber.e(e, "AdMob initialization failed")
+                Timber.e(e, "Error incrementing app open count")
             }
 
             val prefs = userPreferencesRepository.get()

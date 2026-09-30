@@ -84,9 +84,11 @@ import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.components.CollapsibleCommonTopBar
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.telegram.auth.TelegramLoginActivity
+import com.unshoo.pixelmusic.presentation.components.QuickImportCard
 import com.unshoo.pixelmusic.presentation.viewmodel.AccountsViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.ExternalAccountUiModel
 import com.unshoo.pixelmusic.presentation.viewmodel.ExternalServiceAccount
+import com.unshoo.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
@@ -96,7 +98,8 @@ fun AccountsScreen(
     onBackClick: () -> Unit,
     onOpenYoutubeAuth: () -> Unit = {},
     onOpenLastfmSettings: () -> Unit = {},
-    viewModel: AccountsViewModel = hiltViewModel()
+    viewModel: AccountsViewModel = hiltViewModel(),
+    playlistViewModel: PlaylistViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -226,6 +229,17 @@ fun AccountsScreen(
                     },
                     onLogout = {
                         viewModel.logout(ExternalServiceAccount.YOUTUBE)
+                    }
+                )
+            }
+
+            item {
+                QuickImportCard(
+                    onImportSpotify = { url, onDone ->
+                        playlistViewModel.importFromSpotifyUrl(url, onDone)
+                    },
+                    onImportYouTube = { url, onDone ->
+                        playlistViewModel.importFromYouTubeUrl(url, onDone)
                     }
                 )
             }

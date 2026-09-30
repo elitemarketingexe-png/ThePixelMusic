@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.telegram.auth.TelegramLoginActivity
+import com.unshoo.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 /**
  * Bottom sheet that lets the user choose between streaming providers.
@@ -41,7 +43,8 @@ fun StreamingProviderSheet(
     onNavigateToYoutubeAuth: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
-    )
+    ),
+    playlistViewModel: PlaylistViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val providerSegmentContainerShape = RoundedCornerShape(20.dp)
@@ -129,6 +132,20 @@ fun StreamingProviderSheet(
                     )
                 }
             }
+
+            Spacer(Modifier.height(16.dp))
+
+            QuickImportCard(
+                onImportSpotify = { url, onDone ->
+                    playlistViewModel.importFromSpotifyUrl(url, onDone)
+                },
+                onImportYouTube = { url, onDone ->
+                    playlistViewModel.importFromYouTubeUrl(url, onDone)
+                },
+                onSuccess = {
+                    onDismissRequest()
+                }
+            )
         }
     }
 }
