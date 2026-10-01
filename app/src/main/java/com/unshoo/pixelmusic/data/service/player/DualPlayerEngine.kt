@@ -36,7 +36,10 @@ import com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
 import com.unshoo.pixelmusic.data.lossless.applemusic.AppleMusicDrm
 import com.unshoo.pixelmusic.data.lossless.playback.LosslessSchemeRoutingDataSource
 import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.flac.FlacExtractor
+import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.mp4.Mp4Extractor
+import unshoo.ianshulyadav.pixelmusic.innertube.utils.StreamClientUtils
 import com.unshoo.pixelmusic.data.model.TransitionSettings
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.telegram.TelegramRepository
@@ -551,7 +554,8 @@ class DualPlayerEngine @Inject constructor(
                     val resolved = preResolveForPlayback(result[idx])
                     // Cache only — do not mutate the already-returned list.
                     resolved.localConfiguration?.uri?.toString()?.let { u ->
-                        if (u.startsWith("http")) preCacheFirstChunk(u)
+                        val key = result[idx].mediaId.removePrefix("youtube_").takeIf { it.isNotBlank() }
+                        if (u.startsWith("http")) preCacheFirstChunk(u, key)
                     }
                 }
             }
@@ -582,16 +586,20 @@ class DualPlayerEngine @Inject constructor(
      * Pre-cache the first chunk of a stream into SimpleCache for instant playback start.
      * Ported from SpatialFlow AudioPlaybackService.preCacheFirstChunk.
      */
-    fun preCacheFirstChunk(streamUrl: String) {
+    fun preCacheFirstChunk(streamUrl: String, cacheKey: String? = null) {
         if (!streamUrl.startsWith("http")) return
+        if (cacheKey != null && runCatching { exoCache.cache.isCached(cacheKey, 0, FIRST_CHUNK_PRECACHE_BYTES) }.getOrDefault(false)) return
         scope.launch(Dispatchers.IO) {
             try {
                 val dataSource = preCacheDataSourceFactory.createDataSource()
-                val dataSpec = DataSpec.Builder()
+                val dataSpecBuilder = DataSpec.Builder()
                     .setUri(Uri.parse(streamUrl))
                     .setPosition(0)
                     .setLength(FIRST_CHUNK_PRECACHE_BYTES)
-                    .build()
+                if (cacheKey != null) {
+                    dataSpecBuilder.setKey(cacheKey)
+                }
+                val dataSpec = dataSpecBuilder.build()
                 androidx.media3.datasource.cache.CacheWriter(
                     dataSource,
                     dataSpec,
@@ -599,8 +607,9 @@ class DualPlayerEngine @Inject constructor(
                     /* progressListener= */ null
                 ).cache()
                 Timber.tag("DualPlayerEngine").d(
-                    "Pre-cached first %dKB of stream",
-                    FIRST_CHUNK_PRECACHE_BYTES / 1024
+                    "Pre-cached first %dKB of stream for key=%s",
+                    FIRST_CHUNK_PRECACHE_BYTES / 1024,
+                    cacheKey
                 )
             } catch (e: Exception) {
                 Timber.tag("DualPlayerEngine").d("preCacheFirstChunk skipped: %s", e.message)
@@ -1021,22 +1030,64 @@ class DualPlayerEngine @Inject constructor(
             override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
                 val uri = dataSpec.uri
                 val scheme = uri.scheme
-                // Only resolve custom schemes that cannot be loaded natively by ExoPlayer.
-                // CRITICAL: Never call runBlocking here. ExoPlayer load threads can stall the
-                // MediaSession/UI binder path and freeze the miniplayer when song cards are tapped.
+                val uriString = uri.toString()
+
+                val cleanId = dataSpec.key ?: when {
+                    scheme == "youtube" -> uri.host?.takeIf { it.isNotBlank() } ?: uriString.removePrefix("youtube://")
+                    uriString.startsWith("youtube://") -> uriString.removePrefix("youtube://")
+                    else -> null
+                }
+
+                // 1. Instant Start: Check if the song is already cached in ExoCache
+                if (cleanId != null) {
+                    val isCached = runCatching {
+                        exoCache.cache.isCached(
+                            cleanId,
+                            dataSpec.position,
+                            if (dataSpec.length > 0) dataSpec.length else 128 * 1024L
+                        )
+                    }.getOrDefault(false)
+
+                    if (isCached) {
+                        return dataSpec.buildUpon().setKey(cleanId).build()
+                    }
+                }
+
+                // 2. Custom cloud schemes
                 if (scheme == "telegram" || scheme == "gdrive" || scheme == "youtube") {
-                    val originalUri = uri.toString()
+                    val originalUri = uriString
                     val diskUri = resolveLocalDiskFile(originalUri)
                     if (diskUri != null) {
-                        return dataSpec.buildUpon().setUri(diskUri).build()
+                        return dataSpec.buildUpon()
+                            .setUri(diskUri)
+                            .apply { if (cleanId != null) setKey(cleanId) }
+                            .build()
+                    }
+
+                    fun DataSpec.Builder.applyStreamHeaders(resolvedUri: Uri): DataSpec.Builder {
+                        val urlStr = resolvedUri.toString()
+                        if (urlStr.startsWith("http")) {
+                            val profile = StreamClientUtils.resolveRequestProfile(urlStr)
+                            val headers = buildMap {
+                                put("User-Agent", profile.userAgent)
+                                profile.origin?.let { put("Origin", it) }
+                                profile.referer?.let { put("Referer", it) }
+                            }
+                            this.setHttpRequestHeaders(headers)
+                        }
+                        return this
                     }
 
                     activePlaybackResolvedUris[originalUri]?.let { locked ->
                         if (isResolvedUriFresh(originalUri, locked)) {
-                            return dataSpec.buildUpon().setUri(locked).build()
+                            return dataSpec.buildUpon()
+                                .setUri(locked)
+                                .apply { if (cleanId != null) setKey(cleanId) }
+                                .applyStreamHeaders(locked)
+                                .build()
                         } else {
                             activePlaybackResolvedUris.remove(originalUri)
-                            resolvedUriCache.remove(originalUri) // BUGFIX: also clear LRU so kickBackgroundResolve does a fresh resolve
+                            resolvedUriCache.remove(originalUri)
                         }
                     }
 
@@ -1044,20 +1095,17 @@ class DualPlayerEngine @Inject constructor(
                     if (resolved != null) {
                         if (isResolvedUriFresh(originalUri, resolved)) {
                             activePlaybackResolvedUris[originalUri] = resolved
-                            return dataSpec.buildUpon().setUri(resolved).build()
+                            return dataSpec.buildUpon()
+                                .setUri(resolved)
+                                .apply { if (cleanId != null) setKey(cleanId) }
+                                .applyStreamHeaders(resolved)
+                                .build()
                         } else {
                             resolvedUriCache.remove(originalUri)
                             activePlaybackResolvedUris.remove(originalUri)
                         }
                     }
 
-                    // Cooperatively await the in-flight (or freshly kicked) resolve instead of
-                    // erroring after a short poll. resolveCloudUri() dedupes concurrent resolves
-                    // via activeResolutions, so awaiting here shares the preResolve work already
-                    // started on tap. Throwing early sent ProgressiveMediaSource into exponential
-                    // retry back-off (≈1s/2s/4s) and fired MusicService's full re-prepare recovery
-                    // loop — the root cause of multi-second tap/skip-to-audio delays on cold cache.
-                    // This waits on ExoPlayer's background Loader thread, never the UI thread.
                     kickBackgroundResolve(uri)
                     try {
                         val awaited = kotlinx.coroutines.runBlocking {
@@ -1071,19 +1119,26 @@ class DualPlayerEngine @Inject constructor(
                             isResolvedUriFresh(originalUri, ready)
                         ) {
                             activePlaybackResolvedUris[originalUri] = ready
-                            return dataSpec.buildUpon().setUri(ready).build()
+                            return dataSpec.buildUpon()
+                                .setUri(ready)
+                                .apply { if (cleanId != null) setKey(cleanId) }
+                                .applyStreamHeaders(ready)
+                                .build()
                         }
                     } catch (e: Exception) {
                         Timber.tag("DualPlayerEngine").w(
                             e, "resolveDataSpec: cooperative resolve failed for %s", originalUri
                         )
                     }
-                    // Genuine failure (offline / all clients blocked): surface once so the
-                    // service-level recovery can re-resolve with fresh state.
                     throw java.io.IOException(
                         "Stream URL could not be resolved for $scheme://…"
                     )
                 }
+
+                if (cleanId != null && dataSpec.key == null) {
+                    return dataSpec.buildUpon().setKey(cleanId).build()
+                }
+
                 return dataSpec
             }
         }
@@ -1117,6 +1172,8 @@ class DualPlayerEngine @Inject constructor(
         val resolvingFactory = ResolvingDataSource.Factory(cacheDataSourceFactory, resolver)
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp4ExtractorFlags(Mp4Extractor.FLAG_WORKAROUND_IGNORE_EDIT_LISTS)
+            .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
+            .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
 
         // BUGFIX (adaptive buffering): previously just metered-vs-unmetered, which treats a fast
         // 5G connection the same as a barely-there one just because both are "mobile data". Now
@@ -1254,7 +1311,8 @@ class DualPlayerEngine @Inject constructor(
                 val freshItem = withContext(Dispatchers.IO) {
                     val resolved = resolveMediaItem(currentItem.buildUpon().setUri(sourceUri).build())
                     resolved.localConfiguration?.uri?.toString()?.let { u ->
-                        if (u.startsWith("http")) preCacheFirstChunk(u)
+                        val key = currentItem.mediaId.removePrefix("youtube_").takeIf { it.isNotBlank() }
+                        if (u.startsWith("http")) preCacheFirstChunk(u, key)
                     }
                     resolved
                 }
@@ -1475,7 +1533,7 @@ class DualPlayerEngine @Inject constructor(
                 return@withContext Uri.fromFile(java.io.File(path))
             }
 
-            preCacheFirstChunk(path)
+            preCacheFirstChunk(path, youtubeId)
             Uri.parse(path)
         } catch (e: Exception) {
             Timber.tag("DualPlayerEngine").e(e, "resolveYoutubeUriAsync failed for $uriString")
@@ -1490,7 +1548,7 @@ class DualPlayerEngine @Inject constructor(
                 val low = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
                     .getLowestQualityStreamUrl(context, youtubeSong)
                 if (low.startsWith("http")) {
-                    preCacheFirstChunk(low)
+                    preCacheFirstChunk(low, youtubeId)
                     return@withContext Uri.parse(low)
                 }
                 if (low.isNotBlank() && java.io.File(low).exists()) {
@@ -1642,7 +1700,8 @@ class DualPlayerEngine @Inject constructor(
                             val freshItem = withContext(Dispatchers.IO) {
                                 val resolved = resolveMediaItem(bItem.buildUpon().setUri(sourceUri).build())
                                 resolved.localConfiguration?.uri?.toString()?.let { u ->
-                                    if (u.startsWith("http")) preCacheFirstChunk(u)
+                                    val key = bItem.mediaId.removePrefix("youtube_").takeIf { it.isNotBlank() }
+                                    if (u.startsWith("http")) preCacheFirstChunk(u, key)
                                 }
                                 resolved
                             }

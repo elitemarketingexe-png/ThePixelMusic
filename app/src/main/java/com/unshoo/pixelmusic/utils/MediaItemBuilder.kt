@@ -202,7 +202,11 @@ object MediaItemBuilder {
             return null
         }
 
-        return Uri.fromFile(File(normalizedPath))
+        val file = File(normalizedPath)
+        if (!file.canRead()) {
+            return null
+        }
+        return Uri.fromFile(file)
     }
 
     internal fun shouldPreferDirectLocalFileUri(

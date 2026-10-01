@@ -183,6 +183,7 @@ object QueuePreloadManager {
 
     private suspend fun prefetchAudioBytes(ctx: Context, videoId: String, streamUrl: String) {
         val cache = exoCache?.cache ?: return
+        if (cache.isCached(videoId, 0, 128 * 1024L)) return
         try {
             val uri = Uri.parse(streamUrl)
             val baseDataSourceFactory = DefaultDataSource.Factory(ctx)
@@ -194,8 +195,9 @@ object QueuePreloadManager {
             val dataSource = cacheDataSourceFactory.createDataSource()
             val dataSpec = DataSpec.Builder()
                 .setUri(uri)
+                .setKey(videoId)
                 .setPosition(0)
-                .setLength(256 * 1024)
+                .setLength(128 * 1024L)
                 .build()
 
             val parentJob = kotlin.coroutines.coroutineContext[Job]

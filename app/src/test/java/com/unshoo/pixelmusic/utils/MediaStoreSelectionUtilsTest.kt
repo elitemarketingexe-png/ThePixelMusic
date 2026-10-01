@@ -16,7 +16,21 @@ class MediaStoreSelectionUtilsTest {
         assertTrue(selection.contains(MediaStore.Audio.Media.DURATION))
         assertTrue(selection.contains(MediaStore.Audio.Media.TITLE))
         assertArrayEquals(
-            arrayOf("10000", "audio/midi", "audio/x-midi", "audio/sp-midi", "audio/x-mid", "%.mid", "%.midi"),
+            arrayOf(
+                "10000",
+                "audio/midi",
+                "audio/x-midi",
+                "audio/sp-midi",
+                "audio/x-mid",
+                "audio/alac",
+                "audio/x-alac",
+                "audio/caf",
+                "audio/x-caf",
+                "%.mid",
+                "%.midi",
+                "%.alac",
+                "%.caf"
+            ),
             selectionArgs
         )
     }

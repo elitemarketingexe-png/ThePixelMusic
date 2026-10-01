@@ -754,6 +754,7 @@ constructor(
             val discNumber: Int?,
             val year: Int,
             val dateModified: Long,
+            val dateAdded: Long = 0L,
             val genre: String?
     )
 
@@ -804,7 +805,8 @@ constructor(
                 MediaStore.Audio.Media.MIME_TYPE,
                 MediaStore.Audio.Media.TRACK,
                 MediaStore.Audio.Media.YEAR,
-                MediaStore.Audio.Media.DATE_MODIFIED
+                MediaStore.Audio.Media.DATE_MODIFIED,
+                MediaStore.Audio.Media.DATE_ADDED
         )
 
         // API 30+ supports GENRE in the main audio table
@@ -858,6 +860,7 @@ constructor(
                     val yearCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
                     val dateModifiedCol =
                             cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+                    val dateAddedCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)
                     val genreCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
                     } else -1
@@ -906,6 +909,7 @@ constructor(
                                         discNumber = (cursor.getInt(trackCol) / 1000).takeIf { it > 0 },
                                         year = cursor.getInt(yearCol),
                                         dateModified = cursor.getLong(dateModifiedCol),
+                                        dateAdded = if (dateAddedCol >= 0) cursor.getLong(dateAddedCol) else 0L,
                                         genre = if (genreCol >= 0) cursor.getString(genreCol) else null
                                 )
                         )
@@ -1150,11 +1154,11 @@ constructor(
                 trackNumber = trackNumber,
                 discNumber = discNumber,
                 year = year,
-                dateAdded =
-                        raw.dateModified.let { seconds ->
-                            if (seconds > 0) TimeUnit.SECONDS.toMillis(seconds)
-                            else System.currentTimeMillis()
-                        },
+                dateAdded = when {
+                    raw.dateAdded > 0 -> TimeUnit.SECONDS.toMillis(raw.dateAdded)
+                    raw.dateModified > 0 -> TimeUnit.SECONDS.toMillis(raw.dateModified)
+                    else -> System.currentTimeMillis()
+                },
                 mimeType = audioMetadata?.mimeType ?: raw.mimeType ?: when (val ext = raw.filePath.substringAfterLast('.', "").lowercase()) {
                     "alac" -> "audio/alac"
                     "caf" -> "audio/x-caf"
