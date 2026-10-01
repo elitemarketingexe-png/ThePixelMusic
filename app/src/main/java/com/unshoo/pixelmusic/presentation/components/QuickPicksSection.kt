@@ -4,9 +4,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -22,6 +24,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,35 +37,61 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import android.widget.Toast
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.carousel.CarouselDefaults
+import androidx.compose.material3.carousel.CarouselItemScope
+import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.unshoo.pixelmusic.presentation.viewmodel.SongInfoBottomSheetViewModel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -68,7 +99,9 @@ import androidx.compose.ui.unit.sp
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.presentation.components.SmartImage
 import com.unshoo.pixelmusic.data.preferences.QuickPicksDisplayMode
+import com.unshoo.pixelmusic.presentation.utils.CardColorExtractor
 import com.unshoo.pixelmusic.presentation.utils.itemsUnique
+import com.unshoo.pixelmusic.presentation.utils.rememberDominantCardColor
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import kotlin.math.absoluteValue
@@ -88,6 +121,7 @@ private val QuickPicksWidthSteps = listOf(148.dp, 166.dp, 184.dp, 202.dp, 220.dp
 private data class QuickPicksPillCell(val song: Song, val width: Dp)
 private data class QuickPicksPillRow(val pills: List<QuickPicksPillCell>, val contentWidth: Dp)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickPicksSection(
     songs: List<Song>,
@@ -96,9 +130,38 @@ fun QuickPicksSection(
     currentSongId: String? = null,
     displayMode: QuickPicksDisplayMode = QuickPicksDisplayMode.LIST,
     cardSize: Dp = 140.dp,
+    onPlayNext: ((Song) -> Unit)? = null,
+    onAddToQueue: ((Song) -> Unit)? = null,
+    onDownload: ((Song) -> Unit)? = null,
+    playerViewModel: PlayerViewModel = hiltViewModel(),
+    songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     if (songs.isEmpty()) return
+    val context = LocalContext.current
+    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+    val isPlaybackActive = stablePlayerState.isPlaying
+    val activePlayingSongId = if (isPlaybackActive) {
+        stablePlayerState.currentSong?.id ?: currentSongId
+    } else null
+
+    val handlePlayNext: (Song) -> Unit = onPlayNext ?: { song ->
+        playerViewModel.addSongNextToQueue(song)
+        Toast.makeText(context, "Playing next", Toast.LENGTH_SHORT).show()
+    }
+    val handleAddToQueue: (Song) -> Unit = onAddToQueue ?: { song ->
+        playerViewModel.addSongToQueue(song)
+        Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
+    }
+    val handleDownload: (Song) -> Unit = onDownload ?: { song ->
+        if (song.telegramFileId != null && song.youtubeId == null) {
+            songInfoViewModel.downloadTelegramSong(song)
+        } else {
+            songInfoViewModel.downloadYoutubeSong(song)
+        }
+        Toast.makeText(context, "Download started", Toast.LENGTH_SHORT).show()
+    }
+
     val visible = remember(songs) {
         val count = (songs.size / 3) * 3
         songs.take(count.coerceAtMost(QuickPicksLimit))
@@ -148,62 +211,38 @@ fun QuickPicksSection(
         }
         
         if (displayMode == QuickPicksDisplayMode.CARD) {
-            val lazyListState = rememberLazyListState()
             val limitSongs = remember(songs) { songs.take(20) }
-            
-            // Use snapshotFlow instead of LaunchedEffect(isScrollInProgress) so the
-            // coroutine doesn't restart on every user touch — it just waits inside.
-            LaunchedEffect(limitSongs) {
-                if (limitSongs.isEmpty()) return@LaunchedEffect
-                while (isActive) {
-                    // Wait until the user is not scrolling before auto-advancing
-                    snapshotFlow { lazyListState.isScrollInProgress }
-                        .filter { !it }
-                        .first()
-                    delay(2500)
-                    // Re-check after delay in case user started scrolling again
-                    if (isActive && !lazyListState.isScrollInProgress) {
-                        val nextIndex = (lazyListState.firstVisibleItemIndex + 1) % limitSongs.size
-                        lazyListState.animateScrollToItem(nextIndex)
-                    }
-                }
-            }
+            val carouselState = rememberCarouselState { limitSongs.size }
+            val animationScope = rememberCoroutineScope()
+            val flingBehavior = CarouselDefaults.singleAdvanceFlingBehavior(
+                state = carouselState,
+                snapAnimationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
 
-            LazyRow(
-                state = lazyListState,
-                contentPadding = PaddingValues(start = 16.dp, end = 60.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                itemsUnique(limitSongs, key = { it.id }) { song ->
-                    QuickPickPortraitCard(
-                        song = song,
-                        isPlaying = song.id == currentSongId,
-                        onClick = { onSongClick(song) },
-                        modifier = Modifier
-                            .width(cardSize)
-                            .height(cardSize)
-                            .graphicsLayer {
-                                val layoutInfo = lazyListState.layoutInfo
-                                val visibleItems = layoutInfo.visibleItemsInfo
-                                val itemInfo = visibleItems.firstOrNull { it.key == song.id }
-                                if (itemInfo != null) {
-                                    val focalPoint = layoutInfo.viewportStartOffset + 16.dp.toPx()
-                                    val distanceFromStart = (itemInfo.offset.toFloat() - focalPoint).absoluteValue
-                                    val maxDistance = (cardSize + 8.dp).toPx()
-                                    val fraction = (distanceFromStart / maxDistance).coerceIn(0f, 1f)
-                                    val scale = 0.86f + (1f - 0.86f) * (1f - fraction)
-                                    scaleX = scale
-                                    scaleY = scale
-                                    alpha = 0.7f + (1f - 0.7f) * (1f - fraction)
-                                } else {
-                                    scaleX = 0.86f
-                                    scaleY = 0.86f
-                                    alpha = 0.7f
-                                }
-                            }
-                    )
-                }
+            HorizontalCenteredHeroCarousel(
+                state = carouselState,
+                itemSpacing = 8.dp,
+                flingBehavior = flingBehavior,
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp)
+            ) { page ->
+                val song = limitSongs[page]
+                CenteredHeroCard(
+                    song = song,
+                    isPlaying = song.id == activePlayingSongId,
+                    onClick = {
+                        animationScope.launch { carouselState.animateScrollToItem(page) }
+                        onSongClick(song)
+                    },
+                    onPlayNext = handlePlayNext,
+                    onAddToQueue = handleAddToQueue,
+                    onDownload = handleDownload
+                )
             }
         } else if (displayMode == QuickPicksDisplayMode.CARD_CLASSIC) {
             val limitSongs = remember(songs) { songs.take(20) }
@@ -295,7 +334,7 @@ fun QuickPicksSection(
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 
-                                val isPlaying = song.id == currentSongId
+                                val isPlaying = song.id == activePlayingSongId
                                 if (isPlaying) {
                                     Box(
                                         modifier = Modifier
@@ -307,6 +346,7 @@ fun QuickPicksSection(
                                             modifier = Modifier
                                                 .width(24.dp)
                                                 .height(18.dp),
+                                            isPlaying = true,
                                             color = Color.White,
                                             barCount = 3
                                         )
@@ -409,7 +449,7 @@ fun QuickPicksSection(
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 
-                                val isPlaying = song.id == currentSongId
+                                val isPlaying = song.id == activePlayingSongId
                                 if (isPlaying) {
                                     Box(
                                         modifier = Modifier
@@ -421,6 +461,7 @@ fun QuickPicksSection(
                                             modifier = Modifier
                                                 .width(24.dp)
                                                 .height(18.dp),
+                                            isPlaying = true,
                                             color = Color.White,
                                             barCount = 3
                                         )
@@ -473,7 +514,7 @@ fun QuickPicksSection(
                             QuickPickPill(
                                 song = cell.song,
                                 width = cell.width,
-                                isPlaying = cell.song.id == currentSongId,
+                                isPlaying = cell.song.id == activePlayingSongId,
                                 onClick = { onSongClick(cell.song) }
                             )
                         }
@@ -487,22 +528,23 @@ fun QuickPicksSection(
 @Composable
 private fun EqualizerAnimation(
     modifier: Modifier = Modifier,
+    isPlaying: Boolean = true,
     color: Color = MaterialTheme.colorScheme.primary,
-    barCount: Int = 4
+    barCount: Int = 3
 ) {
     val transition = rememberInfiniteTransition(label = "equalizer")
     
     val heights = (0 until barCount).map { index ->
         val duration = when(index) {
-            0 -> 600
-            1 -> 800
-            2 -> 500
-            3 -> 700
-            else -> 600
+            0 -> 550
+            1 -> 750
+            2 -> 450
+            3 -> 650
+            else -> 550
         }
-        val delay = index * 150
-        transition.animateFloat(
-            initialValue = 0.15f,
+        val delay = index * 120
+        val animatedHeight by transition.animateFloat(
+            initialValue = 0.2f,
             targetValue = 1.0f,
             animationSpec = infiniteRepeatable(
                 animation = tween(durationMillis = duration, delayMillis = delay, easing = LinearEasing),
@@ -510,19 +552,24 @@ private fun EqualizerAnimation(
             ),
             label = "bar_$index"
         )
+        if (isPlaying) animatedHeight else when(index % 3) {
+            0 -> 0.35f
+            1 -> 0.55f
+            else -> 0.35f
+        }
     }
     
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(2.5.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.Bottom
     ) {
         heights.forEach { heightVal ->
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(heightVal.value)
-                    .clip(RoundedCornerShape(1.5.dp))
+                    .fillMaxHeight(heightVal)
+                    .clip(RoundedCornerShape(2.dp))
                     .background(color)
             )
         }
@@ -530,161 +577,324 @@ private fun EqualizerAnimation(
 }
 
 @Composable
-private fun QuickPickPortraitCard(
+private fun rememberAlbumVibrantColor(
+    imageUrl: String?,
+    fallbackColor: Color
+): Color {
+    val context = LocalContext.current
+    val initialArgb = remember(imageUrl) {
+        if (!imageUrl.isNullOrBlank()) CardColorExtractor.colorCache.get(imageUrl) else null
+    }
+    var targetColor by remember(imageUrl, fallbackColor) {
+        mutableStateOf(if (initialArgb != null) Color(initialArgb) else fallbackColor)
+    }
+
+    if (initialArgb == null && !imageUrl.isNullOrBlank()) {
+        LaunchedEffect(imageUrl, fallbackColor) {
+            val argb = CardColorExtractor.extractColorArgb(context, imageUrl)
+            if (argb != null) {
+                targetColor = Color(argb)
+            }
+        }
+    }
+
+    if (initialArgb != null) {
+        return targetColor
+    }
+
+    val animatedColor by animateColorAsState(
+        targetValue = targetColor,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "album_vibrant_color"
+    )
+    return animatedColor
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CarouselItemScope.CenteredHeroCard(
     song: Song,
     isPlaying: Boolean,
     onClick: () -> Unit,
+    onPlayNext: (Song) -> Unit,
+    onAddToQueue: (Song) -> Unit,
+    onDownload: (Song) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val badgeAlpha = if (isPlaying) {
-        val transition = rememberInfiniteTransition(label = "pulse")
-        val animatedAlpha by transition.animateFloat(
-            initialValue = 0.75f,
-            targetValue = 1.0f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "badgePulse"
-        )
-        animatedAlpha
-    } else {
-        1f
+    val drawInfo = carouselItemDrawInfo
+    val sizeFraction = if (drawInfo.maxSize > drawInfo.minSize) {
+        ((drawInfo.size - drawInfo.minSize) / (drawInfo.maxSize - drawInfo.minSize)).coerceIn(0f, 1f)
+    } else 1f
+
+    // 1. Dynamic curve transformation: quantized to prevent GC churn for ultra-smooth 60/120fps scrolling
+    val cornerRadiusDp = remember((sizeFraction * 12f).toInt()) {
+        (16 + (sizeFraction * 12f).toInt()).dp
+    }
+    val cardShape = remember(cornerRadiusDp) { AbsoluteSmoothCornerShape(cornerRadiusDp, 60) }
+
+    // 2. Text opacity: strictly visible for the centered carousel card
+    val textAlpha = ((sizeFraction - 0.55f) / 0.45f).coerceIn(0f, 1f)
+
+    // Dynamic extracted color directly from the album art
+    val defaultColor = MaterialTheme.colorScheme.primary
+    val albumColor = rememberAlbumVibrantColor(
+        imageUrl = song.albumArtUriString,
+        fallbackColor = defaultColor
+    )
+
+    // Deep, rich dynamic base tones derived directly from the album's extracted color
+    // Guarantees pristine, rich aesthetics and zero washed-out milky gray in both light & dark themes
+    val darkBase = remember(albumColor) {
+        lerp(albumColor, Color(0xFF07090E), 0.72f)
+    }
+    val midBase = remember(albumColor) {
+        lerp(albumColor, Color(0xFF07090E), 0.35f)
     }
 
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = if (isPlaying) 8.dp else 4.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    // Dynamic album gradient brush appearing on both center and side carousel shapes
+    val dynamicGradientBrush = remember(albumColor, midBase, darkBase) {
+        Brush.verticalGradient(
+            listOf(
+                Color.Transparent,
+                albumColor.copy(alpha = 0.15f),
+                midBase.copy(alpha = 0.65f),
+                darkBase.copy(alpha = 0.94f),
+                darkBase
+            )
         )
+    }
+
+    val cardBorder = remember(albumColor) {
+        BorderStroke(
+            width = 0.75.dp,
+            color = albumColor.copy(alpha = 0.35f)
+        )
+    }
+
+    Card(
+        onClick = onClick,
+        shape = RectangleShape,
+        colors = CardDefaults.cardColors(
+            containerColor = darkBase
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (sizeFraction > 0.85f) 3.dp else 1.dp
+        ),
+        modifier = modifier
+            .fillMaxSize()
+            .maskClip(cardShape)
+            .maskBorder(cardBorder, cardShape)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 1. Full-bleed background image
+            // Full-bleed Artwork
             SmartImage(
                 model = song.albumArtUriString,
-                contentDescription = null,
+                contentDescription = song.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-            
-            // 2. Linear Gradient Scrim Overlay for contrast
+
+            // Dynamic Album Color Gradient appearing on ALL carousel cards (center and side shapes!)
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.25f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.85f)
-                            )
-                        )
-                    )
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.60f)
+                    .background(dynamicGradientBrush)
             )
-            
-            // 3. Top-Right Pill Badge — only runs if this card is the active song
-            if (isPlaying) {
-                Surface(
+
+            // 3-dots overflow options in top-right corner of the centered card
+            if (textAlpha > 0.01f) {
+                var menuExpanded by remember { mutableStateOf(false) }
+
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 10.dp, end = 10.dp)
-                        .graphicsLayer { alpha = badgeAlpha },
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                        .graphicsLayer { alpha = textAlpha }
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(5.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
+                    FilledIconButton(
+                        onClick = { menuExpanded = true },
+                        enabled = textAlpha > 0.5f,
+                        modifier = Modifier.size(34.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.42f),
+                            contentColor = Color.White
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "PLAYING",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = "Options",
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                }
-            }
-            
-            // 4. Bottom Typography & Quick Action Button
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 10.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(1.dp)
-                ) {
-                    Text(
-                        text = song.title,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = if (isPlaying) Modifier.basicMarquee() else Modifier
-                    )
-                    Text(
-                        text = song.artist,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(6.dp))
-                
-                // Play / Pause circular button
-                Surface(
-                    onClick = onClick,
-                    shape = CircleShape,
-                    color = if (isPlaying) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary,
-                    tonalElevation = 4.dp,
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
+
+                    MaterialTheme(
+                        colorScheme = MaterialTheme.colorScheme.copy(
+                            surface = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
                     ) {
-                        if (isPlaying) {
-                            EqualizerAnimation(
-                                modifier = Modifier
-                                    .width(15.dp)
-                                    .height(12.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                barCount = 3
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Play next",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPlayNext(song)
+                                }
                             )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = "Play",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(18.dp)
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Add to queue",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onAddToQueue(song)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Download",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDownload(song)
+                                }
                             )
                         }
                     }
+                }
+            }
+
+            // Text and Equalizer strictly for the centered active hero card
+            if (textAlpha > 0.01f) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                        .graphicsLayer { alpha = textAlpha }
+                ) {
+                    // Title and Equalizer Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = song.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = GoogleSansRounded,
+                                letterSpacing = 0.15.sp,
+                                color = Color.White
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+
+                        // Equalizer Bar displayed strictly when song is actively playing!
+                        if (isPlaying) {
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.Black.copy(alpha = 0.45f),
+                                border = BorderStroke(
+                                    0.5.dp,
+                                    Color.White.copy(alpha = 0.20f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    EqualizerAnimation(
+                                        modifier = Modifier
+                                            .width(18.dp)
+                                            .height(15.dp),
+                                        isPlaying = true,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        barCount = 3
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "PLAYING",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(3.dp))
+
+                    // Secondary info: Artist • Album • Year
+                    val secondaryText = remember(song) {
+                        val artist = song.displayArtist
+                        val album = song.album.takeIf { it.isNotBlank() && it != song.title }
+                        val year = song.year.takeIf { it > 0 }
+                        when {
+                            album != null && year != null -> "$artist • $album ($year)"
+                            album != null -> "$artist • $album"
+                            year != null -> "$artist • $year"
+                            else -> artist
+                        }
+                    }
+                    Text(
+                        text = secondaryText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.85f)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
