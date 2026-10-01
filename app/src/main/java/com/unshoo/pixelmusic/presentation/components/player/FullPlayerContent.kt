@@ -1048,6 +1048,11 @@ fun FullPlayerContent(
 
     // Share Bottom Sheet
     if (showShareSheet) {
+        val mediaIdClean = playbackAudioMetadata.mediaId?.removePrefix("youtube_")
+        val isMetadataForCurrentSong = mediaIdClean == null ||
+            mediaIdClean == song.id.removePrefix("youtube_") ||
+            mediaIdClean == song.youtubeId
+
         ShareBottomSheet(
             song = song,
             onDismiss = { showShareSheet = false },
@@ -1056,7 +1061,11 @@ fun FullPlayerContent(
                 showPlaylistBottomSheet = true
             },
             colorScheme = LocalMaterialTheme.current,
-            lyricsLines = lyricsLines
+            lyricsLines = lyricsLines,
+            formatTag = if (isMetadataForCurrentSong) playbackAudioMetadata.formatTag else null,
+            playbackMimeType = if (isMetadataForCurrentSong) playbackAudioMetadata.mimeType else null,
+            playbackSampleRate = if (isMetadataForCurrentSong) playbackAudioMetadata.sampleRate else null,
+            playbackBitDepth = if (isMetadataForCurrentSong) playbackAudioMetadata.bitDepth else null
         )
     }
 
@@ -2249,54 +2258,6 @@ private fun SongMetadataDisplaySection(
     }
 }
 
-private fun formatAudioMetaLabel(
-    mimeType: String?,
-    bitrate: Int?,
-    sampleRate: Int?,
-    bitDepth: Int? = null,
-    formatTag: String? = null
-): String? {
-    val isFlacOrLossless = mimeType?.contains("flac", true) == true ||
-            mimeType?.contains("alac", true) == true ||
-            mimeType?.contains("wav", true) == true
-    val isHiRes = formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24
-
-    if (isHiRes) {
-        return "HI-RES LOSSLESS"
-    }
-
-    if (formatTag == "LOSSLESS" || isFlacOrLossless) {
-        val codec = mimeTypeToFormat(mimeType)
-            .takeIf { it != "-" }
-            ?.uppercase(Locale.getDefault())
-            ?: "FLAC"
-        return "LOSSLESS • $codec"
-    }
-
-    val formatLabel = mimeTypeToFormat(mimeType)
-        .takeIf { it != "-" }
-        ?.uppercase(Locale.getDefault())
-
-    val parts = buildList {
-        sampleRate?.takeIf { it > 0 }?.let { rate ->
-            if (rate % 1000 == 0) {
-                add("${rate / 1000} kHz")
-            } else {
-                add(String.format(Locale.US, "%.1f kHz", rate / 1000.0))
-            }
-        }
-        bitrate?.takeIf { it > 0 }?.let { bitrateValue ->
-            val kbpsLabel = "${bitrateValue / 1000} kbps"
-            if (formatLabel != null) {
-                add("$kbpsLabel • $formatLabel")
-            } else {
-                add(kbpsLabel)
-            }
-        } ?: formatLabel?.let { add(it) }
-    }
-    return parts.takeIf { it.isNotEmpty() }?.joinToString(" • ")
-}
-
 @Composable
 private fun PlayerProgressBarSection(
     songId: String,
@@ -2348,7 +2309,7 @@ private fun PlayerProgressBarSection(
     }
     val audioMetaLabel = remember(showAudioFileInfo, audioMimeType, audioBitrate, audioSampleRate, audioBitDepth, audioFormatTag) {
         if (showAudioFileInfo) {
-            formatAudioMetaLabel(
+            com.unshoo.pixelmusic.utils.AudioMetaUtils.formatAudioMetaLabel(
                 mimeType = audioMimeType,
                 bitrate = audioBitrate,
                 sampleRate = audioSampleRate,

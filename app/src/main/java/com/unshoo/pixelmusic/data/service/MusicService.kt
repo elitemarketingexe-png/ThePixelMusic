@@ -67,6 +67,7 @@ import com.unshoo.pixelmusic.ui.glancewidget.PixelMusicGlanceWidget
 import com.unshoo.pixelmusic.ui.glancewidget.PlayerActions
 import com.unshoo.pixelmusic.ui.glancewidget.PlayerInfoStateDefinition
 import com.unshoo.pixelmusic.utils.AlbumArtUtils
+import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -382,7 +383,7 @@ class MusicService : MediaLibraryService() {
         Timber.tag("MusicService").d(logMessage)
         syncLocalListeningStatsFromPlayer(player)
         requestWidgetFullUpdate(force = true)
-        refreshMediaSessionUi(session)
+        refreshMediaSessionUi(session, force = true)
     }
 
     private fun prepareReplayGainForTransitionPlayer(player: Player) {
@@ -881,7 +882,7 @@ class MusicService : MediaLibraryService() {
                             ?: return@onCustomCommand Futures.immediateFuture(
                                 SessionResult(SessionError.ERROR_UNKNOWN)
                             )
-                        val targetFavoriteState = !favoriteSongIds.contains(songId)
+                        val targetFavoriteState = !isSongFavorite(songId)
                         return setCurrentSongFavoriteState(
                             session = session,
                             targetFavoriteState = targetFavoriteState
@@ -1081,6 +1082,13 @@ class MusicService : MediaLibraryService() {
             .setBitmapLoader(CoilBitmapLoader(this, serviceScope))
             .build()
 
+        mediaSession?.let { session ->
+            val initialButtons = buildMediaButtonPreferences(session)
+            session.setMediaButtonPreferences(initialButtons)
+            session.setCustomLayout(initialButtons)
+            lastAppliedMediaButtonSignature = buildMediaButtonPreferencesSignature(session)
+        }
+
         var lastAutoQueueEnabled: Boolean? = null
         serviceScope.launch {
             youtubeDatastoreRepository.settings
@@ -1154,12 +1162,12 @@ class MusicService : MediaLibraryService() {
                 favoriteSongIds = ids
                 val currentSongId = mediaSession?.player?.currentMediaItem?.mediaId
                 if (currentSongId != null) {
-                    val wasFavorite = oldIds.contains(currentSongId)
-                    val isFavorite = ids.contains(currentSongId)
+                    val wasFavorite = isSongFavoriteWithSet(currentSongId, oldIds)
+                    val isFavorite = isSongFavoriteWithSet(currentSongId, ids)
                     if (wasFavorite != isFavorite) {
                         Timber.tag("MusicService")
                             .d("Favorite status changed for current song. Updating notification.")
-                        mediaSession?.let { refreshMediaSessionUi(it) }
+                        mediaSession?.let { refreshMediaSessionUi(it, force = true) }
                         requestWidgetFullUpdate(force = true)
                     }
                 }
@@ -1362,12 +1370,13 @@ class MusicService : MediaLibraryService() {
                     if (!songId.isNullOrBlank()) {
                         serviceScope.launch {
                             val updatedFavorite = musicRepository.toggleFavoriteStatus(songId)
+                            val allIds = getEquivalentSongIds(songId)
                             favoriteSongIds = if (updatedFavorite) {
-                                favoriteSongIds + songId
+                                favoriteSongIds + allIds
                             } else {
-                                favoriteSongIds - songId
+                                favoriteSongIds - allIds
                             }
-                            mediaSession?.let { refreshMediaSessionUi(it) }
+                            mediaSession?.let { refreshMediaSessionUi(it, force = true) }
                             requestWidgetFullUpdate(force = true)
                         }
                     }
@@ -1798,6 +1807,7 @@ class MusicService : MediaLibraryService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            mediaSession?.let { refreshMediaSessionUi(it, force = true) }
             this@MusicService.handleMediaItemTransition(mediaItem, reason)
         }
 
@@ -2075,7 +2085,7 @@ class MusicService : MediaLibraryService() {
         // BUG 3 FIX: Force an immediate widget update (not debounced) on track transition
         // so album art and song info appear without the 300-800ms blank period.
         requestWidgetFullUpdate(force = true)
-        mediaSession?.let { refreshMediaSessionUi(it) }
+        mediaSession?.let { refreshMediaSessionUi(it, force = true) }
         schedulePlaybackSnapshotPersist(immediate = true)
 
         // BUG 4 FIX: Ensure new telemetry session starts on track transition (vital for gapless auto-transitions)
@@ -3892,8 +3902,17 @@ class MusicService : MediaLibraryService() {
         )
     }
 
+    private fun getEquivalentSongIds(songId: String?): Set<String> {
+        val bare = songId?.removePrefix("youtube_")?.takeIf { it.isNotBlank() } ?: return emptySet()
+        val unifiedId = runCatching { YouTubeIdUtils.toUnifiedYoutubeSongId(bare).toString() }.getOrNull()
+        return setOfNotNull(songId, bare, "youtube_$bare", unifiedId)
+    }
+
+    private fun isSongFavoriteWithSet(songId: String?, idsSet: Set<String>): Boolean =
+        getEquivalentSongIds(songId).any { it in idsSet }
+
     fun isSongFavorite(songId: String?): Boolean {
-        return songId != null && favoriteSongIds.contains(songId)
+        return isSongFavoriteWithSet(songId, favoriteSongIds)
     }
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
@@ -3918,14 +3937,6 @@ class MusicService : MediaLibraryService() {
     }
 
     override fun startForegroundService(serviceIntent: Intent?): ComponentName? {
-        // Android 12+ (API 31+): Media3 calls startForegroundService asynchronously
-        // (e.g. after bitmap loading or Cast SDK callbacks). By that time the app may
-        // already be in the background, causing ForegroundServiceStartNotAllowedException.
-        // Do not fall back to startService(): on Android 12+ that turns the original
-        // foreground-service exception into BackgroundServiceStartNotAllowedException,
-        // which Media3 does not handle and crashes the process. If the service is
-        // already foreground, Media3's subsequent startForeground() call will simply
-        // update the notification.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             return try {
                 super.startForegroundService(serviceIntent)
@@ -3936,9 +3947,6 @@ class MusicService : MediaLibraryService() {
                 )
                 serviceIntent?.component ?: ComponentName(this, javaClass)
             } catch (e: BackgroundServiceStartNotAllowedException) {
-                // Thrown when startForegroundService() itself is called while the app is in a
-                // background-cached state (distinct from ForegroundServiceStartNotAllowedException).
-                // Safe to swallow: the service is either already running or Media3 will retry.
                 Timber.tag(TAG).w(
                     e,
                     "startForegroundService blocked (app in background); ignoring self-start request"
@@ -3949,6 +3957,14 @@ class MusicService : MediaLibraryService() {
         return super.startForegroundService(serviceIntent)
     }
 
+    private fun applyMediaSessionUiButtons(session: MediaSession, signature: String) {
+        if (mediaSession !== session) return
+        val buttons = buildMediaButtonPreferences(session)
+        session.setMediaButtonPreferences(buttons)
+        session.setCustomLayout(buttons)
+        lastAppliedMediaButtonSignature = signature
+    }
+
     private fun refreshMediaSessionUi(session: MediaSession, force: Boolean = false) {
         val pendingSignature = buildMediaButtonPreferencesSignature(session)
         if (!force && pendingSignature == lastAppliedMediaButtonSignature) {
@@ -3956,6 +3972,15 @@ class MusicService : MediaLibraryService() {
         }
 
         mediaSessionButtonRefreshJob?.cancel()
+
+        // When forced or running directly on the Main thread where the signature has changed,
+        // apply immediately and synchronously so track transitions and user action toggles
+        // update the media notification / PlaybackStateCompat before the next frame is rendered.
+        if (force || (Looper.myLooper() == Looper.getMainLooper() && pendingSignature != lastAppliedMediaButtonSignature)) {
+            applyMediaSessionUiButtons(session, pendingSignature)
+            return
+        }
+
         mediaSessionButtonRefreshJob = serviceScope.launch {
             if (!force) {
                 delay(MEDIA_SESSION_BUTTON_DEBOUNCE_MS)
@@ -3969,15 +3994,7 @@ class MusicService : MediaLibraryService() {
                 return@launch
             }
 
-            val buttons = buildMediaButtonPreferences(session)
-            // setMediaButtonPreferences triggers a notification update internally via
-            // MediaControllerListener.onMediaButtonPreferencesChanged → onUpdateNotificationInternal,
-            // which correctly determines if the service should run in foreground.
-            // Do NOT manually call onUpdateNotification(session, false) here — that bypasses
-            // Media3's shouldRunInForeground logic and can remove foreground status, leading to
-            // ForegroundServiceStartNotAllowedException when async callbacks fire later.
-            session.setMediaButtonPreferences(buttons)
-            lastAppliedMediaButtonSignature = latestSignature
+            applyMediaSessionUiButtons(session, latestSignature)
         }
     }
 
@@ -4141,27 +4158,28 @@ class MusicService : MediaLibraryService() {
         val songId = session.player.currentMediaItem?.mediaId
             ?: return Futures.immediateFuture(SessionResult(SessionError.ERROR_UNKNOWN))
 
-        val isCurrentlyFavorite = favoriteSongIds.contains(songId)
+        val isCurrentlyFavorite = isSongFavorite(songId)
         if (isCurrentlyFavorite == targetFavoriteState) {
-            refreshMediaSessionUi(session)
+            refreshMediaSessionUi(session, force = true)
             requestWidgetFullUpdate(force = true)
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
 
+        val allIds = getEquivalentSongIds(songId)
         favoriteSongIds = if (targetFavoriteState) {
-            favoriteSongIds + songId
+            favoriteSongIds + allIds
         } else {
-            favoriteSongIds - songId
+            favoriteSongIds - allIds
         }
 
-        refreshMediaSessionUi(session)
+        refreshMediaSessionUi(session, force = true)
         requestWidgetFullUpdate(force = true)
 
         serviceScope.launch {
             Timber.tag("MusicService")
                 .d("Applying favorite=$targetFavoriteState for songId: $songId")
             musicRepository.setFavoriteStatus(songId, targetFavoriteState)
-            refreshMediaSessionUi(session)
+            refreshMediaSessionUi(session, force = true)
             requestWidgetFullUpdate(force = true)
         }
 
@@ -4351,7 +4369,7 @@ class MusicService : MediaLibraryService() {
         val likeButton = CommandButton.Builder(
             if (isFavorite) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
         )
-            .setDisplayName("Like")
+            .setDisplayName(if (isFavorite) "Unlike" else "Like")
             .setSessionCommand(SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_LIKE, Bundle.EMPTY))
             .setSlots(CommandButton.SLOT_OVERFLOW)
             .build()

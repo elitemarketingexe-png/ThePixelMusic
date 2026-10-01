@@ -36,6 +36,10 @@ class AudioMetaUtilsTest {
         assertEquals("wav", AudioMetaUtils.mimeTypeToFormat("audio/wav"))
         assertEquals("ogg", AudioMetaUtils.mimeTypeToFormat("audio/ogg"))
         assertEquals("opus", AudioMetaUtils.mimeTypeToFormat("audio/opus"))
+        assertEquals("opus", AudioMetaUtils.mimeTypeToFormat("audio/webm; codecs=\"opus\""))
+        assertEquals("opus", AudioMetaUtils.mimeTypeToFormat("audio/webm"))
+        assertEquals("opus", AudioMetaUtils.mimeTypeToFormat("video/webm"))
+        assertEquals("opus", AudioMetaUtils.mimeTypeToFormat("audio/x-opus"))
     }
 
     @Test
@@ -43,5 +47,66 @@ class AudioMetaUtilsTest {
         assertEquals("-", AudioMetaUtils.mimeTypeToFormat(null))
         assertEquals("-", AudioMetaUtils.mimeTypeToFormat(""))
         assertEquals("-", AudioMetaUtils.mimeTypeToFormat("   "))
+    }
+
+    @Test
+    fun formatAudioMetaLabel_displaysOpusInsteadOfWebm() {
+        val label = AudioMetaUtils.formatAudioMetaLabel(
+            mimeType = "audio/webm; codecs=\"opus\"",
+            bitrate = 160_000,
+            sampleRate = 48_000
+        )
+        assertEquals("48 kHz • 160 kbps • OPUS", label)
+    }
+
+    @Test
+    fun formatAudioMetaLabel_displaysLosslessForFlacAndLosslessTag() {
+        val label = AudioMetaUtils.formatAudioMetaLabel(
+            mimeType = "audio/flac",
+            bitrate = 900_000,
+            sampleRate = 44_100,
+            formatTag = "LOSSLESS"
+        )
+        assertEquals("LOSSLESS • FLAC", label)
+    }
+
+    @Test
+    fun formatAudioMetaLabel_displaysHiResLossless() {
+        val label = AudioMetaUtils.formatAudioMetaLabel(
+            mimeType = "audio/flac",
+            bitrate = 2_400_000,
+            sampleRate = 96_000,
+            bitDepth = 24,
+            formatTag = "HI-RES LOSSLESS"
+        )
+        assertEquals("HI-RES LOSSLESS", label)
+    }
+
+    @Test
+    fun formatShareCardAudioTag_displaysOpusInsteadOfFullString() {
+        val tag = AudioMetaUtils.formatShareCardAudioTag(
+            mimeType = "audio/webm; codecs=\"opus\"",
+            sampleRate = 48_000
+        )
+        assertEquals("OPUS", tag)
+    }
+
+    @Test
+    fun formatShareCardAudioTag_displaysLosslessForFlac() {
+        val tag = AudioMetaUtils.formatShareCardAudioTag(
+            mimeType = "audio/flac",
+            formatTag = "LOSSLESS"
+        )
+        assertEquals("LOSSLESS", tag)
+    }
+
+    @Test
+    fun formatShareCardAudioTag_displaysHiResLossless() {
+        val tag = AudioMetaUtils.formatShareCardAudioTag(
+            mimeType = "audio/flac",
+            sampleRate = 96_000,
+            bitDepth = 24
+        )
+        assertEquals("HI-RES LOSSLESS", tag)
     }
 }

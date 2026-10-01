@@ -86,13 +86,35 @@ object AudioMetaUtils {
     }
 
     fun mimeTypeToFormat(mimeType: String?): String {
-        val normalized = mimeType
+        val raw = mimeType
             ?.trim()
             ?.lowercase(Locale.ROOT)
-            ?.substringBefore(';')
             ?: return "-"
 
-        if (normalized.isBlank()) return "-"
+        if (raw.isBlank()) return "-"
+
+        // If codecs parameter is explicitly present, extract and inspect it first
+        if (raw.contains("codecs=")) {
+            val codecPart = raw.substringAfter("codecs=").trim('"', '\'', ' ', ';')
+            when {
+                codecPart.contains("opus") -> return "opus"
+                codecPart.contains("flac") -> return "flac"
+                codecPart.contains("alac") -> return "alac"
+                codecPart.contains("mp4a") -> return "m4a"
+                codecPart.contains("aac") -> return "aac"
+                codecPart.contains("vorbis") -> return "ogg"
+            }
+        }
+
+        if (raw.contains("opus")) return "opus"
+        if (raw.contains("flac")) return "flac"
+        if (raw.contains("alac")) return "alac"
+        if (raw.contains("vorbis")) return "ogg"
+        if (raw.contains("webm")) return "opus"
+        if (raw.contains("mp4a")) return "m4a"
+        if (raw.contains("aac")) return "aac"
+
+        val normalized = raw.substringBefore(';').trim()
 
         return when {
             normalized == "audio/mpeg" ||
@@ -115,6 +137,9 @@ object AudioMetaUtils {
 
             normalized == "audio/opus" ||
                 normalized == "audio/x-opus" -> "opus"
+
+            normalized == "audio/webm" ||
+                normalized == "video/webm" -> "opus"
 
             normalized == "audio/mp4" ||
                 normalized == "audio/m4a" ||
@@ -163,6 +188,7 @@ object AudioMetaUtils {
             normalized.contains("mp4a") -> "m4a"
             normalized.contains("flac") -> "flac"
             normalized.contains("opus") -> "opus"
+            normalized.contains("webm") -> "opus"
             normalized.contains("vorbis") || normalized.contains("ogg") -> "ogg"
             normalized.contains("wav") || normalized.contains("wave") -> "wav"
             normalized.contains("aac") -> "aac"
@@ -176,6 +202,113 @@ object AudioMetaUtils {
             normalized.contains("midi") || normalized.contains("x-mid") -> "midi"
             normalized.startsWith("audio/") -> normalized.substringAfter("audio/").ifBlank { "-" }
             else -> "-"
+        }
+    }
+
+    /**
+     * Formats the unified audio metadata label displayed in the Full Player file info tag
+     * and the Share Card format badge.
+     *
+     * Prioritizes Hi-Res Lossless and Lossless tags over raw technical sample rates/bitrates.
+     */
+    fun formatAudioMetaLabel(
+        mimeType: String?,
+        bitrate: Int?,
+        sampleRate: Int?,
+        bitDepth: Int? = null,
+        formatTag: String? = null,
+        filePath: String? = null,
+    ): String? {
+        val pathLower = filePath?.lowercase(Locale.ROOT).orEmpty()
+        val isFlacOrLossless = mimeType?.contains("flac", true) == true ||
+                mimeType?.contains("alac", true) == true ||
+                mimeType?.contains("wav", true) == true ||
+                pathLower.endsWith(".flac") ||
+                pathLower.endsWith(".alac") ||
+                pathLower.endsWith(".wav") ||
+                pathLower.endsWith(".aiff")
+
+        val isHiRes = formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24
+
+        if (isHiRes) {
+            val codec = mimeTypeToFormat(mimeType)
+                .takeIf { it != "-" }
+                ?.uppercase(Locale.getDefault())
+            return if (codec != null && codec != "FLAC") "HI-RES LOSSLESS • $codec" else "HI-RES LOSSLESS"
+        }
+
+        if (formatTag == "LOSSLESS" || isFlacOrLossless) {
+            val codec = mimeTypeToFormat(mimeType)
+                .takeIf { it != "-" }
+                ?.uppercase(Locale.getDefault())
+                ?: when {
+                    pathLower.endsWith(".flac") -> "FLAC"
+                    pathLower.endsWith(".alac") -> "ALAC"
+                    pathLower.endsWith(".wav") -> "WAV"
+                    pathLower.endsWith(".aiff") -> "AIFF"
+                    else -> "FLAC"
+                }
+            return "LOSSLESS • $codec"
+        }
+
+        val formatLabel = mimeTypeToFormat(mimeType)
+            .takeIf { it != "-" }
+            ?.uppercase(Locale.getDefault())
+
+        val parts = buildList {
+            sampleRate?.takeIf { it > 0 }?.let { rate ->
+                if (rate % 1000 == 0) {
+                    add("${rate / 1000} kHz")
+                } else {
+                    add(String.format(Locale.US, "%.1f kHz", rate / 1000.0))
+                }
+            }
+            bitrate?.takeIf { it > 0 }?.let { bitrateValue ->
+                val kbpsLabel = "${bitrateValue / 1000} kbps"
+                if (formatLabel != null) {
+                    add("$kbpsLabel • $formatLabel")
+                } else {
+                    add(kbpsLabel)
+                }
+            } ?: formatLabel?.let { add(it) }
+        }
+        return parts.takeIf { it.isNotEmpty() }?.joinToString(" • ")
+    }
+
+    /**
+     * Formats the clean format tag badge displayed specifically on Story Share Cards.
+     *
+     * Unlike the detailed Full Player info label which includes sample rate and bitrate
+     * ("48 kHz • 160 kbps • OPUS"), the Story Share Card badge displays a concise format tag
+     * ("OPUS", "LOSSLESS", "HI-RES LOSSLESS", "FLAC", "MP3", "AAC").
+     */
+    fun formatShareCardAudioTag(
+        mimeType: String?,
+        formatTag: String? = null,
+        filePath: String? = null,
+        sampleRate: Int? = null,
+        bitDepth: Int? = null,
+    ): String {
+        if (formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24) {
+            return "HI-RES LOSSLESS"
+        }
+        if (formatTag == "LOSSLESS") {
+            return "LOSSLESS"
+        }
+        if (!formatTag.isNullOrBlank() && !formatTag.equals("null", true) && formatTag != "-") {
+            val upper = formatTag.uppercase(Locale.getDefault())
+            return if (upper == "WEBM") "OPUS" else upper
+        }
+
+        val format = mimeTypeToFormat(mimeType).lowercase(Locale.ROOT)
+        val ext = filePath?.substringAfterLast('.', "")?.lowercase(Locale.ROOT).orEmpty()
+        return when (if (format != "-") format else ext) {
+            "flac", "alac", "wav", "aiff" -> "LOSSLESS"
+            "opus", "webm" -> "OPUS"
+            "mp3" -> "MP3"
+            "aac", "m4a" -> "AAC"
+            "ogg" -> "OGG"
+            else -> if (format != "-") format.uppercase(Locale.getDefault()) else "OPUS"
         }
     }
 }

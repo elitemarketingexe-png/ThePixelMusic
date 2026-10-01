@@ -131,7 +131,11 @@ fun ShareBottomSheet(
     onDismiss: () -> Unit,
     onAddToPlaylist: () -> Unit,
     colorScheme: ColorScheme = MaterialTheme.colorScheme,
-    lyricsLines: List<String> = emptyList()
+    lyricsLines: List<String> = emptyList(),
+    formatTag: String? = null,
+    playbackMimeType: String? = null,
+    playbackSampleRate: Int? = null,
+    playbackBitDepth: Int? = null,
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -558,7 +562,11 @@ fun ShareBottomSheet(
                             cardShape = cardShape,
                             albumColorScheme = albumColorSchemeState,
                             useSolidLyricsCard = solidMode,
-                            isCardDark = isCardDark
+                            isCardDark = isCardDark,
+                            formatTag = formatTag,
+                            playbackMimeType = playbackMimeType,
+                            playbackSampleRate = playbackSampleRate,
+                            playbackBitDepth = playbackBitDepth,
                         )
                     }
                 }
@@ -934,7 +942,11 @@ private fun ShareableCard(
     cardShape: Shape,
     albumColorScheme: ColorSchemePair?,
     useSolidLyricsCard: Boolean = false,
-    isCardDark: Boolean = true
+    isCardDark: Boolean = true,
+    formatTag: String? = null,
+    playbackMimeType: String? = null,
+    playbackSampleRate: Int? = null,
+    playbackBitDepth: Int? = null,
 ) {
     val cardRatio = 9f / 16f
     val darkScheme = albumColorScheme?.dark ?: DarkColorScheme
@@ -1102,7 +1114,15 @@ private fun ShareableCard(
                         .padding(horizontal = 9.dp, vertical = 9.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    SongMiniCard(song = song, albumScheme = activeCardScheme, isCardDark = isCardDark)
+                    SongMiniCard(
+                        song = song,
+                        albumScheme = activeCardScheme,
+                        isCardDark = isCardDark,
+                        formatTag = formatTag,
+                        playbackMimeType = playbackMimeType,
+                        playbackSampleRate = playbackSampleRate,
+                        playbackBitDepth = playbackBitDepth,
+                    )
                 }
             } else {
                 // ── LYRICS PANEL ─────────────────────────────────────────────
@@ -1206,7 +1226,11 @@ private fun ShareableCard(
 private fun SongMiniCard(
     song: Song,
     albumScheme: ColorScheme,
-    isCardDark: Boolean = true
+    isCardDark: Boolean = true,
+    formatTag: String? = null,
+    playbackMimeType: String? = null,
+    playbackSampleRate: Int? = null,
+    playbackBitDepth: Int? = null,
 ) {
     val durationMs = remember(song.duration) { if (song.duration > 0) song.duration else 180000L }
     val formattedDuration = remember(durationMs) {
@@ -1223,23 +1247,22 @@ private fun SongMiniCard(
         String.format("%02d:%02d", mins, secs)
     }
 
-    val audioMetaLabel = remember(song.mimeType, song.bitrate, song.sampleRate) {
-        val formatLabel = mimeTypeToFormat(song.mimeType)
-            .takeIf { it != "-" }
-            ?.uppercase(Locale.getDefault())
-
-        val parts = buildList {
-            song.sampleRate?.takeIf { it > 0 }?.let { add(String.format(Locale.US, "%.1f kHz", it / 1000.0)) }
-            song.bitrate?.takeIf { it > 0 }?.let { bitrateValue ->
-                val kbpsLabel = "${bitrateValue / 1000} kbps"
-                if (formatLabel != null) {
-                    add("$kbpsLabel \u2022 $formatLabel")
-                } else {
-                    add(kbpsLabel)
-                }
-            } ?: formatLabel?.let { add(it) }
-        }
-        parts.takeIf { it.isNotEmpty() }?.joinToString(" \u2022 ") ?: "48.0 kHz \u2022 164 kbps \u2022 OPUS"
+    val audioMetaLabel = remember(
+        playbackMimeType,
+        song.mimeType,
+        formatTag,
+        song.path,
+        playbackSampleRate,
+        song.sampleRate,
+        playbackBitDepth
+    ) {
+        com.unshoo.pixelmusic.utils.AudioMetaUtils.formatShareCardAudioTag(
+            mimeType = playbackMimeType ?: song.mimeType,
+            formatTag = formatTag,
+            filePath = song.path,
+            sampleRate = playbackSampleRate ?: song.sampleRate,
+            bitDepth = playbackBitDepth
+        )
     }
 
     Column(

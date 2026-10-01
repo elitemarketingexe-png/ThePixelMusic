@@ -1495,6 +1495,7 @@ class MusicRepositoryImpl @Inject constructor(
             if (item.contentUriString.startsWith("youtube://")) {
                 val ytId = item.contentUriString.removePrefix("youtube://")
                 idStrings.add("youtube_$ytId")
+                idStrings.add(ytId)
             }
         }
         idStrings
@@ -1509,6 +1510,7 @@ class MusicRepositoryImpl @Inject constructor(
                     if (item.contentUriString.startsWith("youtube://")) {
                         val ytId = item.contentUriString.removePrefix("youtube://")
                         idStrings.add("youtube_$ytId")
+                        idStrings.add(ytId)
                     }
                 }
                 idStrings.toSet()
