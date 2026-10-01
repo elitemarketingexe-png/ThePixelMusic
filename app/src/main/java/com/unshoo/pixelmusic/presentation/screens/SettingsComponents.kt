@@ -937,11 +937,11 @@ fun getSettingsCardBorder(): BorderStroke? {
     val colorScheme = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
     val isPitchBlack = colorScheme.background == Color.Black
-    val isGreyPalette = !isDark && colorScheme.surfaceVariant == Color(0xFFE5E5EA)
+    val isGreyPalette = !isDark && (colorScheme.primary == Color(0xFF191C1E) || colorScheme.surfaceVariant == Color(0xFFDFE2E8) || colorScheme.surfaceVariant == Color(0xFFE5E5EA))
 
     return when {
         isPitchBlack -> BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.25f))
-        isGreyPalette -> BorderStroke(1.dp, colorScheme.outline.copy(alpha = 0.2f))
+        isGreyPalette -> BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f))
         else -> null
     }
 }
