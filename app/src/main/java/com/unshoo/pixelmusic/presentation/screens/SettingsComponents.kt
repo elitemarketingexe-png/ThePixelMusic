@@ -45,10 +45,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.Dp
+import com.unshoo.pixelmusic.presentation.model.ThemePreset
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -1101,25 +1107,32 @@ fun AppIconStyleItem(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Selected Value Badge: Shows name and mini preview
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        shape = CircleShape,
+                    // Selected Value Badge & Icon Preview matching Image 3
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.align(Alignment.Start)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            shape = CircleShape
                         ) {
                             Text(
                                 text = stringResource(selectedIcon.titleRes),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            shape = CircleShape,
+                            modifier = Modifier.size(28.dp)
+                        ) {
                             Box(
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Image(
@@ -1127,7 +1140,7 @@ fun AppIconStyleItem(
                                     contentDescription = null,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .scale(1.4f)
+                                        .scale(1.25f)
                                 )
                             }
                         }
@@ -1164,6 +1177,253 @@ fun AppIconStyleItem(
                             useSmoothCorners = useSmoothCorners,
                             onClick = {
                                 onIconSelected(icon)
+                                showSheet = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PaletteColorDots(
+    colors: List<Color>,
+    modifier: Modifier = Modifier,
+    dotSize: Dp = 20.dp,
+    overlap: Dp = 6.dp,
+    borderColor: Color = MaterialTheme.colorScheme.surfaceContainer
+) {
+    val totalWidth = if (colors.isEmpty()) 0.dp else dotSize + (dotSize - overlap) * (colors.size - 1)
+    Box(
+        modifier = modifier
+            .width(totalWidth)
+            .height(dotSize),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        colors.forEachIndexed { index, color ->
+            Box(
+                modifier = Modifier
+                    .offset(x = (dotSize - overlap) * index)
+                    .size(dotSize)
+                    .background(borderColor, CircleShape)
+                    .padding(1.5.dp)
+                    .background(color, CircleShape)
+            )
+        }
+    }
+}
+
+@Composable
+fun ThemePresetItem(
+    preset: ThemePreset,
+    isSelected: Boolean,
+    useSmoothCorners: Boolean = false,
+    onClick: () -> Unit
+) {
+    val view = LocalView.current
+    val hapticsConfig = LocalAppHapticsConfig.current
+    val context = LocalContext.current
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val colors = remember(preset, isDark) { preset.getColors(isDark, context) }
+
+    val shape = remember(useSmoothCorners) {
+        if (useSmoothCorners) AbsoluteSmoothCornerShape(20.dp, 60) else RoundedCornerShape(20.dp)
+    }
+
+    val animatedContainerColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "preset_card_container"
+    )
+
+    val titleColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    val descColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Surface(
+        onClick = {
+            performAppCompatHapticFeedback(
+                view,
+                hapticsConfig,
+                HapticFeedbackConstantsCompat.CLOCK_TICK
+            )
+            onClick()
+        },
+        color = animatedContainerColor,
+        shape = shape,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = stringResource(preset.titleRes),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    color = titleColor
+                )
+                Text(
+                    text = stringResource(preset.descriptionRes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = descColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            PaletteColorDots(
+                colors = colors,
+                dotSize = 20.dp,
+                overlap = 6.dp,
+                borderColor = animatedContainerColor
+            )
+
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                        scaleIn(spring(stiffness = Spring.StiffnessMediumLow)),
+                exit = fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
+                        scaleOut(spring(stiffness = Spring.StiffnessMediumLow))
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = stringResource(R.string.presentation_batch_f_cd_selected),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThemePresetSelectorItem(
+    selectedKey: String,
+    onPresetSelected: (String) -> Unit,
+    useSmoothCorners: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    var showSheet by remember { mutableStateOf(false) }
+    val cardShape = remember(useSmoothCorners) {
+        if (useSmoothCorners) AbsoluteSmoothCornerShape(10.dp, 60) else RoundedCornerShape(10.dp)
+    }
+    val currentPreset = ThemePreset.fromKey(selectedKey)
+    val context = LocalContext.current
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
+    Surface(
+        onClick = { showSheet = true },
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = getSettingsCardBorder(),
+        shape = cardShape,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(end = 16.dp)
+                        .size(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Palette,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.setcat_theme_preset_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.setcat_theme_preset_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            shape = CircleShape
+                        ) {
+                            Text(
+                                text = stringResource(currentPreset.titleRes),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                            )
+                        }
+
+                        PaletteColorDots(
+                            colors = currentPreset.getColors(isDark, context),
+                            dotSize = 18.dp,
+                            overlap = 5.dp,
+                            borderColor = MaterialTheme.colorScheme.surfaceContainer
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            sheetState = sheetState,
+            onDismissRequest = { showSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                Text(
+                    text = stringResource(R.string.setcat_theme_preset_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    fontWeight = FontWeight.Bold
+                )
+
+                LazyColumn(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(ThemePreset.ALL) { preset ->
+                        ThemePresetItem(
+                            preset = preset,
+                            isSelected = preset.key.equals(selectedKey, ignoreCase = true),
+                            useSmoothCorners = useSmoothCorners,
+                            onClick = {
+                                onPresetSelected(preset.key)
                                 showSheet = false
                             }
                         )

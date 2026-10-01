@@ -69,276 +69,392 @@ fun PixelMusicStatusBarStyle(
     }
 }
 
-// --- Sage Green / Mint Palette (Soothing) ---
-private val SageDarkBackground = Color(0xFF0D1210)
-private val SageDarkSurface = Color(0xFF151B18)
-private val SageDarkPrimary = Color(0xFF6EDBB1)
-private val SageDarkSecondary = Color(0xFF4E9A7E)
-private val SageDarkTertiary = Color(0xFF8AC7AC)
-private val SageDarkOnPrimary = Color(0xFF003824)
-private val SageDarkOnBackground = Color(0xFFE1E3DF)
-private val SageDarkOnSurface = Color(0xFFE1E3DF)
-private val SageDarkOnSurfaceVariant = Color(0xFFBFC9C2)
-
-private val SageLightBackground = Color(0xFFF3FAF6)
-private val SageLightSurface = Color(0xFFF7FCFA)
-private val SageLightPrimary = Color(0xFF1F6C50)
-private val SageLightOnPrimary = Color(0xFFFFFFFF)
-private val SageLightPrimaryContainer = Color(0xFFC4F2DB)
-private val SageLightOnPrimaryContainer = Color(0xFF002114)
-private val SageLightSecondary = Color(0xFF4C6357)
-private val SageLightSecondaryContainer = Color(0xFFCEE9DB)
-private val SageLightOnSecondaryContainer = Color(0xFF092016)
-private val SageLightTertiary = Color(0xFF3F6555)
-private val SageLightOnBackground = Color(0xFF191D1A)
-private val SageLightOnSurface = Color(0xFF191D1A)
-private val SageLightSurfaceVariant = Color(0xFFDCE5DE)
-private val SageLightOnSurfaceVariant = Color(0xFF404944)
-private val SageLightOutline = Color(0xFF707973)
-
+// --- Sage Green Palette (Inspired by Lime Green App Icon & Reference Image) ---
 val SageDarkColorScheme = darkColorScheme(
-    primary = SageDarkPrimary,
-    secondary = SageDarkSecondary,
-    tertiary = SageDarkTertiary,
-    background = SageDarkBackground,
-    surface = SageDarkSurface,
-    onPrimary = SageDarkOnPrimary,
-    onSecondary = SageDarkOnPrimary,
-    onTertiary = SageDarkOnPrimary,
-    onBackground = SageDarkOnBackground,
-    onSurface = SageDarkOnSurface,
-    onSurfaceVariant = SageDarkOnSurfaceVariant,
-    error = Color(0xFFFF5252),
-    onError = Color.White
+    primary = Color(0xFF7CDAA3),
+    onPrimary = Color(0xFF003820),
+    primaryContainer = Color(0xFF1B5035),
+    onPrimaryContainer = Color(0xFFB8F3CD),
+    secondary = Color(0xFFAFC9B8),
+    onSecondary = Color(0xFF1B3427),
+    secondaryContainer = Color(0xFF324B3D),
+    onSecondaryContainer = Color(0xFFCBE6D4),
+    tertiary = Color(0xFF8CD0DE),
+    onTertiary = Color(0xFF00363E),
+    tertiaryContainer = Color(0xFF194D56),
+    onTertiaryContainer = Color(0xFFB2E4EF),
+    background = Color(0xFF101512),
+    onBackground = Color(0xFFDEE3DF),
+    surface = Color(0xFF101512),
+    onSurface = Color(0xFFDEE3DF),
+    surfaceVariant = Color(0xFF3E4943),
+    onSurfaceVariant = Color(0xFFBFC9C2),
+    outline = Color(0xFF89938C),
+    outlineVariant = Color(0xFF3E4943),
+    surfaceTint = Color(0xFF7CDAA3),
+    inverseSurface = Color(0xFFDEE3DF),
+    inverseOnSurface = Color(0xFF181D1A),
+    inversePrimary = Color(0xFF23764F),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    surfaceBright = Color(0xFF353B37),
+    surfaceDim = Color(0xFF101512),
+    surfaceContainerLowest = Color(0xFF0A0F0C),
+    surfaceContainerLow = Color(0xFF161C19),
+    surfaceContainer = Color(0xFF1A201D),
+    surfaceContainerHigh = Color(0xFF252B27),
+    surfaceContainerHighest = Color(0xFF2F3632)
 )
 
 val SageLightColorScheme = lightColorScheme(
-    primary = SageLightPrimary,
-    onPrimary = SageLightOnPrimary,
-    primaryContainer = SageLightPrimaryContainer,
-    onPrimaryContainer = SageLightOnPrimaryContainer,
-    secondary = SageLightSecondary,
-    onSecondary = SageLightOnPrimary,
-    secondaryContainer = SageLightSecondaryContainer,
-    onSecondaryContainer = SageLightOnSecondaryContainer,
-    tertiary = SageLightTertiary,
-    onTertiary = PixelMusicBlack,
-    background = SageLightBackground,
-    onBackground = SageLightOnBackground,
-    surface = SageLightSurface,
-    onSurface = SageLightOnSurface,
-    surfaceVariant = SageLightSurfaceVariant,
-    onSurfaceVariant = SageLightOnSurfaceVariant,
-    outline = SageLightOutline,
-    outlineVariant = SageLightOutline.copy(alpha = 0.6f),
-    surfaceTint = SageLightPrimary,
-    error = Color(0xFFD32F2F),
-    onError = Color.White
+    primary = Color(0xFF23764F),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFB8F3CD),
+    onPrimaryContainer = Color(0xFF002112),
+    secondary = Color(0xFF4C6356),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFCEE7D6),
+    onSecondaryContainer = Color(0xFF092015),
+    tertiary = Color(0xFF33656E),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFBBE8F2),
+    onTertiaryContainer = Color(0xFF001F25),
+    background = Color(0xFFF6FAF7),
+    onBackground = Color(0xFF181D1A),
+    surface = Color(0xFFF6FAF7),
+    onSurface = Color(0xFF181D1A),
+    surfaceVariant = Color(0xFFDCE5DE),
+    onSurfaceVariant = Color(0xFF3E4943),
+    outline = Color(0xFF707974),
+    outlineVariant = Color(0xFFC0C9C2),
+    surfaceTint = Color(0xFF23764F),
+    inverseSurface = Color(0xFF2D322E),
+    inverseOnSurface = Color(0xFFEEF2ED),
+    inversePrimary = Color(0xFF7CDAA3),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFD6DBD6),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF0F5F1),
+    surfaceContainer = Color(0xFFEAF0EB),
+    surfaceContainerHigh = Color(0xFFE4EAE5),
+    surfaceContainerHighest = Color(0xFFDEE4DF)
 )
 
-// Standard default schemas mapped to Sage to make soothing green the out-of-the-box default
 val DarkColorScheme = SageDarkColorScheme
 val LightColorScheme = SageLightColorScheme
 
-// --- Classic Purple Palette ---
-private val PurpleDarkBackground = Color(0xFF0A0714)
-private val PurpleDarkSurface = Color(0xFF13101E)
-private val PurpleDarkPrimary = Color(0xFFB29BF4)
-private val PurpleDarkSecondary = Color(0xFFE57399)
-private val PurpleDarkTertiary = Color(0xFFD4B2F7)
-private val PurpleDarkOnPrimary = Color(0xFF280066)
-private val PurpleDarkOnBackground = Color(0xFFE7E3EC)
-private val PurpleDarkOnSurface = Color(0xFFE7E3EC)
-private val PurpleDarkOnSurfaceVariant = Color(0xFFC9C4D0)
-
-private val PurpleLightBackground = Color(0xFFF9F7FC)
-private val PurpleLightSurface = Color(0xFFFAF9FC)
-private val PurpleLightPrimary = Color(0xFF6C4FBB)
-private val PurpleLightOnPrimary = Color(0xFFFFFFFF)
-private val PurpleLightPrimaryContainer = Color(0xFFE9E3FB)
-private val PurpleLightOnPrimaryContainer = Color(0xFF1F005C)
-private val PurpleLightSecondary = Color(0xFF825272)
-private val PurpleLightSecondaryContainer = Color(0xFFFFD8EC)
-private val PurpleLightOnSecondaryContainer = Color(0xFF370B2C)
-private val PurpleLightTertiary = Color(0xFF705574)
-private val PurpleLightOnBackground = Color(0xFF1C1A22)
-private val PurpleLightOnSurface = Color(0xFF1C1A22)
-private val PurpleLightSurfaceVariant = Color(0xFFE7E0EC)
-private val PurpleLightOnSurfaceVariant = Color(0xFF49454F)
-private val PurpleLightOutline = Color(0xFF7A757F)
-
-val PurpleDarkColorScheme = darkColorScheme(
-    primary = PurpleDarkPrimary,
-    secondary = PurpleDarkSecondary,
-    tertiary = PurpleDarkTertiary,
-    background = PurpleDarkBackground,
-    surface = PurpleDarkSurface,
-    onPrimary = PurpleDarkOnPrimary,
-    onSecondary = PurpleDarkOnPrimary,
-    onTertiary = PurpleDarkOnPrimary,
-    onBackground = PurpleDarkOnBackground,
-    onSurface = PurpleDarkOnSurface,
-    onSurfaceVariant = PurpleDarkOnSurfaceVariant,
-    error = Color(0xFFFF5252),
-    onError = Color.White
-)
-
-val PurpleLightColorScheme = lightColorScheme(
-    primary = PurpleLightPrimary,
-    onPrimary = PurpleLightOnPrimary,
-    primaryContainer = PurpleLightPrimaryContainer,
-    onPrimaryContainer = PurpleLightOnPrimaryContainer,
-    secondary = PurpleLightSecondary,
-    onSecondary = PurpleLightOnPrimary,
-    secondaryContainer = PurpleLightSecondaryContainer,
-    onSecondaryContainer = PurpleLightOnSecondaryContainer,
-    tertiary = PurpleLightTertiary,
-    onTertiary = PixelMusicBlack,
-    background = PurpleLightBackground,
-    onBackground = PurpleLightOnBackground,
-    surface = PurpleLightSurface,
-    onSurface = PurpleLightOnSurface,
-    surfaceVariant = PurpleLightSurfaceVariant,
-    onSurfaceVariant = PurpleLightOnSurfaceVariant,
-    outline = PurpleLightOutline,
-    outlineVariant = PurpleLightOutline.copy(alpha = 0.6f),
-    surfaceTint = PurpleLightPrimary,
-    error = Color(0xFFD32F2F),
-    onError = Color.White
-)
-
-// --- Slate Blue Palette ---
-private val BlueDarkBackground = Color(0xFF0B0F14)
-private val BlueDarkSurface = Color(0xFF12171E)
-private val BlueDarkPrimary = Color(0xFF7DB0E6)
-private val BlueDarkSecondary = Color(0xFF5A84B0)
-private val BlueDarkTertiary = Color(0xFF8AB9E6)
-private val BlueDarkOnPrimary = Color(0xFF00315C)
-private val BlueDarkOnBackground = Color(0xFFE2E2E6)
-private val BlueDarkOnSurface = Color(0xFFE2E2E6)
-private val BlueDarkOnSurfaceVariant = Color(0xFFC2C7CF)
-
-private val BlueLightBackground = Color(0xFFF3F7FA)
-private val BlueLightSurface = Color(0xFFF7FAFC)
-private val BlueLightPrimary = Color(0xFF22588F)
-private val BlueLightOnPrimary = Color(0xFFFFFFFF)
-private val BlueLightPrimaryContainer = Color(0xFFC4DEF6)
-private val BlueLightOnPrimaryContainer = Color(0xFF001C3A)
-private val BlueLightSecondary = Color(0xFF436080)
-private val BlueLightSecondaryContainer = Color(0xFFC9E2FF)
-private val BlueLightOnSecondaryContainer = Color(0xFF001D38)
-private val BlueLightTertiary = Color(0xFF3E6080)
-private val BlueLightOnBackground = Color(0xFF191C1E)
-private val BlueLightOnSurface = Color(0xFF191C1E)
-private val BlueLightSurfaceVariant = Color(0xFFDFE2E7)
-private val BlueLightOnSurfaceVariant = Color(0xFF43474B)
-private val BlueLightOutline = Color(0xFF73777C)
-
-val BlueDarkColorScheme = darkColorScheme(
-    primary = BlueDarkPrimary,
-    secondary = BlueDarkSecondary,
-    tertiary = BlueDarkTertiary,
-    background = BlueDarkBackground,
-    surface = BlueDarkSurface,
-    onPrimary = BlueDarkOnPrimary,
-    onSecondary = BlueDarkOnPrimary,
-    onTertiary = BlueDarkOnPrimary,
-    onBackground = BlueDarkOnBackground,
-    onSurface = BlueDarkOnSurface,
-    onSurfaceVariant = BlueDarkOnSurfaceVariant,
-    error = Color(0xFFFF5252),
-    onError = Color.White
-)
-
-val BlueLightColorScheme = lightColorScheme(
-    primary = BlueLightPrimary,
-    onPrimary = BlueLightOnPrimary,
-    primaryContainer = BlueLightPrimaryContainer,
-    onPrimaryContainer = BlueLightOnPrimaryContainer,
-    secondary = BlueLightSecondary,
-    onSecondary = BlueLightOnPrimary,
-    secondaryContainer = BlueLightSecondaryContainer,
-    onSecondaryContainer = BlueLightOnSecondaryContainer,
-    tertiary = BlueLightTertiary,
-    onTertiary = PixelMusicBlack,
-    background = BlueLightBackground,
-    onBackground = BlueLightOnBackground,
-    surface = BlueLightSurface,
-    onSurface = BlueLightOnSurface,
-    surfaceVariant = BlueLightSurfaceVariant,
-    onSurfaceVariant = BlueLightOnSurfaceVariant,
-    outline = BlueLightOutline,
-    outlineVariant = BlueLightOutline.copy(alpha = 0.6f),
-    surfaceTint = BlueLightPrimary,
-    error = Color(0xFFD32F2F),
-    onError = Color.White
-)
-
-// --- Sunset Orange Palette ---
-private val OrangeDarkBackground = Color(0xFF120E0A)
-private val OrangeDarkSurface = Color(0xFF1A1510)
-private val OrangeDarkPrimary = Color(0xFFF5A873)
-private val OrangeDarkSecondary = Color(0xFFB37D56)
-private val OrangeDarkTertiary = Color(0xFFF7BE98)
-private val OrangeDarkOnPrimary = Color(0xFF4C1E00)
-private val OrangeDarkOnBackground = Color(0xFFECE1DB)
-private val OrangeDarkOnSurface = Color(0xFFECE1DB)
-private val OrangeDarkOnSurfaceVariant = Color(0xFFD7C4B7)
-
-private val OrangeLightBackground = Color(0xFFFAF6F2)
-private val OrangeLightSurface = Color(0xFFFCFAF7)
-private val OrangeLightPrimary = Color(0xFF8F4F20)
-private val OrangeLightOnPrimary = Color(0xFFFFFFFF)
-private val OrangeLightPrimaryContainer = Color(0xFFFADFC9)
-private val OrangeLightOnPrimaryContainer = Color(0xFF341100)
-private val OrangeLightSecondary = Color(0xFF7E5233)
-private val OrangeLightSecondaryContainer = Color(0xFFFFDBC6)
-private val OrangeLightOnSecondaryContainer = Color(0xFF301400)
-private val OrangeLightTertiary = Color(0xFF79563C)
-private val OrangeLightOnBackground = Color(0xFF221A15)
-private val OrangeLightOnSurface = Color(0xFF221A15)
-private val OrangeLightSurfaceVariant = Color(0xFFF4DFD0)
-private val OrangeLightOnSurfaceVariant = Color(0xFF52443C)
-private val OrangeLightOutline = Color(0xFF85736B)
-
+// --- Sunset Orange Palette (Inspired by Orange Yellow App Icon - Soothing Amber Terracotta) ---
 val OrangeDarkColorScheme = darkColorScheme(
-    primary = OrangeDarkPrimary,
-    secondary = OrangeDarkSecondary,
-    tertiary = OrangeDarkTertiary,
-    background = OrangeDarkBackground,
-    surface = OrangeDarkSurface,
-    onPrimary = OrangeDarkOnPrimary,
-    onSecondary = OrangeDarkOnPrimary,
-    onTertiary = OrangeDarkOnPrimary,
-    onBackground = OrangeDarkOnBackground,
-    onSurface = OrangeDarkOnSurface,
-    onSurfaceVariant = OrangeDarkOnSurfaceVariant,
-    error = Color(0xFFFF5252),
-    onError = Color.White
+    primary = Color(0xFFF2A77A),
+    onPrimary = Color(0xFF492208),
+    primaryContainer = Color(0xFF6F3612),
+    onPrimaryContainer = Color(0xFFFFD9C5),
+    secondary = Color(0xFFDAC0B2),
+    onSecondary = Color(0xFF3D2B21),
+    secondaryContainer = Color(0xFF544136),
+    onSecondaryContainer = Color(0xFFF7DCD0),
+    tertiary = Color(0xFFE3C38A),
+    onTertiary = Color(0xFF3C2E06),
+    tertiaryContainer = Color(0xFF53441B),
+    onTertiaryContainer = Color(0xFFF6DBA6),
+    background = Color(0xFF161210),
+    onBackground = Color(0xFFEFE0D9),
+    surface = Color(0xFF161210),
+    onSurface = Color(0xFFEFE0D9),
+    surfaceVariant = Color(0xFF4D443F),
+    onSurfaceVariant = Color(0xFFD1C3BC),
+    outline = Color(0xFF998D86),
+    outlineVariant = Color(0xFF4D443F),
+    surfaceTint = Color(0xFFF2A77A),
+    inverseSurface = Color(0xFFEFE0D9),
+    inverseOnSurface = Color(0xFF1F1A17),
+    inversePrimary = Color(0xFF914E22),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    surfaceBright = Color(0xFF3C3532),
+    surfaceDim = Color(0xFF161210),
+    surfaceContainerLowest = Color(0xFF100D0B),
+    surfaceContainerLow = Color(0xFF1C1715),
+    surfaceContainer = Color(0xFF211B19),
+    surfaceContainerHigh = Color(0xFF2B2523),
+    surfaceContainerHighest = Color(0xFF372F2D)
 )
 
 val OrangeLightColorScheme = lightColorScheme(
-    primary = OrangeLightPrimary,
-    onPrimary = OrangeLightOnPrimary,
-    primaryContainer = OrangeLightPrimaryContainer,
-    onPrimaryContainer = OrangeLightOnPrimaryContainer,
-    secondary = OrangeLightSecondary,
-    onSecondary = OrangeLightOnPrimary,
-    secondaryContainer = OrangeLightSecondaryContainer,
-    onSecondaryContainer = OrangeLightOnSecondaryContainer,
-    tertiary = OrangeLightTertiary,
-    onTertiary = PixelMusicBlack,
-    background = OrangeLightBackground,
-    onBackground = OrangeLightOnBackground,
-    surface = OrangeLightSurface,
-    onSurface = OrangeLightOnSurface,
-    surfaceVariant = OrangeLightSurfaceVariant,
-    onSurfaceVariant = OrangeLightOnSurfaceVariant,
-    outline = OrangeLightOutline,
-    outlineVariant = OrangeLightOutline.copy(alpha = 0.6f),
-    surfaceTint = OrangeLightPrimary,
-    error = Color(0xFFD32F2F),
-    onError = Color.White
+    primary = Color(0xFF914E22),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFFFD9C5),
+    onPrimaryContainer = Color(0xFF331302),
+    secondary = Color(0xFF6F584C),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFF7DCD0),
+    onSecondaryContainer = Color(0xFF27170E),
+    tertiary = Color(0xFF6C5A30),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFF6DBA6),
+    onTertiaryContainer = Color(0xFF241A00),
+    background = Color(0xFFFFF8F6),
+    onBackground = Color(0xFF211A17),
+    surface = Color(0xFFFFF8F6),
+    onSurface = Color(0xFF211A17),
+    surfaceVariant = Color(0xFFF2DFD6),
+    onSurfaceVariant = Color(0xFF4D443F),
+    outline = Color(0xFF81746E),
+    outlineVariant = Color(0xFFD1C3BC),
+    surfaceTint = Color(0xFF914E22),
+    inverseSurface = Color(0xFF362E2B),
+    inverseOnSurface = Color(0xFFFAEDE8),
+    inversePrimary = Color(0xFFF2A77A),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFE5DDD8),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFFF0EB),
+    surfaceContainer = Color(0xFFFAEAE4),
+    surfaceContainerHigh = Color(0xFFF4E4DE),
+    surfaceContainerHighest = Color(0xFFEEDFD8)
+)
+
+// --- Purple Pink Palette (Inspired by Baby Pink Purple App Icon - Soothing Orchid & Baby Pink) ---
+val PurpleDarkColorScheme = darkColorScheme(
+    primary = Color(0xFFD29FD7),
+    onPrimary = Color(0xFF3E1A43),
+    primaryContainer = Color(0xFF5E2E64),
+    onPrimaryContainer = Color(0xFFF7D2FB),
+    secondary = Color(0xFFCCBCCF),
+    onSecondary = Color(0xFF342636),
+    secondaryContainer = Color(0xFF4B3C4D),
+    onSecondaryContainer = Color(0xFFE8D8EB),
+    tertiary = Color(0xFFEDB1BF),
+    onTertiary = Color(0xFF451E28),
+    tertiaryContainer = Color(0xFF5E343E),
+    onTertiaryContainer = Color(0xFFFFD9E0),
+    background = Color(0xFF141015),
+    onBackground = Color(0xFFE7DFE6),
+    surface = Color(0xFF141015),
+    onSurface = Color(0xFFE7DFE6),
+    surfaceVariant = Color(0xFF4A424B),
+    onSurfaceVariant = Color(0xFFCCC2CD),
+    outline = Color(0xFF968C97),
+    outlineVariant = Color(0xFF4A424B),
+    surfaceTint = Color(0xFFD29FD7),
+    inverseSurface = Color(0xFFE7DFE6),
+    inverseOnSurface = Color(0xFF1D181D),
+    inversePrimary = Color(0xFF7F4B88),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    surfaceBright = Color(0xFF3B353B),
+    surfaceDim = Color(0xFF141015),
+    surfaceContainerLowest = Color(0xFF0F0B10),
+    surfaceContainerLow = Color(0xFF1A151B),
+    surfaceContainer = Color(0xFF1E1920),
+    surfaceContainerHigh = Color(0xFF29232A),
+    surfaceContainerHighest = Color(0xFF342D36)
+)
+
+val PurpleLightColorScheme = lightColorScheme(
+    primary = Color(0xFF7F4B88),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFF7D2FB),
+    onPrimaryContainer = Color(0xFF2C0734),
+    secondary = Color(0xFF655467),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFE8D8EB),
+    onSecondaryContainer = Color(0xFF211323),
+    tertiary = Color(0xFF784954),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFFFD9E0),
+    onTertiaryContainer = Color(0xFF2E0A14),
+    background = Color(0xFFFCF7FC),
+    onBackground = Color(0xFF1E181E),
+    surface = Color(0xFFFCF7FC),
+    onSurface = Color(0xFF1E181E),
+    surfaceVariant = Color(0xFFEAE0EB),
+    onSurfaceVariant = Color(0xFF4A424B),
+    outline = Color(0xFF7C727D),
+    outlineVariant = Color(0xFFCCC2CD),
+    surfaceTint = Color(0xFF7F4B88),
+    inverseSurface = Color(0xFF332D33),
+    inverseOnSurface = Color(0xFFF7EFF7),
+    inversePrimary = Color(0xFFD29FD7),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFE0D7E0),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF7EFF7),
+    surfaceContainer = Color(0xFFF1E9F2),
+    surfaceContainerHigh = Color(0xFFECE3ED),
+    surfaceContainerHighest = Color(0xFFE6DDE7)
+)
+
+// --- Ocean Blue Palette (Inspired by Blue Purple App Icon - Soothing Ocean & Periwinkle) ---
+val BlueDarkColorScheme = darkColorScheme(
+    primary = Color(0xFF89BDEE),
+    onPrimary = Color(0xFF003050),
+    primaryContainer = Color(0xFF154B78),
+    onPrimaryContainer = Color(0xFFC9E2FF),
+    secondary = Color(0xFFB1C4D7),
+    onSecondary = Color(0xFF1B2F40),
+    secondaryContainer = Color(0xFF324657),
+    onSecondaryContainer = Color(0xFFCEE0F4),
+    tertiary = Color(0xFFC4B6E6),
+    onTertiary = Color(0xFF282143),
+    tertiaryContainer = Color(0xFF3E375A),
+    onTertiaryContainer = Color(0xFFE2D9FF),
+    background = Color(0xFF0E1317),
+    onBackground = Color(0xFFDDE2E8),
+    surface = Color(0xFF0E1317),
+    onSurface = Color(0xFFDDE2E8),
+    surfaceVariant = Color(0xFF3F464D),
+    onSurfaceVariant = Color(0xFFBFC6CE),
+    outline = Color(0xFF8A9198),
+    outlineVariant = Color(0xFF3F464D),
+    surfaceTint = Color(0xFF89BDEE),
+    inverseSurface = Color(0xFFDDE2E8),
+    inverseOnSurface = Color(0xFF171C20),
+    inversePrimary = Color(0xFF1E649B),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    surfaceBright = Color(0xFF34393E),
+    surfaceDim = Color(0xFF0E1317),
+    surfaceContainerLowest = Color(0xFF090E11),
+    surfaceContainerLow = Color(0xFF141A1F),
+    surfaceContainer = Color(0xFF181F24),
+    surfaceContainerHigh = Color(0xFF23292F),
+    surfaceContainerHighest = Color(0xFF2D343A)
+)
+
+val BlueLightColorScheme = lightColorScheme(
+    primary = Color(0xFF1E649B),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFC9E2FF),
+    onPrimaryContainer = Color(0xFF001C34),
+    secondary = Color(0xFF4A5F71),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFCEE0F4),
+    onSecondaryContainer = Color(0xFF061C2C),
+    tertiary = Color(0xFF564F73),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFE2D9FF),
+    onTertiaryContainer = Color(0xFF140D2D),
+    background = Color(0xFFF7F9FC),
+    onBackground = Color(0xFF171C20),
+    surface = Color(0xFFF7F9FC),
+    onSurface = Color(0xFF171C20),
+    surfaceVariant = Color(0xFFDBE2EA),
+    onSurfaceVariant = Color(0xFF3F464D),
+    outline = Color(0xFF70777F),
+    outlineVariant = Color(0xFFBFC6CE),
+    surfaceTint = Color(0xFF1E649B),
+    inverseSurface = Color(0xFF2C3135),
+    inverseOnSurface = Color(0xFFEEF1F6),
+    inversePrimary = Color(0xFF89BDEE),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFD6DADF),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF0F4F8),
+    surfaceContainer = Color(0xFFEAEEF3),
+    surfaceContainerHigh = Color(0xFFE4E9EE),
+    surfaceContainerHighest = Color(0xFFDEE3E8)
+)
+
+// --- Sunny Yellow Palette (Inspired by Lime Lemon Yellow App Icon - Soothing Warm Gold) ---
+val YellowDarkColorScheme = darkColorScheme(
+    primary = Color(0xFFDCBC4E),
+    onPrimary = Color(0xFF372D00),
+    primaryContainer = Color(0xFF574600),
+    onPrimaryContainer = Color(0xFFFADE78),
+    secondary = Color(0xFFCBBFA4),
+    onSecondary = Color(0xFF332B16),
+    secondaryContainer = Color(0xFF4A422B),
+    onSecondaryContainer = Color(0xFFE8DCBF),
+    tertiary = Color(0xFFA1D1AA),
+    onTertiary = Color(0xFF0C351B),
+    tertiaryContainer = Color(0xFF254C30),
+    onTertiaryContainer = Color(0xFFBAE5C2),
+    background = Color(0xFF14120C),
+    onBackground = Color(0xFFE6E2D8),
+    surface = Color(0xFF14120C),
+    onSurface = Color(0xFFE6E2D8),
+    surfaceVariant = Color(0xFF48453B),
+    onSurfaceVariant = Color(0xFFC9C5B7),
+    outline = Color(0xFF939082),
+    outlineVariant = Color(0xFF48453B),
+    surfaceTint = Color(0xFFDCBC4E),
+    inverseSurface = Color(0xFFE6E2D8),
+    inverseOnSurface = Color(0xFF1D1B13),
+    inversePrimary = Color(0xFF6E5A04),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    surfaceBright = Color(0xFF3A3831),
+    surfaceDim = Color(0xFF14120C),
+    surfaceContainerLowest = Color(0xFF0F0D07),
+    surfaceContainerLow = Color(0xFF1B1912),
+    surfaceContainer = Color(0xFF1F1C16),
+    surfaceContainerHigh = Color(0xFF2A2720),
+    surfaceContainerHighest = Color(0xFF35322A)
+)
+
+val YellowLightColorScheme = lightColorScheme(
+    primary = Color(0xFF6E5A04),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFFADE78),
+    onPrimaryContainer = Color(0xFF201900),
+    secondary = Color(0xFF635A43),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFE8DCBF),
+    onSecondaryContainer = Color(0xFF1F1805),
+    tertiary = Color(0xFF3B6445),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFBAE5C2),
+    onTertiaryContainer = Color(0xFF00210B),
+    background = Color(0xFFFCF9F0),
+    onBackground = Color(0xFF1D1B13),
+    surface = Color(0xFFFCF9F0),
+    onSurface = Color(0xFF1D1B13),
+    surfaceVariant = Color(0xFFE7E2D3),
+    onSurfaceVariant = Color(0xFF48453B),
+    outline = Color(0xFF7A7669),
+    outlineVariant = Color(0xFFC9C5B7),
+    surfaceTint = Color(0xFF6E5A04),
+    inverseSurface = Color(0xFF323027),
+    inverseOnSurface = Color(0xFFF6F0E4),
+    inversePrimary = Color(0xFFDCBC4E),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFDFDACF),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF6F3EA),
+    surfaceContainer = Color(0xFFF0EDE4),
+    surfaceContainerHigh = Color(0xFFEAE7DF),
+    surfaceContainerHighest = Color(0xFFE4E1D9)
 )
 
 // --- Dark & Grey Palette (Official Material 3 Monochrome/Neutral) ---
@@ -466,6 +582,7 @@ fun getStaticColorScheme(palette: String, darkTheme: Boolean): androidx.compose.
             "PURPLE" -> PurpleDarkColorScheme
             "BLUE" -> BlueDarkColorScheme
             "ORANGE" -> OrangeDarkColorScheme
+            "YELLOW" -> YellowDarkColorScheme
             "GREY" -> GreyDarkColorScheme
             else -> SageDarkColorScheme
         }
@@ -474,6 +591,7 @@ fun getStaticColorScheme(palette: String, darkTheme: Boolean): androidx.compose.
             "PURPLE" -> PurpleLightColorScheme
             "BLUE" -> BlueLightColorScheme
             "ORANGE" -> OrangeLightColorScheme
+            "YELLOW" -> YellowLightColorScheme
             "GREY" -> GreyLightColorScheme
             else -> SageLightColorScheme
         }
@@ -517,7 +635,7 @@ fun PixelMusicTheme(
             colorSchemePairOverride != null -> {
                 if (darkTheme) colorSchemePairOverride.dark else colorSchemePairOverride.light
             }
-            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            colorPalette == "DYNAMIC" && dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
                 try {
                     if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
                 } catch (e: Exception) {

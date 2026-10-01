@@ -845,20 +845,10 @@ fun SettingsCategoryScreen(
                                     },
                                     useSmoothCorners = useSmoothCorners
                                 )
-                                ThemeSelectorItem(
-                                    label = stringResource(R.string.setcat_app_color_palette_label),
-                                    description = stringResource(R.string.setcat_app_color_palette_desc),
-                                    options = mapOf(
-                                        "DYNAMIC" to stringResource(R.string.setcat_color_palette_dynamic),
-                                        "SAGE" to stringResource(R.string.setcat_color_palette_sage),
-                                        "PURPLE" to stringResource(R.string.setcat_color_palette_purple),
-                                        "BLUE" to stringResource(R.string.setcat_color_palette_blue),
-                                        "ORANGE" to stringResource(R.string.setcat_color_palette_orange),
-                                        "GREY" to stringResource(R.string.setcat_color_palette_grey)
-                                    ),
+                                ThemePresetSelectorItem(
                                     selectedKey = uiState.colorPalette,
-                                    onSelectionChanged = { settingsViewModel.setColorPalette(it) },
-                                    leadingIcon = { Icon(Icons.Outlined.Palette, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    onPresetSelected = settingsViewModel::setColorPalette,
+                                    useSmoothCorners = useSmoothCorners
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.setcat_smooth_corners_title),
