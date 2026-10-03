@@ -14,6 +14,7 @@ import org.json.JSONObject
 import timber.log.Timber
 import java.text.Normalizer
 import java.util.Locale
+import com.unshoo.pixelmusic.utils.trimTo
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
@@ -116,6 +117,8 @@ object QobuzAudioProvider {
     )
 
     private data class CachedStream(val stream: DirectStream, val expiresAt: Long)
+
+    private const val MAX_CACHE_ENTRIES = 256
 
     private val searchCache = ConcurrentHashMap<String, CachedSearch>()
     private val streamCache = ConcurrentHashMap<String, CachedStream>()
@@ -372,10 +375,12 @@ object QobuzAudioProvider {
                     matchedDurationMs = match.durationMs,
                 )
             streamCache[cacheKey] = CachedStream(stream, now + STREAM_CACHE_MS)
+            streamCache.trimTo(MAX_CACHE_ENTRIES) { it.expiresAt }
             Timber.tag("Qobuz").i("resolved \"%s\" via %s [%s]", query.title, backend.label, stream.label)
             return stream
         }
         failureCache[cacheKey] = now + FAILURE_CACHE_MS
+        failureCache.trimTo(MAX_CACHE_ENTRIES) { it }
         return null
     }
 
@@ -522,6 +527,7 @@ object QobuzAudioProvider {
                 .ifBlank { query.title }
         val match = bestMatch(backend, searchQuery, query)
         searchCache[key] = CachedSearch(match, now + SEARCH_CACHE_MS)
+        searchCache.trimTo(MAX_CACHE_ENTRIES) { it.expiresAt }
         return match
     }
 

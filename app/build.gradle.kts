@@ -150,7 +150,6 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["adMobAppId"] = "ca-app-pub-3940256099942544~3347511713" // Standard Google Test App ID
         }
 
         release {
@@ -170,14 +169,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            manifestPlaceholders["adMobAppId"] = "ca-app-pub-6235250458880294~7929621161" // Production App ID
         }
 
         create("benchmark") {
             initWith(getByName("release"))
             matchingFallbacks += listOf("release")
             isDebuggable = false
-            manifestPlaceholders["adMobAppId"] = "ca-app-pub-6235250458880294~7929621161" // Production App ID
         }
     }
 
@@ -310,7 +307,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.appcompat)
     implementation("androidx.webkit:webkit:1.16.0")
-    implementation("com.google.android.gms:play-services-ads:23.0.0")
 
     // DI & Navigation
     implementation(libs.hilt.android)

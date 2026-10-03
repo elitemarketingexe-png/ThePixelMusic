@@ -220,6 +220,9 @@ object AudioMetaUtils {
         filePath: String? = null,
     ): String? {
         val pathLower = filePath?.lowercase(Locale.ROOT).orEmpty()
+        // A codec that is lossy beyond doubt can never be Hi-Res / Lossless, whatever tag or
+        // sample rate a caller (or stale state) hands us. See PlaybackStreamReconciler.
+        val isDefinitelyLossy = AudioFamily.of(mimeType).isDefinitelyLossy
         val isFlacOrLossless = mimeType?.contains("flac", true) == true ||
                 mimeType?.contains("alac", true) == true ||
                 mimeType?.contains("wav", true) == true ||
@@ -228,7 +231,8 @@ object AudioMetaUtils {
                 pathLower.endsWith(".wav") ||
                 pathLower.endsWith(".aiff")
 
-        val isHiRes = formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24
+        val isHiRes = !isDefinitelyLossy &&
+            (formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24)
 
         if (isHiRes) {
             val codec = mimeTypeToFormat(mimeType)
@@ -237,7 +241,7 @@ object AudioMetaUtils {
             return if (codec != null && codec != "FLAC") "HI-RES LOSSLESS • $codec" else "HI-RES LOSSLESS"
         }
 
-        if (formatTag == "LOSSLESS" || isFlacOrLossless) {
+        if (!isDefinitelyLossy && (formatTag == "LOSSLESS" || isFlacOrLossless)) {
             val codec = mimeTypeToFormat(mimeType)
                 .takeIf { it != "-" }
                 ?.uppercase(Locale.getDefault())
@@ -289,14 +293,21 @@ object AudioMetaUtils {
         sampleRate: Int? = null,
         bitDepth: Int? = null,
     ): String {
-        if (formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24) {
+        val isDefinitelyLossy = AudioFamily.of(mimeType).isDefinitelyLossy
+        // Drop lossless tags that contradict a lossy codec instead of echoing them onto the card.
+        val tag = formatTag?.takeUnless {
+            isDefinitelyLossy && (it == "HI-RES LOSSLESS" || it == "LOSSLESS")
+        }
+        if (!isDefinitelyLossy &&
+            (tag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24)
+        ) {
             return "HI-RES LOSSLESS"
         }
-        if (formatTag == "LOSSLESS") {
+        if (tag == "LOSSLESS") {
             return "LOSSLESS"
         }
-        if (!formatTag.isNullOrBlank() && !formatTag.equals("null", true) && formatTag != "-") {
-            val upper = formatTag.uppercase(Locale.getDefault())
+        if (!tag.isNullOrBlank() && !tag.equals("null", true) && tag != "-") {
+            val upper = tag.uppercase(Locale.getDefault())
             return if (upper == "WEBM") "OPUS" else upper
         }
 

@@ -23,6 +23,13 @@ interface LocalPlaylistDataSource {
     @Query("SELECT * FROM playlists")
     suspend fun getAll(): List<Playlist>
 
+    /**
+     * Playlist rows only. [getAll] is a @Transaction + @Relation junction that hydrates every song of
+     * every playlist; use this when only the playlist metadata is needed.
+     */
+    @Query("SELECT * FROM playlists")
+    suspend fun getAllInfo(): List<PlaylistInfo>
+
     @Transaction
     @Query("SELECT * FROM playlists")
     fun observeAll(): Flow<List<Playlist>>

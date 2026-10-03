@@ -1850,7 +1850,6 @@ constructor(
             val settings = youtubeDatastoreRepository.settings.first()
             val appDatabase = com.unshoo.pixelmusic.data.database.youtube.AppDatabase.getInstance(applicationContext)
             val isMobile = isMobileNetwork(applicationContext)
-            val localPlaylistsExist = appDatabase.playlistRepository().getAll().isNotEmpty()
 
             // 1. Fetch remote user-created playlists (true delta sync)
             var remotePlaylistsSuccess = false
@@ -1860,14 +1859,15 @@ constructor(
                 val remotePlaylists = rawPlaylists.filter { YouTubeItemFilter.isMusicPlaylist(it.title, it.id) }
 
                 val remoteIds = remotePlaylists.map { it.id }.toSet()
-                val existingPlaylists = appDatabase.playlistRepository().getAll()
+                // Metadata only: the cleanup below never touches playlist songs.
+                val existingPlaylists = appDatabase.playlistRepository().getAllInfo()
 
                 // Clean up any deleted YouTube playlists locally
                 existingPlaylists.forEach { existing ->
-                    val cleanId = existing.info.id.removePrefix("VL")
-                    if (existing.info.id !in remoteIds && cleanId !in remoteIds && !existing.info.id.startsWith("LM") && !existing.info.isDownloadedPlaylist) {
-                        Log.i(TAG, "SyncWorker: Removing deleted remote playlist '${existing.info.title}' (${existing.info.id})")
-                        persistenceManager.deletePlaylist(existing.info.id)
+                    val cleanId = existing.id.removePrefix("VL")
+                    if (existing.id !in remoteIds && cleanId !in remoteIds && !existing.id.startsWith("LM") && !existing.isDownloadedPlaylist) {
+                        Log.i(TAG, "SyncWorker: Removing deleted remote playlist '${existing.title}' (${existing.id})")
+                        persistenceManager.deletePlaylist(existing.id)
                         youtubePlaylistContentChanged = true
                     }
                 }
@@ -1963,15 +1963,18 @@ constructor(
                 .mapNotNull { it.toLongOrNull() }
                 .toSet()
 
-            val youtubePlaylists = appDatabase.playlistRepository().getAll()
-            val downloadedSongs = appDatabase.songRepository().getDownloadedSongs()
-
             val existingUnifiedYoutubeIds = musicDao.getAllYoutubeSongIds()
 
+            // Checked before the heavy loads below: when nothing changed (the common case) the old
+            // order still hydrated every playlist with all of its songs plus every downloaded song,
+            // only to return on the next line.
             if (!youtubePlaylistContentChanged && existingUnifiedYoutubeIds.isNotEmpty()) {
                 Log.d(TAG, "YouTube playlists unchanged; skipping heavy unified YouTube remap.")
                 return
             }
+
+            val youtubePlaylists = appDatabase.playlistRepository().getAll()
+            val downloadedSongs = appDatabase.songRepository().getDownloadedSongs()
 
             if (youtubePlaylists.isEmpty() && downloadedSongs.isEmpty() && remoteLikedSongsList.isEmpty()) {
                 if (existingUnifiedYoutubeIds.isNotEmpty()) {

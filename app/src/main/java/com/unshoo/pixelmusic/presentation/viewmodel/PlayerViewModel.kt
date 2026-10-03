@@ -226,28 +226,6 @@ private data class QueueTimelineSignature(
     val lastMediaId: String?
 )
 
-data class PlaybackAudioMetadata(
-    val mediaId: String? = null,
-    val mimeType: String? = null,
-    val bitrate: Int? = null,
-    val sampleRate: Int? = null,
-    val channelCount: Int? = null,
-    val bitDepth: Int? = null,
-    val formatTag: String? = null,
-    val sourceName: String? = null,
-) {
-    val isLossless: Boolean
-        get() = formatTag == "LOSSLESS" || formatTag == "HI-RES LOSSLESS" ||
-            mimeType?.contains("flac", ignoreCase = true) == true ||
-            mimeType?.contains("alac", ignoreCase = true) == true ||
-            mimeType?.contains("wav", ignoreCase = true) == true
-
-    val isHiRes: Boolean
-        get() = formatTag == "HI-RES LOSSLESS" ||
-            (sampleRate ?: 0) > 48000 ||
-            (bitDepth ?: 0) >= 24
-}
-
 private data class SortOptionsSnapshot(
     val songSort: SortOption,
     val albumSort: SortOption,
@@ -1787,6 +1765,23 @@ class PlayerViewModel @Inject constructor(
 
     private val _playbackAudioMetadata = MutableStateFlow(PlaybackAudioMetadata())
     val playbackAudioMetadata: StateFlow<PlaybackAudioMetadata> = _playbackAudioMetadata.asStateFlow()
+
+    init {
+        // The resolver publishes (and later back-fills the measured bitrate of) streams it OFFERS.
+        // Re-reconcile when that concerns the current track so the enrichment lands as soon as it
+        // exists. Reconciliation only enriches a format the player has confirmed, so an offer that
+        // arrives before the player switches streams changes nothing the user sees.
+        viewModelScope.launch {
+            com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.lastResolved.collect { offered ->
+                if (offered == null || isRemoteSessionControllingPlayback()) return@collect
+                val controller = mediaController ?: return@collect
+                val currentId = controller.currentMediaItem?.mediaId?.removePrefix("youtube_") ?: return@collect
+                if (currentId == offered.mediaId.removePrefix("youtube_")) {
+                    refreshPlaybackAudioMetadata(controller)
+                }
+            }
+        }
+    }
 
     val favoriteSongIds: StateFlow<Set<String>> = musicRepository
         .getFavoriteSongIdsFlow()
@@ -4914,20 +4909,10 @@ class PlayerViewModel @Inject constructor(
             .resultFor(cleanMediaId)
             ?: com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.resultFor(mediaId)
         if (losslessResult != null) {
-            val tag = when {
-                losslessResult.isHiRes -> "HI-RES LOSSLESS"
-                losslessResult.isLossless -> "LOSSLESS"
-                else -> null
-            }
-            _playbackAudioMetadata.value = PlaybackAudioMetadata(
-                mediaId = mediaId,
-                mimeType = losslessResult.mimeType,
-                bitrate = losslessResult.bitrate.takeIf { it > 0 },
-                sampleRate = losslessResult.sampleRate,
-                bitDepth = losslessResult.bitDepth,
-                formatTag = tag,
-                sourceName = losslessResult.source.name
-            )
+            // A lossless stream is on offer, but offered is not playing: the player may still be
+            // on an older stream. Claim nothing until the player's own selected format confirms
+            // it (refreshPlaybackAudioMetadata); the chip stays hidden until then.
+            _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId)
             return
         }
 
@@ -5032,6 +5017,17 @@ class PlayerViewModel @Inject constructor(
         _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId)
     }
 
+    private fun com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.Result.toOfferedStream() =
+        OfferedStream(
+            // Include the codec token so e.g. audio/mp4 + alac is compared as ALAC, not AAC.
+            mimeType = if (codecs.isBlank()) mimeType else "$mimeType; codecs=\"$codecs\"",
+            bitrate = bitrate.takeIf { it > 0 },
+            sampleRate = sampleRate,
+            bitDepth = bitDepth,
+            sourceName = source.name,
+            labelSaysHiRes = isHiRes,
+        )
+
     private fun extractBitDepthFromPcmEncoding(pcmEncoding: Int): Int? {
         return when (pcmEncoding) {
             C.ENCODING_PCM_8BIT -> 8
@@ -5053,27 +5049,12 @@ class PlayerViewModel @Inject constructor(
 
             val cleanMediaId = mediaId.removePrefix("youtube_")
 
-            // 1. Lossless sources check
-            val losslessResult = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
+            // The resolver cache describes what was OFFERED for this track, not what is PLAYING.
+            // It may only enrich a format the player has confirmed (PlaybackStreamReconciler);
+            // it never asserts a lossless tag on its own.
+            val offered = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
                 .resultFor(cleanMediaId)
                 ?: com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.resultFor(mediaId)
-            if (losslessResult != null) {
-                val tag = when {
-                    losslessResult.isHiRes -> "HI-RES LOSSLESS"
-                    losslessResult.isLossless -> "LOSSLESS"
-                    else -> null
-                }
-                _playbackAudioMetadata.value = PlaybackAudioMetadata(
-                    mediaId = mediaId,
-                    mimeType = losslessResult.mimeType,
-                    bitrate = losslessResult.bitrate.takeIf { it > 0 },
-                    sampleRate = losslessResult.sampleRate,
-                    bitDepth = losslessResult.bitDepth,
-                    formatTag = tag,
-                    sourceName = losslessResult.source.name
-                )
-                return@runCatching
-            }
 
             // 2. Check playing URI directly
             val playingUri = player.currentMediaItem?.localConfiguration?.uri
@@ -5097,7 +5078,7 @@ class PlayerViewModel @Inject constructor(
                 return@runCatching
             }
 
-            // 3. Check selected audio format from ExoPlayer tracks
+            // 3. The audio format ExoPlayer reports as selected is the only ground truth.
             val selectedAudioFormat = tracks.groups
                 .asSequence()
                 .filter { it.type == C.TRACK_TYPE_AUDIO }
@@ -5109,48 +5090,30 @@ class PlayerViewModel @Inject constructor(
                 }
                 .firstOrNull()
 
-            val current = _playbackAudioMetadata.value.takeIf {
+            val previous = _playbackAudioMetadata.value.takeIf {
                 it.mediaId == mediaId ||
-                it.mediaId?.removePrefix("youtube_") == cleanMediaId
+                    it.mediaId?.removePrefix("youtube_") == cleanMediaId
             }
 
-            val selectedBitrate = selectedAudioFormat?.bitrate?.takeIf { it > 0 }
-            val rawMime = selectedAudioFormat?.sampleMimeType ?: selectedAudioFormat?.containerMimeType
-
-            // Reject bogus chunk / low bitrates (e.g. 30k..65k like 50k or 51k m4a)
-            val isBogusLow = selectedBitrate != null && selectedBitrate in 30_000..65_000
-            val isExoOpus = rawMime?.contains("opus", true) == true || rawMime?.contains("webm", true) == true
-            val isExoMp4 = rawMime?.contains("mp4", true) == true || rawMime?.contains("aac", true) == true
-
-            val resolvedMime = when {
-                isExoOpus -> "audio/webm; codecs=\"opus\""
-                isExoMp4 && !isBogusLow -> "audio/mp4; codecs=\"mp4a.40.2\""
-                else -> current?.mimeType ?: "audio/webm; codecs=\"opus\""
+            if (selectedAudioFormat == null) {
+                // Nothing confirmed yet (item still loading): keep the provisional state, and
+                // make sure it at least belongs to this item.
+                if (previous == null) preparePlaybackAudioMetadataForMedia(mediaId)
+                return@runCatching
             }
 
-            val isResolvedOpus = resolvedMime.contains("opus", true) || resolvedMime.contains("webm", true)
-
-            val resolvedBitrate = when {
-                isBogusLow -> if (isResolvedOpus) 160_000 else 128_000
-                selectedBitrate != null && selectedBitrate > 65_000 -> selectedBitrate
-                else -> current?.bitrate?.takeIf { it > 65_000 } ?: if (isResolvedOpus) 160_000 else 128_000
-            }
-
-            val resolvedSampleRate = when {
-                isResolvedOpus -> 48000
-                selectedAudioFormat?.sampleRate != null && (selectedAudioFormat.sampleRate ?: 0) > 0 -> selectedAudioFormat.sampleRate
-                else -> current?.sampleRate ?: 44100
-            }
-
-            val metadata = PlaybackAudioMetadata(
+            val metadata = PlaybackStreamReconciler.reconcile(
                 mediaId = mediaId,
-                mimeType = resolvedMime,
-                bitrate = resolvedBitrate,
-                sampleRate = resolvedSampleRate,
-                channelCount = selectedAudioFormat?.channelCount?.takeIf { it > 0 } ?: current?.channelCount,
-                bitDepth = selectedAudioFormat?.pcmEncoding?.let(::extractBitDepthFromPcmEncoding) ?: current?.bitDepth,
-                formatTag = current?.formatTag,
-                sourceName = current?.sourceName ?: "YouTube"
+                confirmed = ConfirmedAudioFormat(
+                    sampleMimeType = selectedAudioFormat.sampleMimeType,
+                    containerMimeType = selectedAudioFormat.containerMimeType,
+                    bitrate = selectedAudioFormat.bitrate.takeIf { it > 0 },
+                    sampleRate = selectedAudioFormat.sampleRate.takeIf { it > 0 },
+                    channelCount = selectedAudioFormat.channelCount.takeIf { it > 0 },
+                    bitDepth = extractBitDepthFromPcmEncoding(selectedAudioFormat.pcmEncoding),
+                ),
+                offered = offered?.toOfferedStream(),
+                previous = previous,
             )
 
             _playbackAudioMetadata.value = metadata
@@ -5170,30 +5133,13 @@ class PlayerViewModel @Inject constructor(
 
         val playingUriString = uri.toString()
 
-        // Lossless sources (ArchiveTune port): check first so lossless always takes precedence
+        // An offered lossless stream is enriched by PlaybackStreamReconciler once the player has
+        // confirmed it; nothing to probe here, and nothing to assert before confirmation.
         val cleanMediaId = mediaId.removePrefix("youtube_")
         val losslessResult = com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver
             .resultFor(cleanMediaId)
             ?: com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.resultFor(mediaId)
-        if (losslessResult != null) {
-            val tag = when {
-                losslessResult.isHiRes -> "HI-RES LOSSLESS"
-                losslessResult.isLossless -> "LOSSLESS"
-                else -> null
-            }
-            _playbackAudioMetadata.update { current ->
-                if (current.mediaId != mediaId && current.mediaId?.removePrefix("youtube_") != cleanMediaId) return@update current
-                current.copy(
-                    mimeType = losslessResult.mimeType,
-                    bitrate = losslessResult.bitrate.takeIf { it > 0 } ?: current.bitrate,
-                    sampleRate = losslessResult.sampleRate ?: current.sampleRate,
-                    bitDepth = losslessResult.bitDepth ?: current.bitDepth,
-                    formatTag = tag,
-                    sourceName = losslessResult.source.name
-                )
-            }
-            return
-        }
+        if (losslessResult != null) return
 
         val shouldProbe = metadata.mimeType.isNullOrBlank() || metadata.bitrate == null || metadata.sampleRate == null || (metadata.bitrate ?: 0) < 96_000
         if (!shouldProbe) return
@@ -5219,23 +5165,15 @@ class PlayerViewModel @Inject constructor(
                     }?.key
             }
             
-            // 3. Fallback: find any cache key starting with videoId
-            if (cacheKey == null) {
-                cacheKey = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamUrlLruCache.snapshot().keys
-                    .find { it.startsWith("${videoId}_") }
-            }
-
-            // Look up the cached bitrate (only accept > 65k)
-            var cachedBitrate = cacheKey?.let { com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get(it) }?.takeIf { it > 65_000 }
-            if (cachedBitrate == null) {
-                cachedBitrate = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get("${videoId}_high")?.takeIf { it > 65_000 }
-            }
-
-            // Look up the cached mime type
-            var cachedMime = cacheKey?.let { com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.get(it) }
-            if (cachedMime == null) {
-                cachedMime = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.get("${videoId}_high")
-            }
+            // Only trust a cache entry that provably belongs to the stream being played (exact URL
+            // or matching itag). The old "any entry for this videoId" and "_high" fallbacks
+            // reported the warmed upgrade candidate (see warmHigherQualityInBackground) as the
+            // playing stream while the player was still on the lower one.
+            var cachedBitrate = cacheKey
+                ?.let { com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get(it) }
+                ?.takeIf { it > 65_000 }
+            var cachedMime = cacheKey
+                ?.let { com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.get(it) }
 
             // Bulletproof fallback: Parse the itag parameter from the YouTube URL or detect JioSaavn quality if cache missed
             if (cachedBitrate == null || cachedMime == null) {
@@ -5278,6 +5216,15 @@ class PlayerViewModel @Inject constructor(
             
             _playbackAudioMetadata.update { current ->
                 if (current.mediaId != mediaId && current.mediaId?.removePrefix("youtube_") != cleanMediaId) return@update current
+                if (current.isConfirmed) {
+                    // The player's own format is authoritative: a URL-matched cache entry may only
+                    // fill in a bitrate the player could not report.
+                    return@update if (cachedBitrate != null && (current.bitrate ?: 0) <= 65_000) {
+                        current.copy(bitrate = cachedBitrate)
+                    } else {
+                        current
+                    }
+                }
                 val finalBitrate = if (cachedBitrate != null && cachedBitrate > 65_000) cachedBitrate else current.bitrate?.takeIf { it > 65_000 } ?: 160_000
                 current.copy(
                     bitrate = finalBitrate,
@@ -5285,7 +5232,7 @@ class PlayerViewModel @Inject constructor(
                     sourceName = if (playingUriString.contains("saavn")) "JioSaavn" else "YouTube"
                 )
             }
-            
+
             // Only return early if this is a remote streaming URL.
             // If it is a local file (e.g., downloaded), we want to fall through to the MediaMetadataRetriever probe below
             // so we can get the actual file metadata (sample rate, bit depth, precise bitrate, etc.).
@@ -5388,7 +5335,7 @@ class PlayerViewModel @Inject constructor(
                     mimeType = current.mimeType ?: probedMetadata.mimeType,
                     bitrate = current.bitrate ?: probedMetadata.bitrate,
                     sampleRate = current.sampleRate ?: probedMetadata.sampleRate,
-                    formatTag = current.formatTag ?: localTag
+                    formatTag = current.formatTag ?: localTag.takeIf { !current.isConfirmed }
                 )
             }
         }

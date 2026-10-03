@@ -17,6 +17,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
+import com.unshoo.pixelmusic.utils.trimTo
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -175,6 +176,8 @@ object DeezerAudioProvider {
     )
 
     private val sessions = ConcurrentHashMap<String, Session>()
+    private const val MAX_CACHE_ENTRIES = 256
+
     private val searchCache = ConcurrentHashMap<String, Pair<TrackMatching.Candidate?, Long>>()
     private val streamCache = ConcurrentHashMap<String, CachedStream>()
     private val failureCache = ConcurrentHashMap<String, Long>()
@@ -282,10 +285,12 @@ object DeezerAudioProvider {
                     bitDepth = if (media.flac) 16 else null,
                 )
             streamCache[cacheKey] = CachedStream(stream, System.currentTimeMillis() + STREAM_CACHE_MS)
+            streamCache.trimTo(MAX_CACHE_ENTRIES) { it.expiresAt }
             return stream
         }
 
         failureCache[cacheKey] = System.currentTimeMillis() + FAILURE_CACHE_MS
+        failureCache.trimTo(MAX_CACHE_ENTRIES) { it }
         return null
     }
 
@@ -384,6 +389,7 @@ object DeezerAudioProvider {
                     .getOrNull()
             if (exact != null) {
                 searchCache[key] = exact to (now + SEARCH_CACHE_MS)
+                searchCache.trimTo(MAX_CACHE_ENTRIES) { it.second }
                 return exact
             }
         }
@@ -423,6 +429,7 @@ object DeezerAudioProvider {
                 candidates = candidates,
             )
         searchCache[key] = best to (now + SEARCH_CACHE_MS)
+        searchCache.trimTo(MAX_CACHE_ENTRIES) { it.second }
         return best
     }
 

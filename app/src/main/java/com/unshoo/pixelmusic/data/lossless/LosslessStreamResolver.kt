@@ -97,6 +97,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
 import java.io.File
+import com.unshoo.pixelmusic.utils.trimTo
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -111,6 +112,13 @@ object LosslessStreamResolver {
     private const val URI_FRESHNESS_MS = 60 * 60 * 1000L
 
     private const val APPLE_CACHE_LIMIT_BYTES = 300L * 1024 * 1024
+
+    /**
+     * Cap for the per-track resolver maps. They used to grow by one entry per distinct track played
+     * for the life of the process. 256 is far above the queue look-ahead plus recent history, so
+     * only tracks that finished long ago are dropped (they simply re-resolve if replayed).
+     */
+    private const val MAX_RESOLVED_ENTRIES = 256
 
     /** What the player receives: a URI plus enough format info for caches, badges and ExoPlayer. */
     data class Result(
@@ -1041,6 +1049,7 @@ object LosslessStreamResolver {
         Timber.tag(TAG).i("Using %s stream for %s: %s", stream.source, mediaId, stream.label)
         directStreamCache[sourceCacheKey(stream.source, mediaId)] =
             CachedDirectStream(stream = stream, expiresAtMs = System.currentTimeMillis() + DIRECT_STREAM_CACHE_TTL_MS)
+        directStreamCache.trimTo(MAX_RESOLVED_ENTRIES) { it.expiresAtMs }
         return publish(mediaId, stream, fromCache = false)
     }
 
@@ -1083,6 +1092,9 @@ object LosslessStreamResolver {
             )
         resolvedByMediaId[mediaId] = result
         uriFreshness[stream.uri] = System.currentTimeMillis() + URI_FRESHNESS_MS
+        // Oldest-resolved first; uriFreshness expires in the same order, so the two stay consistent.
+        resolvedByMediaId.trimTo(MAX_RESOLVED_ENTRIES) { it.resolvedAtMs }
+        uriFreshness.trimTo(MAX_RESOLVED_ENTRIES) { it }
         _lastResolved.value = result
 
         // ArchiveTune back-fills the byte length with a HEAD request so the bitrate shown in the

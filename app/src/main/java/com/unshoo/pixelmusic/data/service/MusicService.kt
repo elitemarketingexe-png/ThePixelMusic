@@ -2835,18 +2835,39 @@ class MusicService : MediaLibraryService() {
             capturePlaybackSnapshotFromPlayer(playWhenReadyOverride)
         }
 
-    private fun capturePlaybackSnapshotFromPlayer(
-        playWhenReadyOverride: Boolean? = null
-    ): PlaybackQueueSnapshot? {
-        val player = engine.masterPlayer
-        val mediaItemCount = player.mediaItemCount
-        if (mediaItemCount <= 0) {
-            return null
+    // Reuse cache for [capturePlaybackSnapshotFromPlayer]. Main-thread only: every read of the
+    // player already has to happen on its application thread.
+    private var cachedSnapshotSources: List<MediaItem> = emptyList()
+    private var cachedSnapshotItems: List<PlaybackQueueItemSnapshot> = emptyList()
+
+    /**
+     * Per-item snapshot entries for the whole queue.
+     *
+     * The snapshot is persisted on every play/pause, state change and timeline event, but the queue
+     * itself almost never changes between those. Rebuilding it meant allocating an entry plus several
+     * strings for every song on the main thread each time (thousands of objects for a large queue).
+     * Entries are a pure function of each [MediaItem], and a replaced item is a new instance, so when
+     * every item is reference-identical to the last capture the previous entries are still exact.
+     * Any difference (added, removed, reordered or replaced item) falls through to a full rebuild.
+     */
+    private fun snapshotItemsFor(player: Player, mediaItemCount: Int): List<PlaybackQueueItemSnapshot> {
+        val cachedSources = cachedSnapshotSources
+        if (cachedSources.size == mediaItemCount) {
+            var unchanged = true
+            for (index in 0 until mediaItemCount) {
+                if (player.getMediaItemAt(index) !== cachedSources[index]) {
+                    unchanged = false
+                    break
+                }
+            }
+            if (unchanged) return cachedSnapshotItems
         }
 
-        val snapshotItems = ArrayList<PlaybackQueueItemSnapshot>(mediaItemCount)
+        val sources = ArrayList<MediaItem>(mediaItemCount)
+        val items = ArrayList<PlaybackQueueItemSnapshot>(mediaItemCount)
         for (index in 0 until mediaItemCount) {
             val mediaItem = player.getMediaItemAt(index)
+            sources.add(mediaItem)
             val metadata = mediaItem.mediaMetadata
             val rawContentUri = metadata.extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI)
             val localUri = mediaItem.localConfiguration?.uri?.toString()
@@ -2878,7 +2899,7 @@ class MusicService : MediaLibraryService() {
                 ?.getLong(MediaItemBuilder.EXTERNAL_EXTRA_DURATION)
                 ?.takeIf { it > 0L }
 
-            snapshotItems.add(
+            items.add(
                 PlaybackQueueItemSnapshot(
                     mediaId = mediaItem.mediaId,
                     uri = finalUri,
@@ -2890,6 +2911,24 @@ class MusicService : MediaLibraryService() {
                 )
             )
         }
+
+        cachedSnapshotSources = sources
+        cachedSnapshotItems = items
+        return items
+    }
+
+    private fun capturePlaybackSnapshotFromPlayer(
+        playWhenReadyOverride: Boolean? = null
+    ): PlaybackQueueSnapshot? {
+        val player = engine.masterPlayer
+        val mediaItemCount = player.mediaItemCount
+        if (mediaItemCount <= 0) {
+            cachedSnapshotSources = emptyList()
+            cachedSnapshotItems = emptyList()
+            return null
+        }
+
+        val snapshotItems = snapshotItemsFor(player, mediaItemCount)
 
         if (snapshotItems.isEmpty()) {
             return null

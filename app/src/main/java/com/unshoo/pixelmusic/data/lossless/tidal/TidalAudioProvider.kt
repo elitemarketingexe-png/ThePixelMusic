@@ -30,6 +30,7 @@ import java.time.format.DateTimeFormatter
 import java.io.File
 import java.io.OutputStream
 import java.util.Locale
+import com.unshoo.pixelmusic.utils.trimTo
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
@@ -555,6 +556,9 @@ object TidalAudioProvider {
             .callTimeout(6, TimeUnit.SECONDS)
             .build()
 
+    private const val MAX_SMALL_CACHE_ENTRIES = 256
+    private const val MAX_SEARCH_CACHE_ENTRIES = 64
+
     private val trackCache = ConcurrentHashMap<String, CachedTrack>()
     private val searchCache = ConcurrentHashMap<String, CachedSearch>()
     private val streamCache = ConcurrentHashMap<String, Resolved>()
@@ -688,6 +692,7 @@ object TidalAudioProvider {
                     streamCache[streamCacheKey] = resolved
                     if (directTrackId == null) {
                         trackCache[trackCacheKey] = CachedTrack(track, now + TRACK_CACHE_MS)
+                        trackCache.trimTo(MAX_SMALL_CACHE_ENTRIES) { it.expiresAtMs }
                     }
                     if (resolved.losslessDowngradedBitrateKbps == null) {
                         return resolved
@@ -747,6 +752,7 @@ object TidalAudioProvider {
                     expiresAtMs = expiresAtMs,
                 )
             }
+        streamFailureCache.trimTo(MAX_SMALL_CACHE_ENTRIES) { it.expiresAtMs }
     }
 
     private fun Throwable.streamFailureCacheDurationMs(): Long =
@@ -1014,6 +1020,8 @@ object TidalAudioProvider {
                 }
             }.getOrNull()?.let { results ->
                 searchCache[cacheKey] = CachedSearch(results, now + SEARCH_CACHE_MS)
+                // Holds whole JSON result arrays, the heaviest entries of the three provider caches.
+                searchCache.trimTo(MAX_SEARCH_CACHE_ENTRIES) { it.expiresAtMs }
                 return results
             }
         }

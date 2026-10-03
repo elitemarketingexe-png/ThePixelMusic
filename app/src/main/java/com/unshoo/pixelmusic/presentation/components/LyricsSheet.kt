@@ -1215,14 +1215,18 @@ fun SyncedLyricsList(
     footer: LazyListScope.() -> Unit = {}
 ) {
     val density = LocalDensity.current
-    val playbackPosition by playbackPositionFlow.collectAsStateWithLifecycle()
-    val position = remember(playbackPosition, lyricsSyncOffset, positionOverrideMs) {
-        positionOverrideMs ?: (playbackPosition + lyricsSyncOffset).coerceAtLeast(0L)
+    // Keep the position as a State and only read it inside derivedStateOf / the provider below.
+    // Reading it here (`by`) re-ran this whole composable, including every visible row, on every
+    // position tick, and keying derivedStateOf on the position re-created it each tick, so it
+    // never suppressed anything. Now this body only recomposes when the current line changes.
+    val playbackPositionState = playbackPositionFlow.collectAsStateWithLifecycle()
+    val positionProvider = remember(playbackPositionState, lyricsSyncOffset, positionOverrideMs) {
+        { positionOverrideMs ?: (playbackPositionState.value + lyricsSyncOffset).coerceAtLeast(0L) }
     }
     val isPreviewSeeking = positionOverrideMs != null
-    val currentLineIndex by remember(position, lines) {
+    val currentLineIndex by remember(lines, positionProvider) {
         derivedStateOf {
-            resolveCurrentLineIndex(lines = lines, position = position)
+            resolveCurrentLineIndex(lines = lines, position = positionProvider())
         }
     }
     var hasAlignedInitialLine by remember(lines) { mutableStateOf(false) }
@@ -1345,7 +1349,7 @@ fun SyncedLyricsList(
                         LyricLineRow(
                             line = line,
                             nextTime = nextTime,
-                            position = position,
+                            positionProvider = positionProvider,
                             distanceFromCurrent = distanceFromCurrent,
                             useAnimatedLyrics = useAnimatedLyrics,
                             animatedLyricsBlurEnabled = animatedLyricsBlurEnabled,
@@ -1398,7 +1402,7 @@ fun SyncedLyricsList(
 fun LyricLineRow(
     line: SyncedLine,
     nextTime: Int,
-    position: Long,
+    positionProvider: () -> Long,
     distanceFromCurrent: Int = 100,
     useAnimatedLyrics: Boolean = false,
     animatedLyricsBlurEnabled: Boolean = true,
@@ -1422,8 +1426,10 @@ fun LyricLineRow(
     val lineEndTime = remember(line, nextTime) {
         resolveLineEndTimeMs(line, nextTime)
     }
-    val isCurrentLine by remember(position, line.time, lineEndTime) {
-        derivedStateOf { position in line.time.toLong()..<lineEndTime }
+    // The provider reads the position State inside derivedStateOf, so this row only recomposes when
+    // it enters or leaves its own time window, not on every position tick.
+    val isCurrentLine by remember(positionProvider, line.time, lineEndTime) {
+        derivedStateOf { positionProvider() in line.time.toLong()..<lineEndTime }
     }
     val unhighlightedColor = LocalContentColor.current.copy(alpha = 0.45f)
     val lineColor by animateColorAsState(
@@ -1590,11 +1596,11 @@ fun LyricLineRow(
             }
         }
     } else {
-        val highlightedWordIndex by remember(position, sanitizedWords, line.time, lineEndTime) {
+        val highlightedWordIndex by remember(positionProvider, sanitizedWords, line.time, lineEndTime) {
             derivedStateOf {
                 resolveHighlightedWordIndex(
                     words = requireNotNull(sanitizedWords),
-                    positionMs = position,
+                    positionMs = positionProvider(),
                     lineStartTimeMs = line.time.toLong(),
                     lineEndTimeMs = lineEndTime
                 )

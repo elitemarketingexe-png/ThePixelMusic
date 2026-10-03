@@ -234,15 +234,9 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
                 Timber.w(e, "Lossless sources start-up failed (non-fatal)")
             }
 
-            // Stage 3 (T+1000ms & Idle): Initialize AdManager and LastFM
+            // Stage 3 (T+1000ms & Idle): Initialize LastFM
             kotlinx.coroutines.delay(1000L)
             awaitMainThreadIdle()
-            try {
-                // Keep app open counter for support prompts, but do NOT initialize or preload ads on startup
-                com.unshoo.pixelmusic.data.ads.AdManager.incrementAppOpenCount(this@PixelMusicApplication)
-            } catch (e: Throwable) {
-                Timber.e(e, "Error incrementing app open count")
-            }
 
             val prefs = userPreferencesRepository.get()
             val savedApiKey = runCatching { prefs.lastfmApiKeyFlow.first() }.getOrDefault("")
