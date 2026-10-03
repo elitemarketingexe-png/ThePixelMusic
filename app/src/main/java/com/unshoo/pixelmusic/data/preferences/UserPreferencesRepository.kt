@@ -389,6 +389,7 @@ constructor(
         val FILTER_COVER_AND_LOFI = booleanPreferencesKey("filter_cover_and_lofi")
         val FILTER_KEYWORDS = stringPreferencesKey("filter_keywords")
         val DOWNLOAD_AUDIO_QUALITY = stringPreferencesKey("download_audio_quality")
+        val NOT_INTERESTED_SONG_IDS = stringSetPreferencesKey("not_interested_song_ids")
 
         // YouTube Granular Sync & Personalization Options
         val YOUTUBE_SYNC_PLAYLISTS_AND_LIKES = booleanPreferencesKey("youtube_sync_playlists_and_likes")
@@ -2575,6 +2576,23 @@ constructor(
 
     suspend fun resetFilterKeywordsToDefault() {
         setFilterKeywords(DEFAULT_FILTER_KEYWORDS)
+    }
+
+    val notInterestedSongIdsFlow: Flow<Set<String>> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] ?: emptySet()
+        }.distinctUntilChanged()
+
+    suspend fun setSongNotInterested(ids: Collection<String>, notInterested: Boolean) {
+        if (ids.isEmpty()) return
+        dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] ?: emptySet()
+            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] = if (notInterested) {
+                current + ids
+            } else {
+                current - ids.toSet()
+            }
+        }
     }
 
     val scrobbleDelayPercentFlow: Flow<Float> =

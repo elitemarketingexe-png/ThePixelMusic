@@ -490,13 +490,16 @@ class QuickPicksViewModel @Inject constructor(
         }
 
         val dislikedYtIds = runCatching { musicRepository.getDislikedYoutubeIds() }.getOrNull() ?: emptySet()
+        val notInterestedIds = runCatching { userPreferencesRepository.notInterestedSongIdsFlow.first() }.getOrNull() ?: emptySet()
         val notDisliked = deduplicated.filter { song ->
             val yId = song.youtubeId ?: if (song.contentUriString.startsWith("youtube://")) {
                 song.contentUriString.removePrefix("youtube://")
             } else if (song.id.startsWith("youtube_")) {
                 song.id.removePrefix("youtube_")
             } else null
-            yId == null || !dislikedYtIds.contains(yId)
+            (yId == null || !dislikedYtIds.contains(yId)) &&
+            song.id !in notInterestedIds &&
+            (yId == null || !notInterestedIds.contains(yId))
         }
 
         // Shuffle completely to make it dynamic on every view/refresh
@@ -590,13 +593,16 @@ class QuickPicksViewModel @Inject constructor(
         }
         if (songs.isNotEmpty()) {
             val dislikedYtIds = runCatching { musicRepository.getDislikedYoutubeIds() }.getOrNull() ?: emptySet()
+            val notInterestedIds = runCatching { userPreferencesRepository.notInterestedSongIdsFlow.first() }.getOrNull() ?: emptySet()
             val filtered = songs.filter { song ->
                 val yId = song.youtubeId ?: if (song.contentUriString.startsWith("youtube://")) {
                     song.contentUriString.removePrefix("youtube://")
                 } else if (song.id.startsWith("youtube_")) {
                     song.id.removePrefix("youtube_")
                 } else null
-                yId == null || !dislikedYtIds.contains(yId)
+                (yId == null || !dislikedYtIds.contains(yId)) &&
+                song.id !in notInterestedIds &&
+                (yId == null || !notInterestedIds.contains(yId))
             }
             _quickPicks.value = filtered.toImmutableList()
         } else {

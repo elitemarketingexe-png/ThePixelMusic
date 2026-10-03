@@ -301,9 +301,39 @@ object AutoQueueManager {
 
     suspend fun buildMixQueue(seedSong: Song, onlineRelated: List<Song>): List<Song> {
         return if (onlineRelated.isNotEmpty()) {
-            (listOf(seedSong) + onlineRelated).distinctBy { it.youtubeId ?: it.id }
+            val notInterestedIds = runCatching { userPreferencesRepository?.notInterestedSongIdsFlow?.first() }.getOrNull() ?: emptySet()
+            val filtered = if (notInterestedIds.isNotEmpty()) {
+                onlineRelated.filterNot { s ->
+                    val yId = s.youtubeId ?: if (s.contentUriString.startsWith("youtube://")) {
+                        s.contentUriString.removePrefix("youtube://")
+                    } else if (s.id.startsWith("youtube_")) {
+                        s.id.removePrefix("youtube_")
+                    } else null
+                    s.id in notInterestedIds || (yId != null && yId in notInterestedIds)
+                }
+            } else {
+                onlineRelated
+            }
+            (listOf(seedSong) + filtered).distinctBy { it.youtubeId ?: it.id }
         } else {
             listOf(seedSong)
+        }
+    }
+
+    fun pruneNotInterestedFromQueue(songId: String, videoId: String? = null) {
+        getActiveScope().launch(Dispatchers.Main) {
+            val player = livePlayer() ?: return@launch
+            val totalCount = player.mediaItemCount
+            val currentIndex = player.currentMediaItemIndex
+            if (currentIndex < 0 || totalCount <= currentIndex + 1) return@launch
+            for (i in (totalCount - 1) downTo (currentIndex + 1)) {
+                val item = player.getMediaItemAt(i)
+                val itemVideoId = YouTubeIdUtils.extractVideoId(item.mediaId)
+                if (item.mediaId == songId || (videoId != null && (item.mediaId == videoId || itemVideoId == videoId))) {
+                    player.removeMediaItem(i)
+                    Timber.tag(TAG).d("Pruned not interested song from upcoming queue at index %d: %s", i, item.mediaId)
+                }
+            }
         }
     }
 
@@ -397,11 +427,15 @@ object AutoQueueManager {
             val filterKeywords = runCatching { userPreferencesRepository?.filterKeywordsFlow?.first() }.getOrNull() ?: ContentFilterUtils.DEFAULT_FILTER_KEYWORDS
             val dislikedYtIds = runCatching { musicDaoRef?.getDislikedYoutubeIds()?.toSet() }.getOrNull() ?: emptySet()
             val dislikedSongIds = runCatching { musicDaoRef?.getDislikedSongIds()?.map { it.toString() }?.toSet() }.getOrNull() ?: emptySet()
+            val notInterestedIds = runCatching { userPreferencesRepository?.notInterestedSongIdsFlow?.first() }.getOrNull() ?: emptySet()
 
             val newItems = fetched.filterNot { item ->
+                val ytId = YouTubeIdUtils.extractVideoId(item.mediaId)
                 item.mediaId in existingIds ||
                 item.mediaId in dislikedSongIds ||
-                YouTubeIdUtils.extractVideoId(item.mediaId) in dislikedYtIds
+                (ytId != null && ytId in dislikedYtIds) ||
+                item.mediaId in notInterestedIds ||
+                (ytId != null && ytId in notInterestedIds)
             }.let { items ->
                 if (filterCoverLofi) {
                     items.filterNot { item ->

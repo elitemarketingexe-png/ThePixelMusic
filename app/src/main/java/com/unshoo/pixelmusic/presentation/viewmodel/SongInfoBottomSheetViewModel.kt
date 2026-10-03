@@ -45,6 +45,7 @@ class SongInfoBottomSheetViewModel @Inject constructor(
     private val musicRepository: MusicRepository,
     private val telegramRepository: TelegramRepository,
     private val downloadRepository: com.unshoo.pixelmusic.data.remote.youtube.DownloadRepository,
+    private val userPreferencesRepository: com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository,
 ) : ViewModel() {
 
     data class SongLocationInfo(
@@ -57,6 +58,13 @@ class SongInfoBottomSheetViewModel @Inject constructor(
 
     private val _audioMeta = MutableStateFlow<AudioMeta?>(null)
     val audioMeta: StateFlow<AudioMeta?> = _audioMeta.asStateFlow()
+
+    val notInterestedSongIds: StateFlow<Set<String>> = userPreferencesRepository.notInterestedSongIdsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000L),
+            initialValue = emptySet()
+        )
 
     private val _songLocationInfo = MutableStateFlow(SongLocationInfo(label = "Provider", value = "", isCloud = false))
     val songLocationInfo: StateFlow<SongLocationInfo> = _songLocationInfo.asStateFlow()
@@ -559,8 +567,15 @@ class SongInfoBottomSheetViewModel @Inject constructor(
     fun setNotInterested(song: Song, notInterested: Boolean, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                // Locally suppress or restore recommendation status without disliking on YouTube account
-                musicRepository.setDislikedStatus(song.id, notInterested)
+                val ytId = song.youtubeId ?: if (song.id.startsWith("youtube_")) {
+                    song.id.substringAfter("youtube_")
+                } else if (song.contentUriString.startsWith("youtube://")) {
+                    song.contentUriString.substringAfter("youtube://")
+                } else null
+                userPreferencesRepository.setSongNotInterested(listOfNotNull(song.id, ytId), notInterested)
+                if (notInterested) {
+                    com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.pruneNotInterestedFromQueue(song.id, ytId)
+                }
                 onResult(true)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to update not interested / recommend less status")

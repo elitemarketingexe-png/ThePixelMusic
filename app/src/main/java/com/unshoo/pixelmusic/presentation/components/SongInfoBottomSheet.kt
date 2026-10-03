@@ -141,6 +141,7 @@ fun SongInfoBottomSheet(
     var showEditSheet by remember { mutableStateOf(false) }
     var showArtistPicker by remember { mutableStateOf(false) }
     val audioMeta by songInfoViewModel.audioMeta.collectAsStateWithLifecycle()
+    val notInterestedSongIds by songInfoViewModel.notInterestedSongIds.collectAsStateWithLifecycle()
     val resolvedArtists by songInfoViewModel.resolvedArtists.collectAsStateWithLifecycle()
     val isDownloaded by songInfoViewModel.isSongDownloaded.collectAsStateWithLifecycle()
     val isDownloading by songInfoViewModel.isSongDownloading.collectAsStateWithLifecycle()
@@ -222,14 +223,18 @@ fun SongInfoBottomSheet(
             song.isYouTube
     }
     var isDislikedState by remember(song.id, song.isDisliked) { mutableStateOf(song.isDisliked) }
-    var isNotInterestedState by remember(song.id) { mutableStateOf(false) }
+    val isNotInterested = remember(song.id, song.youtubeId, notInterestedSongIds) {
+        val ytId = song.youtubeId ?: if (song.id.startsWith("youtube_")) {
+            song.id.removePrefix("youtube_")
+        } else if (song.contentUriString.startsWith("youtube://")) {
+            song.contentUriString.removePrefix("youtube://")
+        } else null
+        song.id in notInterestedSongIds || (ytId != null && ytId in notInterestedSongIds)
+    }
 
     LaunchedEffect(isFavorite) {
         if (isFavorite && isDislikedState) {
             isDislikedState = false
-        }
-        if (isFavorite && isNotInterestedState) {
-            isNotInterestedState = false
         }
     }
 
@@ -796,7 +801,6 @@ fun SongInfoBottomSheet(
                                                                 songInfoViewModel.dislikeOnYouTube(song, targetState) { ytSuccess ->
                                                                     isDislikedState = targetState
                                                                     if (targetState) {
-                                                                        isNotInterestedState = false
                                                                         if (isFavorite) {
                                                                             onToggleFavorite()
                                                                         }
@@ -832,32 +836,30 @@ fun SongInfoBottomSheet(
                                                             .weight(if (isYouTubeSong) 0.5f else 1f)
                                                             .heightIn(min = 66.dp),
                                                         colors = ButtonDefaults.filledTonalButtonColors(
-                                                            containerColor = if (isNotInterestedState) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                                            contentColor = if (isNotInterestedState) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                            containerColor = if (isNotInterested) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                                            contentColor = if (isNotInterested) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                                         ),
                                                         shape = CircleShape,
                                                         onClick = {
-                                                            val targetState = !isNotInterestedState
-                                                            isNotInterestedState = targetState
-                                                            if (targetState && isDislikedState) {
-                                                                isDislikedState = false
-                                                            }
-                                                            songInfoViewModel.setNotInterested(song, targetState) {
-                                                                if (targetState) {
-                                                                    Toast.makeText(context, "Tuned out: Will recommend this song less", Toast.LENGTH_SHORT).show()
-                                                                } else {
-                                                                    Toast.makeText(context, "Removed from tuned out", Toast.LENGTH_SHORT).show()
+                                                            val targetState = !isNotInterested
+                                                            songInfoViewModel.setNotInterested(song, targetState) { success ->
+                                                                if (success) {
+                                                                    Toast.makeText(
+                                                                        context,
+                                                                        if (targetState) "Tuned out: Will recommend this song less" else "Removed from tuned out",
+                                                                        Toast.LENGTH_SHORT
+                                                                    ).show()
                                                                 }
                                                             }
                                                         }
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Rounded.Block,
-                                                            contentDescription = stringResource(if (isNotInterestedState) R.string.marked_not_interested else R.string.not_interested)
+                                                            contentDescription = stringResource(if (isNotInterested) R.string.marked_not_interested else R.string.not_interested)
                                                         )
                                                         Spacer(Modifier.width(8.dp))
                                                         Text(
-                                                            if (isNotInterestedState) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested)
+                                                            if (isNotInterested) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested)
                                                         )
                                                     }
                                                 }
