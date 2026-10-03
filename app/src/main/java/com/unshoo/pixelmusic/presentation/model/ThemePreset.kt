@@ -52,8 +52,8 @@ data class ThemePreset(
                 key = "PURPLE",
                 titleRes = R.string.setcat_color_palette_purple,
                 descriptionRes = R.string.setcat_color_palette_purple_desc,
-                lightColors = listOf(Color(0xFF501661), Color(0xFFF7D2FB), Color(0xFFEDB1BF), Color(0xFF141015)),
-                darkColors = listOf(Color(0xFFD29FD7), Color(0xFF501661), Color(0xFFEDB1BF), Color(0xFF141015))
+                lightColors = listOf(Color(0xFF6C4FBB), Color(0xFFF7D2FB), Color(0xFFEDB1BF), Color(0xFF141015)),
+                darkColors = listOf(Color(0xFFD29FD7), Color(0xFF5E2E64), Color(0xFFEDB1BF), Color(0xFF141015))
             ),
             ThemePreset(
                 key = "BLUE",
