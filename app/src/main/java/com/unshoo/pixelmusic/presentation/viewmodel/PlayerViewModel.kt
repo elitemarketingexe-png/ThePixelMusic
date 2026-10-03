@@ -4844,7 +4844,7 @@ class PlayerViewModel @Inject constructor(
     private fun scheduleDynamicPlaybackMetadataRefresh(player: Player, targetMediaId: String) {
         dynamicMetadataRefreshJob?.cancel()
         dynamicMetadataRefreshJob = viewModelScope.launch(Dispatchers.Main) {
-            val delays = listOf(400L, 1200L, 2500L, 4000L)
+            val delays = listOf(400L, 800L, 1300L, 1500L)
             for (probeDelay in delays) {
                 delay(probeDelay)
                 if (player.currentMediaItem?.mediaId != targetMediaId) break
@@ -4880,7 +4880,7 @@ class PlayerViewModel @Inject constructor(
             // A lossless stream is on offer, but offered is not playing: the player may still be
             // on an older stream. Claim nothing until the player's own selected format confirms
             // it (refreshPlaybackAudioMetadata); the chip stays hidden until then.
-            _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId)
+            _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId, isConfirmed = false)
             return
         }
 
@@ -4889,100 +4889,52 @@ class PlayerViewModel @Inject constructor(
             ?: libraryStateHolder.allSongsById.value[mediaId]
             ?: runCatching { mediaController?.currentMediaItem?.let(::resolveSongFromMediaItem) }.getOrNull()
 
-        if (song != null) {
-            val isFlac = song.mimeType?.contains("flac", true) == true ||
-                song.path.endsWith(".flac", ignoreCase = true)
-            if (isFlac) {
-                val isHiRes = (song.sampleRate ?: 0) > 48000 || ((song.bitrate ?: 0) > 1_500_000)
-                _playbackAudioMetadata.value = PlaybackAudioMetadata(
-                    mediaId = mediaId,
-                    mimeType = "audio/flac",
-                    bitrate = song.bitrate,
-                    sampleRate = song.sampleRate ?: if (isHiRes) 96000 else 44100,
-                    bitDepth = if (isHiRes) 24 else 16,
-                    formatTag = if (isHiRes) "HI-RES LOSSLESS" else "LOSSLESS",
-                    sourceName = "Local Storage"
-                )
-                return
-            }
+        if (song != null && song.isLocal && song.path.isNotBlank()) {
+            val path = song.path.lowercase()
+            val isFlac = song.mimeType?.contains("flac", true) == true || path.endsWith(".flac")
+            val isWav = song.mimeType?.contains("wav", true) == true || path.endsWith(".wav")
+            val isAlac = song.mimeType?.contains("alac", true) == true || path.endsWith(".alac") || path.endsWith(".caf")
+            val isHiRes = isFlac && ((song.sampleRate ?: 0) > 48000 || (song.bitrate ?: 0) > 1_500_000)
 
-            val isWav = song.mimeType?.contains("wav", true) == true ||
-                song.path.endsWith(".wav", ignoreCase = true)
-            if (isWav) {
-                _playbackAudioMetadata.value = PlaybackAudioMetadata(
-                    mediaId = mediaId,
-                    mimeType = "audio/wav",
-                    bitrate = song.bitrate,
-                    sampleRate = song.sampleRate ?: 44100,
-                    bitDepth = 16,
-                    formatTag = "LOSSLESS",
-                    sourceName = "Local Storage"
-                )
-                return
+            val mime = when {
+                isFlac -> "audio/flac"
+                isWav -> "audio/wav"
+                isAlac -> "audio/alac"
+                path.endsWith(".m4a") || path.endsWith(".mp4") -> "audio/mp4"
+                path.endsWith(".mp3") -> "audio/mpeg"
+                path.endsWith(".ogg") -> "audio/ogg"
+                path.endsWith(".opus") -> "audio/opus"
+                path.endsWith(".webm") -> "audio/webm; codecs=\"opus\""
+                else -> song.mimeType
             }
-
-            if (song.path.isNotBlank()) {
-                val path = song.path.lowercase()
-                val mime = when {
-                    path.endsWith(".m4a") || path.endsWith(".mp4") -> "audio/mp4"
-                    path.endsWith(".mp3") -> "audio/mpeg"
-                    path.endsWith(".ogg") -> "audio/ogg"
-                    path.endsWith(".opus") -> "audio/opus"
-                    path.endsWith(".webm") -> "audio/webm; codecs=\"opus\""
-                    else -> song.mimeType
-                }
-                _playbackAudioMetadata.value = PlaybackAudioMetadata(
-                    mediaId = mediaId,
-                    mimeType = mime,
-                    bitrate = song.bitrate,
-                    sampleRate = song.sampleRate ?: (if (mime?.contains("opus") == true) 48000 else 44100),
-                    sourceName = "Local Storage"
-                )
-                return
+            val formatTag = when {
+                isHiRes -> "HI-RES LOSSLESS"
+                isFlac || isWav || isAlac -> "LOSSLESS"
+                else -> null
             }
-
-            // Online YouTube / JioSaavn song check in LRU caches
-            val videoId = song.youtubeId ?: cleanMediaId
-            val ytBitrate: Int? = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamBitrateLruCache.get("${videoId}_high")
-                ?.takeIf { it > 65_000 }
-            val ytMime: String? = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.get("${videoId}_high")
-            if (ytMime != null || ytBitrate != null) {
-                val mime = ytMime ?: "audio/webm; codecs=\"opus\""
-                val isOpus = mime.contains("opus", true) || mime.contains("webm", true)
-                _playbackAudioMetadata.value = PlaybackAudioMetadata(
-                    mediaId = mediaId,
-                    mimeType = mime,
-                    bitrate = ytBitrate ?: if (isOpus) 160_000 else 128_000,
-                    sampleRate = if (isOpus) 48000 else 44100,
-                    sourceName = if (song.contentUriString.contains("saavn")) "JioSaavn" else "YouTube"
-                )
-                return
-            } else {
-                // Online song: pre-seed with expected stream quality (Opus 160k or JioSaavn 320k)
-                val isSaavn = song.contentUriString.contains("saavn")
-                _playbackAudioMetadata.value = PlaybackAudioMetadata(
-                    mediaId = mediaId,
-                    mimeType = if (isSaavn) "audio/mp4; codecs=\"mp4a.40.2\"" else "audio/webm; codecs=\"opus\"",
-                    bitrate = if (isSaavn) 320_000 else 160_000,
-                    sampleRate = if (isSaavn) 44100 else 48000,
-                    sourceName = if (isSaavn) "JioSaavn" else "YouTube"
-                )
-                return
+            val defaultSampleRate = when {
+                isHiRes -> 96000
+                mime?.contains("opus") == true -> 48000
+                else -> 44100
             }
-        }
-
-        if (cleanMediaId.isNotBlank()) {
             _playbackAudioMetadata.value = PlaybackAudioMetadata(
                 mediaId = mediaId,
-                mimeType = "audio/webm; codecs=\"opus\"",
-                bitrate = 160_000,
-                sampleRate = 48000,
-                sourceName = "YouTube"
+                mimeType = mime,
+                bitrate = song.bitrate,
+                sampleRate = song.sampleRate ?: defaultSampleRate,
+                bitDepth = if (isHiRes) 24 else if (isFlac || isWav || isAlac) 16 else null,
+                formatTag = formatTag,
+                sourceName = "Local Storage",
+                isConfirmed = true
             )
             return
         }
 
-        _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId)
+        // For online/remote streams (YouTube, JioSaavn, Telegram, cloud):
+        // Do NOT populate with synthetic or cached provisional format info on song change.
+        // Instead, keep isConfirmed = false with empty format info so the UI reserves space for
+        // the refreshing state (1-4s) and smoothly transitions once ExoPlayer confirms the stream format.
+        _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId, isConfirmed = false)
     }
 
     private fun com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.Result.toOfferedStream() =
