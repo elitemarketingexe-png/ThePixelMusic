@@ -50,6 +50,7 @@ object MediaItemBuilder {
         "3gp",
         "3gpp",
         "alac",
+        "caf",
         "amr",
         "awb",
         "evrc",
@@ -68,6 +69,8 @@ object MediaItemBuilder {
         "audio/mp4a-latm",
         "audio/alac",
         "audio/x-alac",
+        "audio/caf",
+        "audio/x-caf",
         "audio/x-aiff",
     )
     private val SUPPORTED_INTERNAL_ARTWORK_SCHEMES = setOf(
