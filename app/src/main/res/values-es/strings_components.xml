@@ -155,4 +155,8 @@
     <string name="cd_drag_handle">Asa para arrastrar</string>
     <string name="cd_reset">Restablecer</string>
     <string name="action_done">Hecho</string>
+
+    <!-- Backfilled translations -->
+    <string name="song_field_album_artist">Artista del álbum</string>
+    <string name="song_field_composer">Compositor</string>
 </resources>

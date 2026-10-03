@@ -228,4 +228,9 @@
         <item quantity="one">%d emne</item>
         <item quantity="other">%d emner</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_f_remove_channel_confirm_title">Vil du fjerne kanalen?</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s vil slutte å synkronisere og alle bufrede sanger fra denne kanalen vil bli fjernet.</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">Fjerne</string>
 </resources>

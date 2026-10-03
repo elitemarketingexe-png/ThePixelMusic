@@ -480,4 +480,13 @@
         <item>修复了后台播放和通知的相关问题。</item>
         <item>常规问题修复和 UI 打磨。</item>
     </string-array>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_g_beta_sheet_report_body">分享重现步骤、预期结果、实际结果以及您的设备/操作系统详细信息。</string>
+    <string name="presentation_batch_g_beta05_title">v1.6.08 更新</string>
+    <string name="presentation_batch_g_beta05_clean_install_title">v1.6.08 的新增功能</string>
+    <string name="presentation_batch_g_beta05_clean_install_body">•</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_title">探索刷新</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_body">在“探索”选项卡中享受时尚的全新 Material 3 Expressive 布局！</string>
+    <string name="presentation_batch_g_changelog_sec_whats_new">什么是新的</string>
 </resources>

@@ -232,4 +232,16 @@
     <string name="toast_added_to_queue">Añadida a la cola</string>
     <string name="toast_playing_next">Siguiente en reproducir</string>
     <string name="error_share_song_format">No se pudo compartir la canción: %1$s</string>
+
+    <!-- Backfilled translations -->
+    <string name="dash_status_syncing_library">Sincronizando biblioteca…</string>
+    <string name="dash_status_fetching_playlists">Obteniendo listas de reproducción…</string>
+    <string name="dash_status_syncing_playlist_format">Sincronizando lista de reproducción: %1$s</string>
+    <string name="dash_status_updating_local">Actualizando la biblioteca local…</string>
+    <string name="dash_status_sync_complete">Sincronización completa</string>
+    <string name="dash_status_fetching_albums">Obteniendo lista de álbumes…</string>
+    <string name="dash_status_fetching_songs_from_format">Obteniendo canciones de %1$s…</string>
+    <string name="dash_status_saving_songs_format">Guardando canciones %1$d en la base de datos…</string>
+    <string name="dash_status_no_songs_found">No se encontraron canciones de la biblioteca</string>
+    <string name="dash_status_library_sync_complete">Sincronización de biblioteca completa</string>
 </resources>

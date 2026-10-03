@@ -79,4 +79,11 @@
     <string name="lib_empty_folders_subtitle">음악이 포함된 내부 저장소 폴더가 여기에 표시됩니다.</string>
     <string name="lib_empty_playlists_title">플레이리스트가 아직 없습니다</string>
     <string name="lib_empty_playlists_subtitle">첫 번째 플레이리스트를 만들어 라이브러리를 정리해 보세요.</string>
+
+    <!-- Backfilled translations -->
+    <string name="library_storage_filter_local">지역 전용</string>
+    <string name="library_storage_filter_telegram">텔레그램</string>
+    <string name="library_storage_filter_youtube">유튜브</string>
+    <string name="library_storage_filter_downloaded_only">다운로드됨</string>
+    <string name="song_picker_filter_favorites">좋아요를 누른</string>
 </resources>

@@ -70,4 +70,7 @@
     <string name="auth_error_no_cookies">Keine Cookies gefunden – zuerst anmelden.</string>
     <string name="auth_error_netease_login_incomplete">Login noch nicht erkannt – NetEase-Login abschließen, dann auf Fertig tippen.</string>
     <string name="auth_error_qq_login_incomplete">Login noch nicht erkannt – QQ Music-Login abschließen, dann auf Fertig tippen.</string>
+
+    <!-- Backfilled translations -->
+    <string name="auth_navidrome_пароль_hint">Das App-Passwort funktioniert auch, wenn Ihr Server es unterstützt.</string>
 </resources>

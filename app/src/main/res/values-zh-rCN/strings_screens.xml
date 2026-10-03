@@ -246,4 +246,9 @@
     <string name="toast_added_to_queue">已加入队列</string>
     <string name="toast_playing_next">下一首播放</string>
     <string name="error_share_song_format">无法分享歌曲：%1$s</string>
+
+    <!-- Backfilled translations -->
+    <string name="home_empty_placeholder_title">尚无数据显示</string>
+    <string name="home_empty_placeholder_subtitle">当 PixelMusic 找到歌曲或同步源时，您的混音将出现在此处。</string>
+    <string name="home_empty_placeholder_refresh">刷新</string>
 </resources>

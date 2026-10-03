@@ -158,4 +158,8 @@
     <string name="cd_drag_handle">Ziehpunkt</string>
     <string name="cd_reset">Zurücksetzen</string>
     <string name="action_done">Fertig</string>
+
+    <!-- Backfilled translations -->
+    <string name="song_field_album_artist">Albumkünstler</string>
+    <string name="song_field_composer">Komponist</string>
 </resources>

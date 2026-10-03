@@ -158,4 +158,8 @@
     <string name="cd_drag_handle">Drag handle</string>
     <string name="cd_reset">Reset</string>
     <string name="action_done">Selesai</string>
+
+    <!-- Backfilled translations -->
+    <string name="song_field_album_artist">Artis album</string>
+    <string name="song_field_composer">Komposer</string>
 </resources>

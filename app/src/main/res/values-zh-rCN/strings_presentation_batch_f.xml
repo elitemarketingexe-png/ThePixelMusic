@@ -228,4 +228,9 @@
         <item quantity="one">%d 个话题</item>
         <item quantity="other">%d 个话题</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_f_remove_channel_confirm_title">删除频道？</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s 将停止同步，并且该频道中所有缓存的歌曲都将被删除。</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">消除</string>
 </resources>

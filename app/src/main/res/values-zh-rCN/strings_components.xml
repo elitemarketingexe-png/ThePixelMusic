@@ -158,4 +158,8 @@
     <string name="cd_drag_handle">拖动把手</string>
     <string name="cd_reset">重置</string>
     <string name="action_done">完成</string>
+
+    <!-- Backfilled translations -->
+    <string name="song_field_album_artist">专辑艺术家</string>
+    <string name="song_field_composer">作曲家</string>
 </resources>

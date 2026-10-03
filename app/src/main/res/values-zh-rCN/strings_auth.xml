@@ -70,4 +70,7 @@
     <string name="auth_error_no_cookies">未找到 Cookie。请先登录。</string>
     <string name="auth_error_netease_login_incomplete">尚未检测到登录。点击完成前，请先完成网易云音乐登录。</string>
     <string name="auth_error_qq_login_incomplete">尚未检测到登录。点击完成前，请先完成 QQ 音乐登录。</string>
+
+    <!-- Backfilled translations -->
+    <string name="auth_navidrome_пароль_hint">如果您的服务器支持，应用程序密码也可以使用。</string>
 </resources>

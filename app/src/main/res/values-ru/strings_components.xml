@@ -158,4 +158,8 @@
     <string name="cd_drag_handle">Ручка перетаскивания</string>
     <string name="cd_reset">Сброс</string>
     <string name="action_done">Готово</string>
+
+    <!-- Backfilled translations -->
+    <string name="song_field_album_artist">Исполнитель альбома</string>
+    <string name="song_field_composer">Композитор</string>
 </resources>

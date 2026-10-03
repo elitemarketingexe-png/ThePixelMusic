@@ -226,4 +226,11 @@
         <item quantity="one">%d sujet</item>
         <item quantity="other">%d sujets</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_f_sync_phase_cleaning_cache">Nettoyage du cache des pochettes d\'album</string>
+    <string name="presentation_batch_f_sync_phase_syncing_cloud">Synchronisation des sources cloud</string>
+    <string name="presentation_batch_f_remove_channel_confirm_title">Supprimer la chaîne ?</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s arrêtera la synchronisation et toutes les chansons mises en cache de cette chaîne seront supprimées.</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">Retirer</string>
 </resources>

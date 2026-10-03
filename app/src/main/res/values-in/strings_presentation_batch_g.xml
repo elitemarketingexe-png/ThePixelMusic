@@ -481,4 +481,13 @@
         <item>Perbaikan bug umum dan penyempurnaan UI.</item>
     </string-array>
     <string name="presentation_batch_g_cast_nearby_title">Perangkat terdekat</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_g_beta_sheet_report_body">Bagikan langkah-langkah untuk mereproduksi, hasil yang diharapkan, hasil aktual, dan detail perangkat/OS Anda.</string>
+    <string name="presentation_batch_g_beta05_title">v1.6.08 Pembaruan</string>
+    <string name="presentation_batch_g_beta05_clean_install_title">Apa yang Baru di v1.6.08</string>
+    <string name="presentation_batch_g_beta05_clean_install_body">•</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_title">Jelajahi Segarkan</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_body">Nikmati tata letak Material 3 Ekspresif baru yang ramping di seluruh tab Jelajahi!</string>
+    <string name="presentation_batch_g_changelog_sec_whats_new">Apa yang Baru</string>
 </resources>

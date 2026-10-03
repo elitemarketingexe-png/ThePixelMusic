@@ -144,4 +144,10 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">Nous utilisons un petit échantillon pour maintenir les coûts bas</string>
     <string name="presentation_batch_e_daily_mix_updating">Mise à jour…</string>
     <string name="presentation_batch_e_daily_mix_update">Mettre à jour le Daily Mix</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_e_action_locate_current_song">Localiser la chanson actuelle</string>
+    <string name="autoplay">Lecture automatique</string>
+    <string name="presentation_batch_e_no_playlist_created">Aucune playlist n\'a été créée.</string>
+    <string name="presentation_batch_e_new_playlist_hint">Appuyez sur le bouton \'Nouvelle liste de lecture\' pour démarrer.</string>
 </resources>

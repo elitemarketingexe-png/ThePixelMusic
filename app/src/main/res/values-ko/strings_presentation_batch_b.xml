@@ -80,4 +80,19 @@
     <plurals name="presentation_batch_b_songs_dot_duration">
         <item quantity="other">곡 %1$d개 • %2$s</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_b_export_as_m3u">M3U로 내보내기</string>
+    <string name="presentation_batch_b_export_as_m3u_desc">미디어 플레이어용 재생 목록 파일</string>
+    <string name="presentation_batch_b_export_as_csv">CSV로 내보내기</string>
+    <string name="presentation_batch_b_export_as_csv_desc">스프레드시트와 호환되며 쉽게 가져올 수 있음</string>
+    <string name="presentation_batch_b_export_save">저장</string>
+    <string name="presentation_batch_b_export_share">공유</string>
+    <string name="presentation_batch_b_import_playlist">재생목록 가져오기</string>
+    <string name="presentation_batch_b_import_m3u">M3U 가져오기</string>
+    <string name="presentation_batch_b_import_csv">CSV 가져오기</string>
+    <string name="presentation_batch_b_importing">재생목록을 가져오는 중</string>
+    <string name="presentation_batch_b_import_progress">%2$d의 %1$d 트랙 가져오기</string>
+    <string name="presentation_batch_b_resolving">온라인 메타데이터 해결 중…</string>
+    <string name="presentation_batch_b_download_playlist">재생목록 다운로드</string>
 </resources>

@@ -148,4 +148,8 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">Vi bruker et lite utvalg for å holde kostnadene lave</string>
     <string name="presentation_batch_e_daily_mix_updating">Oppdaterer…</string>
     <string name="presentation_batch_e_daily_mix_update">Oppdater Daily Mix</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_e_action_locate_current_song">Finn gjeldende sang</string>
+    <string name="autoplay">Automatisk avspilling</string>
 </resources>

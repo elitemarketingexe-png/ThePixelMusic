@@ -158,4 +158,8 @@
     <string name="cd_drag_handle">드래그 핸들</string>
     <string name="cd_reset">초기화</string>
     <string name="action_done">완료</string>
+
+    <!-- Backfilled translations -->
+    <string name="song_field_album_artist">앨범 아티스트</string>
+    <string name="song_field_composer">작곡가</string>
 </resources>

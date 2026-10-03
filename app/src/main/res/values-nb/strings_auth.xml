@@ -70,4 +70,7 @@
     <string name="auth_error_no_cookies">Fant ingen informasjonskapsler. Logg inn først.</string>
     <string name="auth_error_netease_login_incomplete">Innlogging ikke fullført.</string>
     <string name="auth_error_qq_login_incomplete">Innlogging ikke fullført.</string>
+
+    <!-- Backfilled translations -->
+    <string name="auth_navidrome_пароль_hint">App-passord fungerer også hvis serveren din støtter det.</string>
 </resources>

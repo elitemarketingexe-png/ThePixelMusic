@@ -158,4 +158,8 @@
     <string name="cd_drag_handle">Dra-håndtak</string>
     <string name="cd_reset">Nullstill</string>
     <string name="action_done">Ferdig</string>
+
+    <!-- Backfilled translations -->
+    <string name="song_field_album_artist">Albumartist</string>
+    <string name="song_field_composer">Komponist</string>
 </resources>

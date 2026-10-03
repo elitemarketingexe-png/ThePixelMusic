@@ -227,4 +227,61 @@
     <string name="ui_format_percent_d">%1$d%%</string>
     <string name="backup_manifest_schema_v">v%1$d</string>
     <string name="backup_manifest_device_line">%1$s %2$s</string>
+
+    <!-- Backfilled translations -->
+    <string name="share_sheet_title">공유</string>
+    <string name="share_sheet_chooser_title"></string>
+    <string name="share_card_tab_song">를 통해 공유 노래 카드</string>
+    <string name="share_card_tab_lyrics">가사 카드</string>
+    <string name="share_action_snapchat">스냅챗
+Story</string>
+    <string name="share_action_instagram">인스타그램
+Story</string>
+    <string name="share_action_download_card">Save
+Card</string>
+    <string name="share_action_copy_yt_link">Copy
+YT 링크</string>
+    <string name="share_action_more_apps">Share
+더 보기</string>
+    <string name="share_action_add_to_playlist">재생목록에 추가</string>
+    <string name="share_action_add_to_playlist_sub">이 노래를 재생목록 중 하나에 추가하세요</string>
+    <string name="share_action_copy_github_link">앱 링크 복사</string>
+    <string name="share_card_saved">사진에 카드가 저장되었습니다</string>
+    <string name="share_link_copied">링크가 클립보드에 복사되었습니다</string>
+    <string name="share_text_format">이제 %2$s 🎵
+%3$s</string>
+    <string name="player_menu_share_card">의 \"XTOK0X\"를 듣고 있습니다. 스토리 카드 공유</string>
+    <string name="player_menu_download">노래 다운로드</string>
+    <string name="player_menu_add_to_playlist">재생목록에 추가</string>
+    <string name="not_interested">관심 없음</string>
+    <string name="marked_not_interested">관심 없음으로 표시됨</string>
+    <string name="action_dislike">싫어함</string>
+    <string name="action_disliked">싫어함</string>
+    <string name="cd_player_more_options">더 많은 옵션</string>
+    <string name="cd_player_theme">테마 변경</string>
+    <string name="cloud_downloads_title">다운로드</string>
+    <string name="cloud_downloads_settings_subtitle">오프라인 트랙 및 저장 공간 관리</string>
+    <string name="cloud_downloads_storage_used">사용된 오프라인 저장소</string>
+    <string name="cloud_downloads_storage_summary">%1$d 완료 · 총 %2$d</string>
+    <string name="cloud_downloads_active_section">대기 중이며 다운로드 중</string>
+    <string name="cloud_downloads_failed_section">실패</string>
+    <string name="cloud_downloads_completed_section">완료됨</string>
+    <string name="cloud_downloads_section_count">%1$s · %2$d</string>
+    <string name="cloud_downloads_unknown_track">알 수 없는 트랙</string>
+    <string name="cloud_downloads_downloaded_size">다운로드됨 · %1$s</string>
+    <string name="cloud_downloads_failed_fallback">다운로드 실패</string>
+    <string name="cloud_downloads_empty_title">오프라인 다운로드 없음</string>
+    <string name="cloud_downloads_empty_subtitle">다운로드한 트랙이 여기에 표시됩니다.</string>
+    <string name="cloud_download_retry">재시도</string>
+    <string name="cloud_remove_download">제거</string>
+    <string name="cloud_download_queued">대기 중</string>
+    <string name="cloud_downloading">다운로드 중…</string>
+    <string name="cloud_download_progress">%1$d%%</string>
+    <string name="cloud_download_select_all">모두 선택</string>
+    <string name="cloud_download_deselect_all">모두 선택 취소</string>
+    <string name="cloud_download_delete_selected">선택한 항목 삭제</string>
+    <string name="cloud_download_play_selected">선택됨 재생</string>
+    <string name="cloud_download_play_all">모두 재생</string>
+    <string name="cloud_download_shuffle_all">모두 섞기</string>
+    <string name="in_your_library">라이브러리에 있음</string>
 </resources>

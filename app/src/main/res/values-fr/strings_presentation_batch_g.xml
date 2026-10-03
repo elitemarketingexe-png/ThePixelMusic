@@ -506,4 +506,67 @@
         <item>Correction d\'un bug où la notification de lecture ne se fermait pas.</item>
         <item>Correction de plusieurs bugs qui faisaient planter l\'application.</item>
     </string-array>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_g_beta_sheet_expect_summary">Les versions bêta peuvent changer, s\'interrompre ou s\'améliorer pendant les tests.</string>
+    <string name="presentation_batch_g_beta_sheet_github_title">Raccourci du problème GitHub</string>
+    <string name="presentation_batch_g_beta_sheet_github_body">Recherchez d\'abord, puis ouvrez un rapport ciblé sur les bogues, les plantages, les demandes ou les questions.</string>
+    <string name="presentation_batch_g_beta_sheet_report_summary">Une liste de contrôle rapide avant d\'ouvrir un nouveau numéro.</string>
+    <string name="presentation_batch_g_beta_sheet_before_title">Avant d\'ouvrir un numéro</string>
+    <string name="presentation_batch_g_beta_sheet_before_1">Recherchez les problèmes ouverts et fermés existants pour éviter les doublons.</string>
+    <string name="presentation_batch_g_beta_sheet_before_2">Mettez à jour vers la dernière version de PixelMusic et confirmez que le problème persiste.</string>
+    <string name="presentation_batch_g_beta_sheet_before_3">Redémarrez l\'application et confirmez que le problème persiste.</string>
+    <string name="presentation_batch_g_beta_sheet_before_4">Essayez de le reproduire et notez les étapes exactes.</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_title">Quel type de problème ?</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_bug">Rapport de bug : quelque chose ne se comporte pas correctement.</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_feature">Demande de fonctionnalité : ajoutez une nouvelle fonctionnalité ou une amélioration.</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_question">Question : utilisez Discussions si cette option est activée ou ouvrez un problème avec une étiquette de question.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_title">Rapport de bug</string>
+    <string name="presentation_batch_g_beta_sheet_bug_summary_text">Copiez ces champs lorsque quelque chose se comporte incorrectement ou plante.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_template_title">Rapport de bug</string>
+    <string name="presentation_batch_g_beta_sheet_bug_summary">Bref résumé :</string>
+    <string name="presentation_batch_g_beta_sheet_bug_expected">Comportement attendu :</string>
+    <string name="presentation_batch_g_beta_sheet_bug_actual">Comportement actuel :</string>
+    <string name="presentation_batch_g_beta_sheet_bug_steps">Étapes pour jouer/reproduire : 1. 2. 3.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_frequency">À quelle fréquence cela arrive-t-il ? Toujours / Parfois / Rarement.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_screenshot">Capture d\'écran/vidéo : si disponible.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_logs">Journaux/trace de pile : si disponible.</string>
+    <string name="presentation_batch_g_beta_sheet_env_title">Environnement</string>
+    <string name="presentation_batch_g_beta_sheet_env_version">Version PixelMusic :</string>
+    <string name="presentation_batch_g_beta_sheet_env_source">Source d\'installation : version GitHub, version de débogage, version nocturne, etc.</string>
+    <string name="presentation_batch_g_beta_sheet_env_android">Version Android :</string>
+    <string name="presentation_batch_g_beta_sheet_env_device">Modèle d\'appareil :</string>
+    <string name="presentation_batch_g_beta_sheet_env_extra">Contexte supplémentaire : utilisation de la carte SD, paramètres spéciaux, autorisations, etc.</string>
+    <string name="presentation_batch_g_beta_sheet_feature_title">Demande de fonctionnalité</string>
+    <string name="presentation_batch_g_beta_sheet_feature_summary">Copiez ces champs lorsque vous souhaitez une nouvelle fonctionnalité ou une amélioration.</string>
+    <string name="presentation_batch_g_beta_sheet_feature_problem">Énoncé du problème : quel problème essayez-vous de résoudre ?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_solution">Solution proposée : Comment cela devrait-il fonctionner ?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_alternatives">Alternatives envisagées : Existe-t-il d\'autres approches ?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_scope">Périmètre : Quels écrans ou flux sont concernés ?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_mockup">Maquette ou image de référence si disponible.</string>
+    <string name="presentation_batch_g_beta_sheet_quality_title">Titres, confidentialité et portée</string>
+    <string name="presentation_batch_g_beta_sheet_quality_summary">Rendez le rapport facile à trier et à partager en toute sécurité.</string>
+    <string name="presentation_batch_g_beta_sheet_title_examples_title">Titres de bons numéros</string>
+    <string name="presentation_batch_g_beta_sheet_title_example_1">Égaliseur : l\'indicateur se déplace lors du changement d\'onglet prédéfini</string>
+    <string name="presentation_batch_g_beta_sheet_title_example_2">Recherche : la liste d\'historique n\'apparaît pas pour les requêtes vides</string>
+    <string name="presentation_batch_g_beta_sheet_title_example_3">Fonctionnalité : Ajouter une option de tri de playlist « Récemment ajouté »</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_title">Veuillez éviter</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_1">Rapports génériques du type « Ça ne marche pas ».</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_2">Plusieurs problèmes sans rapport dans un seul numéro.</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_3">Journaux non expurgés ou captures d’écran contenant des données privées.</string>
+    <string name="presentation_batch_g_beta_sheet_privacy_title">Note de confidentialité</string>
+    <string name="presentation_batch_g_beta_sheet_privacy_body">Avant de publier des journaux, des captures d\'écran ou des vidéos, supprimez les informations personnelles ou privées.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_title">Constructions nocturnes</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_summary">En quoi les nightlies diffèrent des sorties et que faut-il inclure lorsqu\'elles sortent.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_body">Les builds nocturnes sont générés à partir du dernier commit et peuvent contenir des modifications inachevées, des bogues temporaires ou des régressions. Ils sont plus expérimentaux que les versions officielles.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_access">Accédez-y à partir des artefacts de workflow GitHub Actions du référentiel, si disponibles.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_report_title">Signaler les problèmes nocturnes</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_report_body">Lorsque vous signalez un problème provenant d\'une version nocturne, mentionnez toujours qu\'il s\'est produit sur une version nocturne, et non sur la version officielle. Incluez la date de construction, le nom ou le numéro d’exécution du flux de travail, ou validez SHA si possible. Vérifiez également si le même problème se produit sur la dernière version officielle.</string>
+    <string name="presentation_batch_g_beta05_title">v1.6.08 Mise à jour</string>
+    <string name="presentation_batch_g_beta05_clean_install_title">Quoi de neuf dans la v1.6.08</string>
+    <string name="presentation_batch_g_beta05_clean_install_body">•</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_title">Explorer Actualiser</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_body">Profitez de la nouvelle disposition élégante de Material 3 Expressive dans l\'onglet Explorer !</string>
+    <string name="presentation_batch_g_cast_nearby_title">Appareils à proximité</string>
+    <string name="presentation_batch_g_cast_nearby_desc">Nécessaire pour détecter et contrôler les appareils audio Bluetooth connectés.</string>
 </resources>

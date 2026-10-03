@@ -223,4 +223,65 @@
     <string name="ui_format_percent_d">%1$d%%</string>
     <string name="backup_manifest_schema_v">v%1$d</string>
     <string name="backup_manifest_device_line">%1$s %2$s</string>
+
+    <!-- Backfilled translations -->
+    <string name="library_background_sync">Finir en arrière-plan…</string>
+    <string name="library_background_sync_lyrics">Numérisation des paroles…</string>
+    <string name="library_background_sync_cache">Nettoyage du cache des pochettes d\'album…</string>
+    <string name="library_background_sync_cloud">Synchronisation des sources cloud…</string>
+    <string name="share_sheet_title">Partager</string>
+    <string name="share_sheet_chooser_title">Partager via</string>
+    <string name="share_card_tab_song">Carte de chanson</string>
+    <string name="share_card_tab_lyrics">Carte paroles</string>
+    <string name="share_action_snapchat">Snapchat
+Histoire</string>
+    <string name="share_action_instagram">Instagram
+Histoire</string>
+    <string name="share_action_download_card">Enregistrer
+Card</string>
+    <string name="share_action_copy_yt_link">Copier le lien 
+YT</string>
+    <string name="share_action_more_apps">Partager
+Plus</string>
+    <string name="share_action_add_to_playlist">Ajouter à la liste de lecture</string>
+    <string name="share_action_add_to_playlist_sub">Ajoutez cette chanson à l\'une de vos playlists</string>
+    <string name="share_action_copy_github_link">Copier le lien de l\'application</string>
+    <string name="share_card_saved">Carte enregistrée dans Images</string>
+    <string name="share_link_copied">Lien copié dans le presse-papiers</string>
+    <string name="share_text_format">J\'écoute actuellement \"%1$s\" de %2$s 🎵
+%3$s</string>
+    <string name="player_menu_share_card">Partager la carte d\'histoire</string>
+    <string name="player_menu_download">Télécharger la chanson</string>
+    <string name="player_menu_add_to_playlist">Ajouter à la liste de lecture</string>
+    <string name="not_interested">Pas intéressé</string>
+    <string name="marked_not_interested">Marqué comme non intéressé</string>
+    <string name="action_dislike">Je n\'aime pas</string>
+    <string name="action_disliked">Je n\'ai pas aimé</string>
+    <string name="cd_player_more_options">Plus d\'options</string>
+    <string name="cd_player_theme">Changer de thème</string>
+    <string name="cloud_downloads_title">Téléchargements</string>
+    <string name="cloud_downloads_settings_subtitle">Gérer les pistes et le stockage hors ligne</string>
+    <string name="cloud_downloads_storage_used">Stockage hors ligne utilisé</string>
+    <string name="cloud_downloads_storage_summary">%1$d terminé · Total %2$d</string>
+    <string name="cloud_downloads_active_section">En file d\'attente et téléchargement</string>
+    <string name="cloud_downloads_failed_section">Échec</string>
+    <string name="cloud_downloads_completed_section">Complété</string>
+    <string name="cloud_downloads_section_count">%1$s · %2$d</string>
+    <string name="cloud_downloads_unknown_track">Piste inconnue</string>
+    <string name="cloud_downloads_downloaded_size">Téléchargé · %1$s</string>
+    <string name="cloud_downloads_failed_fallback">Échec du téléchargement</string>
+    <string name="cloud_downloads_empty_title">Pas de téléchargements hors ligne</string>
+    <string name="cloud_downloads_empty_subtitle">Les pistes que vous téléchargez apparaîtront ici.</string>
+    <string name="cloud_download_retry">Réessayer</string>
+    <string name="cloud_remove_download">Supprimer</string>
+    <string name="cloud_download_queued">En file d\'attente</string>
+    <string name="cloud_downloading">Téléchargement…</string>
+    <string name="cloud_download_progress">%1$d%%</string>
+    <string name="cloud_download_select_all">Tout sélectionner</string>
+    <string name="cloud_download_deselect_all">Désélectionner tout</string>
+    <string name="cloud_download_delete_selected">Supprimer la sélection</string>
+    <string name="cloud_download_play_selected">Lecture sélectionnée</string>
+    <string name="cloud_download_play_all">Jouer à tous</string>
+    <string name="cloud_download_shuffle_all">Mélangez tout</string>
+    <string name="in_your_library">Dans votre bibliothèque</string>
 </resources>

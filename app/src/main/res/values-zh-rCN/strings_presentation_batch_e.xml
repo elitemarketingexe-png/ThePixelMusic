@@ -148,4 +148,8 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">我们会使用较小的样本来控制成本</string>
     <string name="presentation_batch_e_daily_mix_updating">更新中……</string>
     <string name="presentation_batch_e_daily_mix_update">更新每日合辑</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_e_action_locate_current_song">找到当前歌曲</string>
+    <string name="autoplay">自动播放</string>
 </resources>

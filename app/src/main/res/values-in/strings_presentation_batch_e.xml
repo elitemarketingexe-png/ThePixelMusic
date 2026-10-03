@@ -149,4 +149,7 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">Kami menggunakan sampel kecil untuk menjaga biaya tetap rendah</string>
     <string name="presentation_batch_e_daily_mix_updating">Memperbarui…</string>
     <string name="presentation_batch_e_daily_mix_update">Perbarui Daily Mix</string>
+
+    <!-- Backfilled translations -->
+    <string name="autoplay">Putar otomatis</string>
 </resources>

@@ -80,4 +80,10 @@
     <string name="lib_empty_playlists_title">Плейлистов пока нет</string>
     <string name="lib_empty_playlists_subtitle">Создайте свой первый плейлист, чтобы организовать фонотеку.</string>
     <string name="song_picker_filter_favorites">Только избранное</string>
+
+    <!-- Backfilled translations -->
+    <string name="library_storage_filter_local">Только локально</string>
+    <string name="library_storage_filter_telegram">Телеграмма</string>
+    <string name="library_storage_filter_youtube">Ютуб</string>
+    <string name="library_storage_filter_downloaded_only">СКАЧАНО</string>
 </resources>

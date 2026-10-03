@@ -81,4 +81,19 @@
         <item quantity="one">%1$d canción • %2$s</item>
         <item quantity="other">%1$d canciones • %2$s</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_b_export_as_m3u">Exportar como M3U</string>
+    <string name="presentation_batch_b_export_as_m3u_desc">Archivo de lista de reproducción para reproductores multimedia</string>
+    <string name="presentation_batch_b_export_as_csv">Exportar como CSV</string>
+    <string name="presentation_batch_b_export_as_csv_desc">Compatible con hojas de cálculo, fácil de importar</string>
+    <string name="presentation_batch_b_export_save">Guardar</string>
+    <string name="presentation_batch_b_export_share">Compartir</string>
+    <string name="presentation_batch_b_import_playlist">Importar lista de reproducción</string>
+    <string name="presentation_batch_b_import_m3u">Importar M3U</string>
+    <string name="presentation_batch_b_import_csv">Importar CSV</string>
+    <string name="presentation_batch_b_importing">Importando lista de reproducción</string>
+    <string name="presentation_batch_b_import_progress">Importando pista %1$d de %2$d</string>
+    <string name="presentation_batch_b_resolving">Resolviendo metadatos en línea…</string>
+    <string name="presentation_batch_b_download_playlist">Descargar lista de reproducción</string>
 </resources>

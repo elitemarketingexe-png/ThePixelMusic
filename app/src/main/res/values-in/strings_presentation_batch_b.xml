@@ -81,4 +81,19 @@
         <item quantity="one">%1$d lagu • %2$s</item>
         <item quantity="other">%1$d lagu • %2$s</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_b_export_as_m3u">Ekspor sebagai M3U</string>
+    <string name="presentation_batch_b_export_as_m3u_desc">File daftar putar untuk pemutar media</string>
+    <string name="presentation_batch_b_export_as_csv">Ekspor sebagai CSV</string>
+    <string name="presentation_batch_b_export_as_csv_desc">Kompatibel dengan spreadsheet, mudah diimpor</string>
+    <string name="presentation_batch_b_export_save">Simpan</string>
+    <string name="presentation_batch_b_export_share">Bagikan</string>
+    <string name="presentation_batch_b_import_playlist">Impor Daftar Putar</string>
+    <string name="presentation_batch_b_import_m3u">Impor M3U</string>
+    <string name="presentation_batch_b_import_csv">Impor CSV</string>
+    <string name="presentation_batch_b_importing">Mengimpor Daftar Putar</string>
+    <string name="presentation_batch_b_import_progress">Mengimpor trek %1$d dari %2$d</string>
+    <string name="presentation_batch_b_resolving">Menyelesaikan metadata online…</string>
+    <string name="presentation_batch_b_download_playlist">Unduh daftar putar</string>
 </resources>

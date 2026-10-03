@@ -81,4 +81,19 @@
         <item quantity="one">%1$d 首歌曲 • %2$s</item>
         <item quantity="other">%1$d 首歌曲 • %2$s</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_b_export_as_m3u">导出为 M3U</string>
+    <string name="presentation_batch_b_export_as_m3u_desc">媒体播放器的播放列表文件</string>
+    <string name="presentation_batch_b_export_as_csv">导出为 CSV</string>
+    <string name="presentation_batch_b_export_as_csv_desc">电子表格兼容，易于导入</string>
+    <string name="presentation_batch_b_export_save">保存</string>
+    <string name="presentation_batch_b_export_share">分享</string>
+    <string name="presentation_batch_b_import_playlist">导入播放列表</string>
+    <string name="presentation_batch_b_import_m3u">导入M3U</string>
+    <string name="presentation_batch_b_import_csv">导入 CSV</string>
+    <string name="presentation_batch_b_importing">导入播放列表</string>
+    <string name="presentation_batch_b_import_progress">导入 %2$d 的曲目 %1$d</string>
+    <string name="presentation_batch_b_resolving">解决在线元数据...</string>
+    <string name="presentation_batch_b_download_playlist">下载播放列表</string>
 </resources>

@@ -228,4 +228,61 @@
     <string name="ui_format_percent_d">%1$d%%</string>
     <string name="backup_manifest_schema_v">v%1$d</string>
     <string name="backup_manifest_device_line">%1$s %2$s</string>
+
+    <!-- Backfilled translations -->
+    <string name="share_sheet_title">Поделиться</string>
+    <string name="share_sheet_chooser_title">Поделиться через</string>
+    <string name="share_card_tab_song">Карточка с песней</string>
+    <string name="share_card_tab_lyrics">Карточка со словами</string>
+    <string name="share_action_snapchat">Snapchat
+Story</string>
+    <string name="share_action_instagram">Instagram
+История</string>
+    <string name="share_action_download_card">Сохранить
+Card</string>
+    <string name="share_action_copy_yt_link">Копировать
+YT Ссылка</string>
+    <string name="share_action_more_apps">Поделиться
+Подробнее</string>
+    <string name="share_action_add_to_playlist">Добавить в плейлист</string>
+    <string name="share_action_add_to_playlist_sub">Добавьте эту песню в один из своих плейлистов</string>
+    <string name="share_action_copy_github_link">Скопировать ссылку на приложение</string>
+    <string name="share_card_saved">Карта сохранена в папке «Изображения»</string>
+    <string name="share_link_copied">Ссылка скопирована в буфер обмена</string>
+    <string name="share_text_format">Сейчас слушаю «%1$s» от %2$s 🎵
+%3$s</string>
+    <string name="player_menu_share_card">Поделиться карточкой-историей</string>
+    <string name="player_menu_download">Скачать песню</string>
+    <string name="player_menu_add_to_playlist">Добавить в плейлист</string>
+    <string name="not_interested">Не интересно</string>
+    <string name="marked_not_interested">Отмечено как неинтересное</string>
+    <string name="action_dislike">Не нравится</string>
+    <string name="action_disliked">Не понравилось</string>
+    <string name="cd_player_more_options">Дополнительные возможности</string>
+    <string name="cd_player_theme">Изменить тему</string>
+    <string name="cloud_downloads_title">Загрузки</string>
+    <string name="cloud_downloads_settings_subtitle">Управление автономными треками и хранилищем</string>
+    <string name="cloud_downloads_storage_used">Использовано автономное хранилище</string>
+    <string name="cloud_downloads_storage_summary">%1$d завершен · Всего %2$d</string>
+    <string name="cloud_downloads_active_section">В очереди и загрузка</string>
+    <string name="cloud_downloads_failed_section">Не удалось</string>
+    <string name="cloud_downloads_completed_section">Завершено</string>
+    <string name="cloud_downloads_section_count">%1$s · %2$d</string>
+    <string name="cloud_downloads_unknown_track">Неизвестный трек</string>
+    <string name="cloud_downloads_downloaded_size">Загружено · %1$s</string>
+    <string name="cloud_downloads_failed_fallback">Загрузка не удалась</string>
+    <string name="cloud_downloads_empty_title">Никаких офлайн-загрузок</string>
+    <string name="cloud_downloads_empty_subtitle">Здесь появятся загруженные вами треки.</string>
+    <string name="cloud_download_retry">Повторить попытку</string>
+    <string name="cloud_remove_download">Удалить</string>
+    <string name="cloud_download_queued">В очереди</string>
+    <string name="cloud_downloading">Загрузка…</string>
+    <string name="cloud_download_progress">%1$d%%</string>
+    <string name="cloud_download_select_all">Выбрать все</string>
+    <string name="cloud_download_deselect_all">Отменить выбор всех</string>
+    <string name="cloud_download_delete_selected">Удалить выбранное</string>
+    <string name="cloud_download_play_selected">Воспроизвести выбранное</string>
+    <string name="cloud_download_play_all">Играть все</string>
+    <string name="cloud_download_shuffle_all">Перемешать все</string>
+    <string name="in_your_library">В вашей библиотеке</string>
 </resources>

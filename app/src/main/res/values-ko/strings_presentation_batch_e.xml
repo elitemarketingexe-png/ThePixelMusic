@@ -146,4 +146,8 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">비용을 낮게 유지하기 위해 작은 샘플을 사용합니다</string>
     <string name="presentation_batch_e_daily_mix_updating">업데이트 중…</string>
     <string name="presentation_batch_e_daily_mix_update">Daily Mix 업데이트</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_e_action_locate_current_song">현재 노래 찾기</string>
+    <string name="autoplay">자동재생</string>
 </resources>

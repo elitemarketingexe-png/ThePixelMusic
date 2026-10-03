@@ -109,6 +109,9 @@
     <string name="setcat_language_chinese">简体中文</string>
     <string name="setcat_language_indonesian">Bahasa Indonesia</string>
     <string name="setcat_language_italian">Italiano</string>
+    <string name="setcat_language_portuguese">Português</string>
+    <string name="setcat_language_korean">한국어</string>
+    <string name="setcat_language_norwegian">Norsk bokmål</string>
     <string name="setcat_app_theme_label">App Theme</string>
     <string name="setcat_app_theme_desc">Switch between light, dark, or follow system appearance.</string>
     <string name="setcat_app_font_label">App Font</string>

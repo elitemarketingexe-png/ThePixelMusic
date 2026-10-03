@@ -227,4 +227,61 @@
     <string name="ui_format_percent_d">%1$d%%</string>
     <string name="backup_manifest_schema_v">v%1$d</string>
     <string name="backup_manifest_device_line">%1$s %2$s</string>
+
+    <!-- Backfilled translations -->
+    <string name="share_sheet_title">Del</string>
+    <string name="share_sheet_chooser_title">Del via</string>
+    <string name="share_card_tab_song">Sangkort</string>
+    <string name="share_card_tab_lyrics">Tekstkort</string>
+    <string name="share_action_snapchat">Snapchat
+Story</string>
+    <string name="share_action_instagram">Instagram
+Story</string>
+    <string name="share_action_download_card">Lagre
+Card</string>
+    <string name="share_action_copy_yt_link">Copy
+YT Link</string>
+    <string name="share_action_more_apps">Del
+More</string>
+    <string name="share_action_add_to_playlist">Legg til i spilleliste</string>
+    <string name="share_action_add_to_playlist_sub">Legg denne sangen til en av spillelistene dine</string>
+    <string name="share_action_copy_github_link">Kopier applenke</string>
+    <string name="share_card_saved">Kort lagret i Bilder</string>
+    <string name="share_link_copied">Link kopiert til utklippstavlen</string>
+    <string name="share_text_format">Hører nå til \"%1$s\" av %2$s 🎵
+%3$s</string>
+    <string name="player_menu_share_card">Del historiekort</string>
+    <string name="player_menu_download">Last ned sang</string>
+    <string name="player_menu_add_to_playlist">Legg til i spilleliste</string>
+    <string name="not_interested">Ikke interessert</string>
+    <string name="marked_not_interested">Merket som ikke interessert</string>
+    <string name="action_dislike">Liker ikke</string>
+    <string name="action_disliked">Likte ikke</string>
+    <string name="cd_player_more_options">Flere alternativer</string>
+    <string name="cd_player_theme">Endre tema</string>
+    <string name="cloud_downloads_title">Nedlastinger</string>
+    <string name="cloud_downloads_settings_subtitle">Administrer frakoblede spor og lagring</string>
+    <string name="cloud_downloads_storage_used">Frakoblet lagring brukt</string>
+    <string name="cloud_downloads_storage_summary">%1$d fullført · %2$d totalt</string>
+    <string name="cloud_downloads_active_section">I kø og laster ned</string>
+    <string name="cloud_downloads_failed_section">Mislyktes</string>
+    <string name="cloud_downloads_completed_section">Fullført</string>
+    <string name="cloud_downloads_section_count">%1$s · %2$d</string>
+    <string name="cloud_downloads_unknown_track">Ukjent spor</string>
+    <string name="cloud_downloads_downloaded_size">Lastet ned · %1$s</string>
+    <string name="cloud_downloads_failed_fallback">Nedlasting mislyktes</string>
+    <string name="cloud_downloads_empty_title">Ingen offline nedlastinger</string>
+    <string name="cloud_downloads_empty_subtitle">Spor du laster ned vil vises her.</string>
+    <string name="cloud_download_retry">Prøv på nytt</string>
+    <string name="cloud_remove_download">Fjern</string>
+    <string name="cloud_download_queued">I kø</string>
+    <string name="cloud_downloading">Laster ned...</string>
+    <string name="cloud_download_progress">%1$d%%</string>
+    <string name="cloud_download_select_all">Velg alle</string>
+    <string name="cloud_download_deselect_all">Fjern markeringen av alle</string>
+    <string name="cloud_download_delete_selected">Slett valgt</string>
+    <string name="cloud_download_play_selected">Spill av valgt</string>
+    <string name="cloud_download_play_all">Spill alle</string>
+    <string name="cloud_download_shuffle_all">Bland alle</string>
+    <string name="in_your_library">I biblioteket ditt</string>
 </resources>

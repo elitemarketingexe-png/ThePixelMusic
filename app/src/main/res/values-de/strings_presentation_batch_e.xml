@@ -148,4 +148,8 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">Nur eine kleine Auswahl wird gesendet – hält Kosten niedrig</string>
     <string name="presentation_batch_e_daily_mix_updating">Wird aktualisiert…</string>
     <string name="presentation_batch_e_daily_mix_update">Daily Mix aktualisieren</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_e_action_locate_current_song">Aktuelles Lied suchen</string>
+    <string name="autoplay">Autoplay</string>
 </resources>

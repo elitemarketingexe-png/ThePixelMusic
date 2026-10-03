@@ -226,4 +226,9 @@
     <plurals name="presentation_batch_f_n_topics">
         <item quantity="other">주제 %d개</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_f_remove_channel_confirm_title">채널을 삭제하시겠습니까?</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s는 동기화를 중지하고 이 채널에서 캐시된 모든 노래가 제거됩니다.</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">제거하다</string>
 </resources>

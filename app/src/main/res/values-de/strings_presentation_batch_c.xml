@@ -79,4 +79,11 @@
     <string name="lib_empty_folders_subtitle">Ordner im internen Speicher mit Musik erscheinen hier.</string>
     <string name="lib_empty_playlists_title">Noch keine Playlists</string>
     <string name="lib_empty_playlists_subtitle">Erste Playlist erstellen und loslegen.</string>
+
+    <!-- Backfilled translations -->
+    <string name="library_storage_filter_local">Nur lokal</string>
+    <string name="library_storage_filter_telegram">Telegramm</string>
+    <string name="library_storage_filter_youtube">YouTube</string>
+    <string name="library_storage_filter_downloaded_only">HERUNTERGELADEN</string>
+    <string name="song_picker_filter_favorites">Gefallen</string>
 </resources>

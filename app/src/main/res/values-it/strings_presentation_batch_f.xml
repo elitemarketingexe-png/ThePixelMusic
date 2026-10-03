@@ -228,4 +228,9 @@
         <item quantity="one">%d argomento</item>
         <item quantity="other">%d argomenti</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_f_remove_channel_confirm_title">Rimuovere il canale?</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s interromperà la sincronizzazione e tutti i brani memorizzati nella cache di questo canale verranno rimossi.</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">Rimuovere</string>
 </resources>

@@ -70,4 +70,7 @@
     <string name="auth_error_no_cookies">쿠키를 찾을 수 없습니다. 먼저 로그인하세요.</string>
     <string name="auth_error_netease_login_incomplete">로그인이 감지되지 않았습니다. \'완료\'를 누르기 전에 NetEase 로그인을 완료하세요.</string>
     <string name="auth_error_qq_login_incomplete">로그인이 감지되지 않았습니다. \'완료\'를 누르기 전에 QQ Music 로그인을 완료하세요.</string>
+
+    <!-- Backfilled translations -->
+    <string name="auth_navidrome_пароль_hint">서버가 지원하는 경우 앱 비밀번호도 작동합니다.</string>
 </resources>

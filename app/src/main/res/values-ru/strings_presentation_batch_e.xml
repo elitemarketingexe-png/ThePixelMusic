@@ -153,4 +153,7 @@
     <string name="presentation_batch_e_daily_mix_updating">Обновление…</string>
     <string name="presentation_batch_e_daily_mix_update">Обновить Daily Mix</string>
     <string name="presentation_batch_e_action_locate_current_song">Найти текущий трек</string>
+
+    <!-- Backfilled translations -->
+    <string name="autoplay">Автозапуск</string>
 </resources>

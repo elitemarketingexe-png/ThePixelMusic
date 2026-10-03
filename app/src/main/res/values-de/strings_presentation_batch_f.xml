@@ -228,4 +228,9 @@
         <item quantity="one">%d Thema</item>
         <item quantity="other">%d Themen</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_f_remove_channel_confirm_title">Kanal entfernen?</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s stoppt die Synchronisierung und alle zwischengespeicherten Songs von diesem Kanal werden entfernt.</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">Entfernen</string>
 </resources>

@@ -490,4 +490,11 @@
     <string name="presentation_batch_g_beta_sheet_nightly_access">Доступны через артефакты GitHub Actions в репозитории, если опубликованы.</string>
     <string name="presentation_batch_g_beta_sheet_nightly_report_title">Отчёт о проблемах в nightly</string>
     <string name="presentation_batch_g_beta_sheet_nightly_report_body">При отчёте о проблеме из nightly всегда указывайте, что она в nightly, а не в официальном релизе. Укажите дату сборки, имя или номер запуска workflow или commit SHA — если возможно. Также проверьте, есть ли эта проблема в последнем официальном релизе.</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_g_beta05_title">v1.6.08 Обновление</string>
+    <string name="presentation_batch_g_beta05_clean_install_title">Что нового в версии 1.6.08</string>
+    <string name="presentation_batch_g_beta05_clean_install_body">•</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_title">Исследуйте Обновить</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_body">Наслаждайтесь новым элегантным макетом Material 3 Expressive на вкладке «Обзор»!</string>
 </resources>

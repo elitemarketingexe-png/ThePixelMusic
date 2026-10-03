@@ -79,4 +79,11 @@
     <string name="lib_empty_folders_subtitle">Le cartelle della memoria interna con musica appariranno qui.</string>
     <string name="lib_empty_playlists_title">Ancora nessuna playlist</string>
     <string name="lib_empty_playlists_subtitle">Crea la tua prima playlist per organizzare la tua libreria.</string>
+
+    <!-- Backfilled translations -->
+    <string name="library_storage_filter_local">Solo locale</string>
+    <string name="library_storage_filter_telegram">Telegramma</string>
+    <string name="library_storage_filter_youtube">Youtube</string>
+    <string name="library_storage_filter_downloaded_only">SCARICATO</string>
+    <string name="song_picker_filter_favorites">Mi è piaciuto</string>
 </resources>

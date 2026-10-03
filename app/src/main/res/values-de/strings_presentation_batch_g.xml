@@ -508,4 +508,65 @@
         <item>Bug behoben, bei dem die Wiedergabe-Benachrichtigung nicht gelöscht wurde.</item>
         <item>Mehrere Absturz-Bugs behoben.</item>
     </string-array>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_g_beta_sheet_expect_summary">Welche Beta-Builds sich während des Tests ändern, kaputt gehen oder verbessert werden können.</string>
+    <string name="presentation_batch_g_beta_sheet_github_title">GitHub-Problemverknüpfung</string>
+    <string name="presentation_batch_g_beta_sheet_github_body">Suchen Sie zuerst und öffnen Sie dann einen gezielten Bericht nach Fehlern, Abstürzen, Anfragen oder Fragen.</string>
+    <string name="presentation_batch_g_beta_sheet_report_summary">Eine kurze Checkliste vor dem Öffnen einer neuen Ausgabe.</string>
+    <string name="presentation_batch_g_beta_sheet_before_title">Vor dem Öffnen einer Ausgabe</string>
+    <string name="presentation_batch_g_beta_sheet_before_1">Durchsuchen Sie vorhandene offene und geschlossene Probleme, um Duplikate zu vermeiden.</string>
+    <string name="presentation_batch_g_beta_sheet_before_2">Aktualisieren Sie auf die neueste PixelMusic-Version und stellen Sie sicher, dass das Problem weiterhin auftritt.</string>
+    <string name="presentation_batch_g_beta_sheet_before_3">Starten Sie die App neu und stellen Sie sicher, dass das Problem weiterhin besteht.</string>
+    <string name="presentation_batch_g_beta_sheet_before_4">Versuchen Sie es zu reproduzieren und schreiben Sie die genauen Schritte auf.</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_title">Welcher Problemtyp?</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_bug">Fehlerbericht: Etwas verhält sich falsch.</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_feature">Funktionsanfrage: Fügen Sie eine neue Funktion oder Verbesserung hinzu.</string>
+    <string name="presentation_batch_g_beta_sheet_issue_type_question">Frage: Verwenden Sie Diskussionen, falls aktiviert, oder öffnen Sie ein Problem mit einer Fragebezeichnung.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_title">Fehlerbericht</string>
+    <string name="presentation_batch_g_beta_sheet_bug_summary_text">Kopieren Sie diese Felder, wenn sich etwas falsch verhält oder abstürzt.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_template_title">Fehlerbericht</string>
+    <string name="presentation_batch_g_beta_sheet_bug_summary">Kurze Zusammenfassung:</string>
+    <string name="presentation_batch_g_beta_sheet_bug_expected">Erwartetes Verhalten:</string>
+    <string name="presentation_batch_g_beta_sheet_bug_actual">Aktuelles Verhalten:</string>
+    <string name="presentation_batch_g_beta_sheet_bug_steps">Schritte zum Abspielen/Wiedergeben: 1. 2. 3.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_frequency">Wie oft kommt es vor? Immer / Manchmal / Selten.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_screenshot">Screenshot/Video: falls verfügbar.</string>
+    <string name="presentation_batch_g_beta_sheet_bug_logs">Protokolle/Stack-Trace: falls verfügbar.</string>
+    <string name="presentation_batch_g_beta_sheet_env_title">Umwelt</string>
+    <string name="presentation_batch_g_beta_sheet_env_version">PixelMusic-Version:</string>
+    <string name="presentation_batch_g_beta_sheet_env_source">Installationsquelle: GitHub-Release, Debug-Build, Nightly Build usw.</string>
+    <string name="presentation_batch_g_beta_sheet_env_android">Android-Version:</string>
+    <string name="presentation_batch_g_beta_sheet_env_device">Gerätemodell:</string>
+    <string name="presentation_batch_g_beta_sheet_env_extra">Zusätzlicher Kontext: SD-Kartennutzung, spezielle Einstellungen, Berechtigungen usw.</string>
+    <string name="presentation_batch_g_beta_sheet_feature_title">Funktionsanfrage</string>
+    <string name="presentation_batch_g_beta_sheet_feature_summary">Kopieren Sie diese Felder, wenn Sie eine neue Funktion oder Verbesserung wünschen.</string>
+    <string name="presentation_batch_g_beta_sheet_feature_problem">Problemstellung: Welches Problem versuchen Sie zu lösen?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_solution">Lösungsvorschlag: Wie soll es funktionieren?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_alternatives">In Betracht gezogene Alternativen: Gibt es andere Ansätze?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_scope">Geltungsbereich: Welche Bildschirme oder Flows sind betroffen?</string>
+    <string name="presentation_batch_g_beta_sheet_feature_mockup">Modell oder Referenzbild, falls verfügbar.</string>
+    <string name="presentation_batch_g_beta_sheet_quality_title">Titel, Datenschutz und Geltungsbereich</string>
+    <string name="presentation_batch_g_beta_sheet_quality_summary">Machen Sie den Bericht einfach zu selektieren und sicher zu teilen.</string>
+    <string name="presentation_batch_g_beta_sheet_title_examples_title">Gute Ausgabetitel</string>
+    <string name="presentation_batch_g_beta_sheet_title_example_1">Equalizer: Die Anzeige verschiebt sich beim Wechseln der voreingestellten Registerkarten</string>
+    <string name="presentation_batch_g_beta_sheet_title_example_2">Suche: Verlaufsliste wird für leere Abfrage</string>
+    <string name="presentation_batch_g_beta_sheet_title_example_3">nicht angezeigt Funktion: Sortieroption für Playlists „Zuletzt hinzugefügt“ hinzufügen</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_title">Bitte vermeiden Sie</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_1">Allgemeine Berichte wie „Es funktioniert nicht“.</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_2">Mehrere unabhängige Probleme in einem Problem.</string>
+    <string name="presentation_batch_g_beta_sheet_avoid_3">Nicht redigierte Protokolle oder Screenshots mit privaten Daten.</string>
+    <string name="presentation_batch_g_beta_sheet_privacy_title">Datenschutzhinweis</string>
+    <string name="presentation_batch_g_beta_sheet_privacy_body">Entfernen Sie persönliche oder private Informationen, bevor Sie Protokolle, Screenshots oder Videos veröffentlichen.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_title">Nächtliche Builds</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_summary">Wie sich Nightlies von Veröffentlichungen unterscheiden und was bei der Veröffentlichung enthalten sein sollte.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_body">Nächtliche Builds werden aus dem letzten Commit generiert und können unvollendete Änderungen, vorübergehende Fehler oder Regressionen enthalten. Sie sind experimenteller als offizielle Veröffentlichungen.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_access">Greifen Sie über die GitHub Actions-Workflow-Artefakte des Repositorys darauf zu, sofern verfügbar.</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_report_title">Nächtliche Probleme melden</string>
+    <string name="presentation_batch_g_beta_sheet_nightly_report_body">Wenn Sie ein Problem mit einem nächtlichen Build melden, erwähnen Sie immer, dass es bei einem nächtlichen Build und nicht bei der offiziellen Veröffentlichung aufgetreten ist. Geben Sie das Erstellungsdatum, den Namen oder die Nummer der Workflow-Ausführung an oder schreiben Sie nach Möglichkeit SHA fest. Überprüfen Sie auch, ob das gleiche Problem bei der neuesten offiziellen Version auftritt.</string>
+    <string name="presentation_batch_g_beta05_title">v1.6.08-Update</string>
+    <string name="presentation_batch_g_beta05_clean_install_title">Was ist neu in v1.6.08</string>
+    <string name="presentation_batch_g_beta05_clean_install_body">•</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_title">Entdecken, aktualisieren</string>
+    <string name="presentation_batch_g_beta05_if_wrong_meta_body">Genießen Sie das elegante neue Material 3 Expressive-Layout auf der Registerkarte „Erkunden“!</string>
 </resources>

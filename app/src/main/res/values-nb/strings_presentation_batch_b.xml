@@ -81,4 +81,19 @@
         <item quantity="one">%1$d sang • %2$s</item>
         <item quantity="other">%1$d sanger • %2$s</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_b_export_as_m3u">Eksporter som M3U</string>
+    <string name="presentation_batch_b_export_as_m3u_desc">Spillelistefil for mediespillere</string>
+    <string name="presentation_batch_b_export_as_csv">Eksporter som CSV</string>
+    <string name="presentation_batch_b_export_as_csv_desc">Regnearkkompatibel, enkel å importere</string>
+    <string name="presentation_batch_b_export_save">Lagre</string>
+    <string name="presentation_batch_b_export_share">Del</string>
+    <string name="presentation_batch_b_import_playlist">Importer spilleliste</string>
+    <string name="presentation_batch_b_import_m3u">Importer M3U</string>
+    <string name="presentation_batch_b_import_csv">Importer CSV</string>
+    <string name="presentation_batch_b_importing">Importerer spilleliste</string>
+    <string name="presentation_batch_b_import_progress">Importerer spor %1$d av %2$d</string>
+    <string name="presentation_batch_b_resolving">Løser online metadata...</string>
+    <string name="presentation_batch_b_download_playlist">Last ned spilleliste</string>
 </resources>

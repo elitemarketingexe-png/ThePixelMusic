@@ -218,4 +218,11 @@
         <item quantity="one">%d tema</item>
         <item quantity="other">%d temas</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_f_sync_phase_cleaning_cache">Limpiar la caché de carátulas del álbum</string>
+    <string name="presentation_batch_f_sync_phase_syncing_cloud">Sincronización de fuentes en la nube</string>
+    <string name="presentation_batch_f_remove_channel_confirm_title">¿Quitar canal?</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s dejará de sincronizarse y se eliminarán todas las canciones almacenadas en caché de este canal.</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">Eliminar</string>
 </resources>

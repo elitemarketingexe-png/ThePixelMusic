@@ -236,4 +236,19 @@
     <string name="toast_added_to_queue">Zur Queue hinzugefügt</string>
     <string name="toast_playing_next">Wird als nächstes abgespielt</string>
     <string name="error_share_song_format">Song konnte nicht geteilt werden: %1$s</string>
+
+    <!-- Backfilled translations -->
+    <string name="home_empty_placeholder_title">Noch keine Daten zum Anzeigen</string>
+    <string name="home_empty_placeholder_subtitle">Ihr Mix wird hier angezeigt, wenn PixelMusic Songs findet oder eine Quelle synchronisiert.</string>
+    <string name="home_empty_placeholder_refresh">Aktualisieren</string>
+    <string name="dash_status_syncing_library">Bibliothek wird synchronisiert…</string>
+    <string name="dash_status_fetching_playlists">Wiedergabelisten werden abgerufen…</string>
+    <string name="dash_status_syncing_playlist_format">Playlist wird synchronisiert: %1$s</string>
+    <string name="dash_status_updating_local">Lokale Bibliothek wird aktualisiert…</string>
+    <string name="dash_status_sync_complete">Synchronisierung abgeschlossen</string>
+    <string name="dash_status_fetching_albums">Albumliste wird abgerufen…</string>
+    <string name="dash_status_fetching_songs_from_format">Songs von %1$s abrufen…</string>
+    <string name="dash_status_saving_songs_format">%1$d-Songs in der Datenbank speichern…</string>
+    <string name="dash_status_no_songs_found">Keine Bibliothekslieder gefunden</string>
+    <string name="dash_status_library_sync_complete">Bibliothekssynchronisierung abgeschlossen</string>
 </resources>

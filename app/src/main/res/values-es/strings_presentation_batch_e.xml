@@ -146,4 +146,8 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">Usamos una muestra pequeña para mantener los costes bajos</string>
     <string name="presentation_batch_e_daily_mix_updating">Actualizando…</string>
     <string name="presentation_batch_e_daily_mix_update">Actualizar Daily Mix</string>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_e_action_locate_current_song">Localizar la canción actual</string>
+    <string name="autoplay">Reproducción automática</string>
 </resources>

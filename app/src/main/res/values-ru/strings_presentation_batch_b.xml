@@ -83,4 +83,19 @@
         <item quantity="many">%1$d песен • %2$s</item>
         <item quantity="other">%1$d песни • %2$s</item>
     </plurals>
+
+    <!-- Backfilled translations -->
+    <string name="presentation_batch_b_export_as_m3u">Экспортировать как M3U</string>
+    <string name="presentation_batch_b_export_as_m3u_desc">Файл списка воспроизведения для медиаплееров</string>
+    <string name="presentation_batch_b_export_as_csv">Экспортировать в формате CSV</string>
+    <string name="presentation_batch_b_export_as_csv_desc">Совместимость с электронными таблицами, легкость импорта</string>
+    <string name="presentation_batch_b_export_save">Сохранить</string>
+    <string name="presentation_batch_b_export_share">Поделиться</string>
+    <string name="presentation_batch_b_import_playlist">Импортировать плейлист</string>
+    <string name="presentation_batch_b_import_m3u">Импортировать M3U</string>
+    <string name="presentation_batch_b_import_csv">Импортировать CSV</string>
+    <string name="presentation_batch_b_importing">Импорт списка воспроизведения</string>
+    <string name="presentation_batch_b_import_progress">Импорт трека %1$d из %2$d</string>
+    <string name="presentation_batch_b_resolving">Разрешение онлайн-метаданных…</string>
+    <string name="presentation_batch_b_download_playlist">Скачать плейлист</string>
 </resources>
