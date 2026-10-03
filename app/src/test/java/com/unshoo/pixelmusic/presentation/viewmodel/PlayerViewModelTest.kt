@@ -466,7 +466,7 @@ class PlayerViewModelTest {
             startSong: Song = songs.first()
         ) {
             coEvery {
-                mockQueueStateHolder.prepareShuffledQueueSuspending(songs, queueName, true)
+                mockQueueStateHolder.prepareShuffledQueueSuspending(songs, true)
             } returns Pair(songs, startSong)
 
             mockkObject(MediaItemBuilder)
@@ -492,7 +492,6 @@ class PlayerViewModelTest {
             coVerify {
                 mockQueueStateHolder.prepareShuffledQueueSuspending(
                     randomSongs,
-                    "All Songs (Shuffled)",
                     true
                 )
             }
@@ -510,7 +509,6 @@ class PlayerViewModelTest {
             coVerify {
                 mockQueueStateHolder.prepareShuffledQueueSuspending(
                     randomSongs,
-                    "All Songs (Shuffled)",
                     true
                 )
             }
@@ -529,7 +527,6 @@ class PlayerViewModelTest {
             coVerify {
                 mockQueueStateHolder.prepareShuffledQueueSuspending(
                     favoriteSongs,
-                    "Liked Songs (Shuffled)",
                     true
                 )
             }
@@ -556,7 +553,6 @@ class PlayerViewModelTest {
             coVerify {
                 mockQueueStateHolder.prepareShuffledQueueSuspending(
                     listOf(song1, song2, song3),
-                    "Album Roulette",
                     true
                 )
             }
@@ -575,7 +571,6 @@ class PlayerViewModelTest {
             coVerify {
                 mockQueueStateHolder.prepareShuffledQueueSuspending(
                     listOf(song3, song2, song1),
-                    "Artist Roulette",
                     true
                 )
             }
@@ -594,7 +589,6 @@ class PlayerViewModelTest {
             coVerify {
                 mockQueueStateHolder.prepareShuffledQueueSuspending(
                     songs,
-                    "All Songs (Shuffled)",
                     true
                 )
             }

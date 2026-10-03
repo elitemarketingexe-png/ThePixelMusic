@@ -2987,30 +2987,13 @@ class MusicService : MediaLibraryService() {
             return
         }
 
-        val matchedIndex = when {
-            !snapshot.currentMediaId.isNullOrBlank() -> {
-                restoredItems.indexOfFirst { it.mediaId == snapshot.currentMediaId }.takeIf { it >= 0 }
-            }
+        val resolvedIndex = when {
             snapshot.currentIndex in restoredItems.indices -> snapshot.currentIndex
-            else -> null
-        }
-
-        val resolvedIndex = if (matchedIndex != null && matchedIndex > 0) {
-            matchedIndex
-        } else {
-            // If matchedIndex is null or 0 (which could be an old queue head), check the most
-            // recently engaged song in the Room database to ensure the miniplayer recovers
-            // the genuinely last-played track instead of stale index 0.
-            val recentSongId = try {
-                engagementDao.getRecentlyPlayedSongs(1).firstOrNull()?.songId
-            } catch (_: Exception) {
-                null
+            !snapshot.currentMediaId.isNullOrBlank() -> {
+                restoredItems.indexOfFirst { it.mediaId == snapshot.currentMediaId }
+                    .takeIf { it >= 0 } ?: 0
             }
-            val recentIndex = recentSongId?.let { targetId ->
-                restoredItems.indexOfFirst { it.mediaId == targetId || it.mediaId == "youtube_$targetId" }
-                    .takeIf { it >= 0 }
-            }
-            recentIndex ?: matchedIndex ?: 0
+            else -> 0
         }
 
         val preparedItems = restoredItems.toMutableList()
@@ -3070,13 +3053,6 @@ class MusicService : MediaLibraryService() {
         )
         schedulePlaybackSnapshotPersist(immediate = true)
 
-        // Trigger AutoQueueManager to inspect restored queue and top it up if needed
-        serviceScope.launch(Dispatchers.IO) {
-            val autoQueueSettings = youtubeDatastoreRepository.settings.first()
-            if (autoQueueSettings.autoQueueEnabled) {
-                AutoQueueManager.scheduleAdaptiveRefill(delayMs = 200L, forceRefresh = true)
-            }
-        }
     }
 
     private fun buildMediaItemFromSnapshot(snapshotItem: PlaybackQueueItemSnapshot): MediaItem? {

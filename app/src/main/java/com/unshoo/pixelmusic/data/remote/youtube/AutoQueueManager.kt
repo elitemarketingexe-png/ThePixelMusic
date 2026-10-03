@@ -33,11 +33,11 @@ import com.unshoo.pixelmusic.utils.ContentFilterUtils
 
 object AutoQueueManager {
     private const val TAG = "AutoQueueMgr"
-    private const val REFILL_THRESHOLD = 20
-    private const val TARGET_UPCOMING_COUNT = 40
+    private const val REFILL_THRESHOLD = 5
+    private const val TARGET_UPCOMING_COUNT = 25
     private const val MAX_REFILL_BATCH_ATTEMPTS = 5
     private const val STARTUP_SAFETY_CHECK_DELAY_MS = 2_500L
-    private const val SETTINGS_READ_TIMEOUT_MS = 3_000L
+    private const val SETTINGS_READ_TIMEOUT_MS = 2_000L
 
     @Volatile private var currentQueue: Queue = EmptyQueue
 

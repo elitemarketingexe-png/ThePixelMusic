@@ -2838,7 +2838,6 @@ class PlayerViewModel @Inject constructor(
                     totalDuration = resolvedDuration,
                     isPlaying = playerCtrl.isPlaying,
                     playWhenReady = playerCtrl.playWhenReady,
-                    isShuffleEnabled = playerCtrl.shuffleModeEnabled,
                     repeatMode = playerCtrl.repeatMode
                 )
             }
@@ -3037,9 +3036,7 @@ class PlayerViewModel @Inject constructor(
             val controller = mediaController
             val currentQueue = _playerUiState.value.currentPlaybackQueue
             val songIndexInQueue = currentQueue.indexOfFirst { it.id == song.id }
-            val queueMatchesContext = currentQueue.matchesSongOrder(playbackContext) ||
-                (playbackContext.any { it.id == song.id } && currentQueue.any { it.id == song.id } &&
-                    (queueName == _playerUiState.value.currentQueueSourceName || queueName == "Current Context" || queueName == "None"))
+            val queueMatchesContext = currentQueue.matchesSongOrder(playbackContext)
             val reusableTargetIndex = if (
                 controller != null &&
                 controller.isConnected &&
@@ -4727,36 +4724,15 @@ class PlayerViewModel @Inject constructor(
             var orderHash = 1125899906842597L
             var firstMediaId: String? = null
             var lastMediaId: String? = null
-            val isShuffleActive = currentMediaController.shuffleModeEnabled
-            
-            if (isShuffleActive) {
-                var windowIndex = timeline.getFirstWindowIndex(true)
-                var processed = 0
-                while (windowIndex != androidx.media3.common.C.INDEX_UNSET && processed < count) {
-                    val mediaItem = timeline.getWindow(windowIndex, window).mediaItem
-                    mediaItems.add(mediaItem)
-                    val mediaId = mediaItem.mediaId
-                    if (processed == 0) firstMediaId = mediaId
-                    if (processed == count - 1) lastMediaId = mediaId
-                    orderHash = (orderHash * 31) + mediaId.hashCode()
-                    processed++
-                    if (processed % 500 == 0) kotlinx.coroutines.yield()
-                    windowIndex = timeline.getNextWindowIndex(
-                        windowIndex,
-                        Player.REPEAT_MODE_OFF,
-                        true
-                    )
-                }
-            } else {
-                for (i in 0 until count) {
-                    val mediaItem = timeline.getWindow(i, window).mediaItem
-                    mediaItems.add(mediaItem)
-                    val mediaId = mediaItem.mediaId
-                    if (i == 0) firstMediaId = mediaId
-                    if (i == count - 1) lastMediaId = mediaId
-                    orderHash = (orderHash * 31) + mediaId.hashCode()
-                    if (i % 500 == 0) kotlinx.coroutines.yield()
-                }
+
+            for (i in 0 until count) {
+                val mediaItem = timeline.getWindow(i, window).mediaItem
+                mediaItems.add(mediaItem)
+                val mediaId = mediaItem.mediaId
+                if (i == 0) firstMediaId = mediaId
+                if (i == count - 1) lastMediaId = mediaId
+                orderHash = (orderHash * 31) + mediaId.hashCode()
+                if (i % 500 == 0) kotlinx.coroutines.yield()
             }
 
             val signature = QueueTimelineSignature(
@@ -4781,14 +4757,6 @@ class PlayerViewModel @Inject constructor(
             lastQueueSignature = signature
             if (queue.isNotEmpty() || count == 0) {
                 _playerUiState.update { it.copy(currentPlaybackQueue = queue.toPlaybackQueue()) }
-            }
-            if (queue.isNotEmpty()) {
-                _isSheetVisible.value = true
-                persistPlaybackSnapshotFromViewModel(
-                    queue = queue,
-                    currentSong = playbackStateHolder.stablePlayerState.value.currentSong,
-                    playWhenReady = playbackStateHolder.stablePlayerState.value.isPlaying
-                )
             }
         }
     }
@@ -5727,11 +5695,9 @@ class PlayerViewModel @Inject constructor(
                 syncDisplayedMediaItemIfChanged(playerCtrl)
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                if (isRemoteSessionControllingPlayback()) return
-                playbackStateHolder.updateStablePlayerState {
-                    it.copy(isShuffleEnabled = shuffleModeEnabled)
+                if (shuffleModeEnabled) {
+                    playerCtrl.shuffleModeEnabled = false
                 }
-                updateCurrentPlaybackQueueFromPlayer(playerCtrl)
             }
             override fun onRepeatModeChanged(repeatMode: Int) {
                 playbackStateHolder.updateStablePlayerState { it.copy(repeatMode = repeatMode) }
@@ -5800,7 +5766,6 @@ class PlayerViewModel @Inject constructor(
 
             // Store the original order so we can "unshuffle" later if the user turns shuffle off
             queueStateHolder.setOriginalQueueOrder(validSongs)
-            queueStateHolder.saveOriginalQueueState(validSongs, queueName)
 
             // Check if the user wants shuffle to be persistent across different albums
             val isPersistent = userPreferencesRepository.persistentShuffleEnabledFlow.first()
@@ -5853,7 +5818,7 @@ class PlayerViewModel @Inject constructor(
         val requestToken = beginDirectPlaybackRequest()
         directPlaybackJob = viewModelScope.launch {
             try {
-                val result = queueStateHolder.prepareShuffledQueueSuspending(cappedSongs, queueName, startAtZero)
+                val result = queueStateHolder.prepareShuffledQueueSuspending(cappedSongs, startAtZero)
                 throwIfDirectPlaybackRequestIsStale(requestToken)
                 if (result == null) {
                     sendToast(context.getString(R.string.player_no_songs_to_shuffle))
@@ -6294,23 +6259,14 @@ class PlayerViewModel @Inject constructor(
                             dualPlayerEngine.cancelNext()
                             val player = dualPlayerEngine.masterPlayer
                             player.setMediaItems(items, startIndex, 0L)
-                            val isShuffle = playbackStateHolder.stablePlayerState.value.isShuffleEnabled
-                            player.shuffleModeEnabled = isShuffle
-                            if (isShuffle && items.isNotEmpty()) {
-                                (player as? androidx.media3.exoplayer.ExoPlayer)?.setShuffleOrder(
-                                    androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(
-                                        IntArray(items.size) { it },
-                                        System.currentTimeMillis()
-                                    )
-                                )
-                            }
+                            player.shuffleModeEnabled = false
                             player.prepare()
                             player.playWhenReady = true
                             player.play()
                             // Instant YT Music history sync for the song just launched.
                             player.currentMediaItem?.let { registerYoutubePlaybackHistoryIfNeeded(it) }
                             _playerUiState.update { it.copy(isLoadingInitialSongs = false) }
-                            if (!skipAutoQueueSchedule) {
+                            if (!skipAutoQueueSchedule && songsToPlay.size <= 1) {
                                 // Auto Queue automatically refills related songs with an adaptive debounce delay so tap-to-play gets 100% priority
                                 com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.scheduleAdaptiveRefill(forceRefresh = true)
                             }
