@@ -1823,12 +1823,12 @@ private fun FullPlayerProgressSection(
     isSheetDragGestureActive: Boolean,
     loadingTweaks: FullPlayerLoadingTweaks
 ) {
-    val isMetadataForCurrentSong = playbackMetadataMediaId != null && (
+    val isMetadataForCurrentSong = playbackMetadataMediaId == null ||
         playbackMetadataMediaId == song.id ||
         playbackMetadataMediaId == song.youtubeId ||
         playbackMetadataMediaId.removePrefix("youtube_") == song.id.removePrefix("youtube_") ||
-        (song.youtubeId != null && playbackMetadataMediaId.removePrefix("youtube_") == song.youtubeId)
-    )
+        (song.youtubeId != null && playbackMetadataMediaId.removePrefix("youtube_") == song.youtubeId) ||
+        (playbackMetadataMediaId.isNotEmpty() && song.contentUriString.contains(playbackMetadataMediaId))
     val localSong = song.takeIf { it.isLocal }
     val isOnline = !song.isLocal
     val isConfirmed = isMetadataForCurrentSong && playbackMetadataIsConfirmed
