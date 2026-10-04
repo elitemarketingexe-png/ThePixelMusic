@@ -1117,7 +1117,7 @@ fun HomeGreetingHeader(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .padding(top = 10.dp, bottom = 10.dp)
+            .padding(top = 8.dp)
     ) {
         Text(
             text = greeting,
@@ -1127,7 +1127,7 @@ fun HomeGreetingHeader(
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontSize = if (greeting.length > 20) 24.sp else 28.sp,
-                lineHeight = if (greeting.length > 20) 32.sp else 36.sp
+                lineHeight = if (greeting.length > 20) 30.sp else 34.sp
             ),
             color = MaterialTheme.colorScheme.onSurface
         )
