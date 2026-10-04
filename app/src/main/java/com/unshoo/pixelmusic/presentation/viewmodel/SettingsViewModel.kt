@@ -118,7 +118,7 @@ data class SettingsUiState(
     val advancedExplorePage: Boolean = false,
     val animatedLyricsBlurEnabled: Boolean = true,
     val animatedLyricsBlurStrength: Float = 2.5f,
-    val floatingHeaderBarEnabled: Boolean = false,
+    val floatingHeaderBarEnabled: Boolean = true,
     val backupInfoDismissed: Boolean = false,
     val isDataTransferInProgress: Boolean = false,
     val restorePlan: RestorePlan? = null,

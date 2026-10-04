@@ -719,7 +719,7 @@ constructor(
     }
 
     val floatingHeaderBarEnabledFlow: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.FLOATING_HEADER_BAR_ENABLED] ?: false
+        preferences[PreferencesKeys.FLOATING_HEADER_BAR_ENABLED] ?: true
     }
 
     suspend fun setFloatingHeaderBarEnabled(enabled: Boolean) {
