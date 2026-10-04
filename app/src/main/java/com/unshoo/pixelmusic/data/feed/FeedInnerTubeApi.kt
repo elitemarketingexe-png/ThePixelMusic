@@ -462,18 +462,50 @@ class FeedInnerTubeApi @Inject constructor(
 
     suspend fun fetchAlbumPage(browseId: String): AlbumPageData? = withContext(Dispatchers.IO) {
         if (browseId.isBlank()) return@withContext null
-        val root = runCatching { browseRoot(browseId, authenticated = false) }.getOrNull() ?: return@withContext null
-        val songs = parseSongRenderers(root)
+        val ytAlbum = runCatching { unshoo.ianshulyadav.pixelmusic.innertube.YouTube.album(browseId).getOrNull() }.getOrNull()
+        if (ytAlbum != null) {
+            val album = ytAlbum.album
+            val albumArtist = album.artists?.firstOrNull()?.name ?: "Artist"
+            val songs = ytAlbum.songs.map { s ->
+                val trackArtist = s.artists.firstOrNull()?.name ?: albumArtist
+                YouTubeMusicTrack(
+                    videoId = s.id,
+                    title = s.title,
+                    artist = if (trackArtist.isBlank() || trackArtist == "Unknown artist") albumArtist else trackArtist,
+                    album = s.album?.name ?: album.title,
+                    artworkUrl = s.thumbnail?.takeIf { it.isNotBlank() } ?: album.thumbnail,
+                    durationSeconds = s.duration
+                )
+            }
+            return@withContext AlbumPageData(
+                title = album.title,
+                artist = albumArtist,
+                artworkUrl = album.thumbnail,
+                songs = songs
+            )
+        }
+        val isAuth = ytAuth.connection.value.isConnected
+        val root = runCatching { browseRoot(browseId, authenticated = isAuth) }.getOrNull()
+            ?: runCatching { browseRoot(browseId, authenticated = false) }.getOrNull()
+            ?: return@withContext null
+        val rawSongs = parseSongRenderers(root)
         val header = root.obj("header")?.obj("musicDetailHeaderRenderer")
             ?: root.obj("header")?.obj("musicResponsiveHeaderRenderer")
         val title = header?.obj("title")?.array("runs")?.joinToString("") { it.asObject()?.string("text").orEmpty() }
             ?: header?.obj("title")?.string("simpleText")
-            ?: songs.firstOrNull()?.album
+            ?: rawSongs.firstOrNull()?.album
             ?: "Album"
         val artist = header?.obj("subtitle")?.array("runs")?.firstOrNull()?.asObject()?.string("text")
-            ?: songs.firstOrNull()?.artist
+            ?: rawSongs.firstOrNull()?.artist
             ?: "Artist"
-        val artworkUrl = extractArtwork(header ?: root) ?: songs.firstOrNull()?.artworkUrl
+        val artworkUrl = extractArtwork(header ?: root) ?: rawSongs.firstOrNull()?.artworkUrl
+        val songs = rawSongs.map { s ->
+            s.copy(
+                artist = if (s.artist == "Unknown artist" || s.artist.isBlank()) artist else s.artist,
+                album = s.album ?: title,
+                artworkUrl = s.artworkUrl ?: artworkUrl
+            )
+        }
         AlbumPageData(title = title, artist = artist, artworkUrl = artworkUrl, songs = songs)
     }
 

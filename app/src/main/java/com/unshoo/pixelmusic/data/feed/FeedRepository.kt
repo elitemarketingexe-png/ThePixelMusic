@@ -81,6 +81,7 @@ class FeedRepository @Inject constructor(
         val releaseCandidates = sections.filter { s ->
             val t = s.title.lowercase()
             !t.contains("video") && !t.contains("videos") && (
+                t.contains("released") ||
                 t.contains("new release") ||
                 t.contains("new album") || t.contains("latest release") ||
                 t.contains("new music") || t.contains("recent release") ||
@@ -102,20 +103,15 @@ class FeedRepository @Inject constructor(
                     author = item.author?.name ?: "Release",
                     artworkUrl = item.thumbnail
                 )
+                is unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem -> YouTubePlaylistSummary(
+                    id = item.id,
+                    title = item.title,
+                    author = item.artists.firstOrNull()?.name ?: "Single",
+                    artworkUrl = item.thumbnail
+                )
                 else -> null
             }
-        }.distinctBy { it.id }.ifEmpty {
-            runCatching {
-                unshoo.ianshulyadav.pixelmusic.innertube.YouTube.newReleaseAlbums().getOrNull()
-            }.getOrNull().orEmpty().map { album ->
-                YouTubePlaylistSummary(
-                    id = album.browseId,
-                    title = album.title,
-                    author = album.artists?.firstOrNull()?.name ?: "Album",
-                    artworkUrl = album.thumbnail
-                )
-            }
-        }
+        }.distinctBy { it.id }
 
         val charts = sections.filter { s ->
             val t = s.title.lowercase()

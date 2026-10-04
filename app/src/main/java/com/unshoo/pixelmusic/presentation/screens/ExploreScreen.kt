@@ -138,9 +138,11 @@ import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.components.PlayingWaveBars
 import com.unshoo.pixelmusic.presentation.components.PlaylistCover
+import com.unshoo.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.unshoo.pixelmusic.presentation.components.QuickPicksSection
 import com.unshoo.pixelmusic.presentation.components.SmartImage
 import com.unshoo.pixelmusic.presentation.components.SmartImageCardTargetSize
+import com.unshoo.pixelmusic.presentation.components.SongInfoBottomSheet
 import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
 import com.unshoo.pixelmusic.presentation.navigation.navigateToTopLevelSafely
@@ -151,6 +153,7 @@ import com.unshoo.pixelmusic.presentation.viewmodel.FeedUiState
 import com.unshoo.pixelmusic.presentation.viewmodel.FeedViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerSheetState
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.unshoo.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.QuickPicksViewModel
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import com.unshoo.pixelmusic.ui.theme.ShapeCache
@@ -217,6 +220,13 @@ fun ExploreScreen(
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val isPlaying by remember { derivedStateOf { stablePlayerState.isPlaying } }
     val currentSongId by remember { derivedStateOf { stablePlayerState.currentSong?.id } }
+
+    val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
+    var showSongInfoBottomSheet by remember { mutableStateOf(false) }
+    var showPlaylistBottomSheet by remember { mutableStateOf(false) }
+    var playlistSheetSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    val favoriteSongIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle()
+    val playlistViewModel: PlaylistViewModel = hiltViewModel()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, feedViewModel, exploreViewModel) {
@@ -558,6 +568,7 @@ fun ExploreScreen(
                                                 },
                                                 onMoreClick = {
                                                     playerViewModel.selectSongForInfo(track.toSong())
+                                                    showSongInfoBottomSheet = true
                                                 }
                                             )
                                         }
@@ -594,6 +605,7 @@ fun ExploreScreen(
                                             },
                                             onMoreClick = {
                                                 playerViewModel.selectSongForInfo(track.toSong())
+                                                showSongInfoBottomSheet = true
                                             }
                                         )
                                     }
@@ -630,6 +642,12 @@ fun ExploreScreen(
                                                 } else {
                                                     feedViewModel.playRecentQueue(jumpBackInTracks, index, playerViewModel)
                                                 }
+                                            },
+                                            onMoreClick = {
+                                                val localSong = exploreUiState.localSongs[track.url]
+                                                val song = localSong ?: track.toSong()
+                                                playerViewModel.selectSongForInfo(song)
+                                                showSongInfoBottomSheet = true
                                             }
                                         )
                                     }
@@ -686,6 +704,7 @@ fun ExploreScreen(
                                             },
                                             onMoreClick = {
                                                 playerViewModel.selectSongForInfo(track.toSong())
+                                                showSongInfoBottomSheet = true
                                             }
                                         )
                                     }
@@ -775,6 +794,10 @@ fun ExploreScreen(
                                         isCurrentPlaying = isPlaying && currentSongId == "youtube_${track.videoId}",
                                         onClick = {
                                             feedViewModel.playTracksQueue(chartTracks, index, playerViewModel, "Top Charts")
+                                        },
+                                        onMoreClick = {
+                                            playerViewModel.selectSongForInfo(track.toSong())
+                                            showSongInfoBottomSheet = true
                                         }
                                     )
                                 }
@@ -804,9 +827,27 @@ fun ExploreScreen(
                                         onClick = {
                                             if (release.id.startsWith("MPRE") || release.id.startsWith("FEmusic_album")) {
                                                 navController.navigateSafely(Screen.AlbumDetail.createRoute(release.id))
-                                            } else {
+                                            } else if (release.id.startsWith("VL") || release.id.startsWith("PL") || release.id.startsWith("RD")) {
                                                 navController.navigateSafely(Screen.FeedPlaylistDetail.createRoute(release.id))
+                                            } else {
+                                                val song = com.unshoo.pixelmusic.data.feed.YouTubeMusicTrack(
+                                                    videoId = release.id,
+                                                    title = release.title,
+                                                    artist = release.author ?: "Artist",
+                                                    artworkUrl = release.artworkUrl
+                                                ).toSong()
+                                                playerViewModel.showAndPlaySong(song, listOf(song), "New Releases")
                                             }
+                                        },
+                                        onMoreClick = {
+                                            val song = com.unshoo.pixelmusic.data.feed.YouTubeMusicTrack(
+                                                videoId = release.id,
+                                                title = release.title,
+                                                artist = release.author ?: "Artist",
+                                                artworkUrl = release.artworkUrl
+                                            ).toSong()
+                                            playerViewModel.selectSongForInfo(song)
+                                            showSongInfoBottomSheet = true
                                         }
                                     )
                                 }
@@ -840,6 +881,7 @@ fun ExploreScreen(
                                         },
                                         onMoreClick = {
                                             playerViewModel.selectSongForInfo(song)
+                                            showSongInfoBottomSheet = true
                                         }
                                     )
                                 }
@@ -878,7 +920,11 @@ fun ExploreScreen(
                                         playerViewModel = playerViewModel,
                                         feedViewModel = feedViewModel,
                                         currentSongId = currentSongId,
-                                        isPlaying = isPlaying
+                                        isPlaying = isPlaying,
+                                        onSongMoreClick = { song ->
+                                            playerViewModel.selectSongForInfo(song)
+                                            showSongInfoBottomSheet = true
+                                        }
                                     )
                                 }
                             }
@@ -904,6 +950,98 @@ fun ExploreScreen(
                 }
             }
         }
+    }
+
+    if (showSongInfoBottomSheet && selectedSongForInfo != null) {
+        val currentSong = selectedSongForInfo
+        val isFavorite = remember(currentSong?.id, favoriteSongIds) {
+            derivedStateOf {
+                currentSong?.let { favoriteSongIds.contains(it.id) }
+            }
+        }.value ?: false
+
+        if (currentSong != null) {
+            SongInfoBottomSheet(
+                song = currentSong,
+                playerViewModel = playerViewModel,
+                isFavorite = isFavorite,
+                onToggleFavorite = {
+                    playerViewModel.toggleFavoriteSpecificSong(currentSong)
+                },
+                onDismiss = { showSongInfoBottomSheet = false },
+                onPlaySong = {
+                    playerViewModel.showAndPlaySong(currentSong)
+                    showSongInfoBottomSheet = false
+                },
+                onAddToQueue = {
+                    playerViewModel.addSongToQueue(currentSong)
+                    showSongInfoBottomSheet = false
+                },
+                onAddNextToQueue = {
+                    playerViewModel.addSongNextToQueue(currentSong)
+                    showSongInfoBottomSheet = false
+                },
+                onAddToPlayList = {
+                    playlistSheetSongs = listOf(currentSong)
+                    showSongInfoBottomSheet = false
+                    showPlaylistBottomSheet = true
+                },
+                onDeleteFromDevice = playerViewModel::deleteFromDevice,
+                onNavigateToAlbum = {
+                    if (currentSong.albumId != 0L) {
+                        navController.navigateSafely(Screen.AlbumDetail.createRoute(currentSong.albumId))
+                    }
+                    showSongInfoBottomSheet = false
+                },
+                onNavigateToArtist = {
+                    val target = currentSong.artists.firstOrNull()?.id?.takeIf { it != 0L && it != -1L }?.toString()
+                        ?: currentSong.artists.firstOrNull()?.name
+                        ?: currentSong.artist
+                    navController.navigateSafely(Screen.ArtistDetail.createRoute(target))
+                    showSongInfoBottomSheet = false
+                },
+                onNavigateToArtistById = { artistId ->
+                    if (artistId.isNotBlank()) {
+                        navController.navigateSafely(Screen.ArtistDetail.createRoute(artistId))
+                    }
+                    showSongInfoBottomSheet = false
+                },
+                onNavigateToGenre = {},
+                onEditSong = { newTitle, newArtist, newAlbum, newAlbumArtist, newComposer, newGenre, newLyrics, newTrackNumber, newDiscNumber, replayGainTrackGainDb, replayGainAlbumGainDb, coverArtUpdate ->
+                    playerViewModel.editSongMetadata(
+                        currentSong,
+                        newTitle,
+                        newArtist,
+                        newAlbum,
+                        newAlbumArtist,
+                        newComposer,
+                        newGenre,
+                        newLyrics,
+                        newTrackNumber,
+                        newDiscNumber,
+                        replayGainTrackGainDb,
+                        replayGainAlbumGainDb,
+                        coverArtUpdate
+                    )
+                    showSongInfoBottomSheet = false
+                },
+                generateAiMetadata = { fields ->
+                    playerViewModel.generateAiMetadata(currentSong, fields)
+                },
+                removeFromListTrigger = {}
+            )
+        }
+    }
+
+    if (showPlaylistBottomSheet) {
+        val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
+        PlaylistBottomSheet(
+            playlistUiState = playlistUiState,
+            songs = playlistSheetSongs,
+            onDismiss = { showPlaylistBottomSheet = false },
+            bottomBarHeight = 0.dp,
+            playerViewModel = playerViewModel,
+        )
     }
 }
 
@@ -1418,7 +1556,8 @@ private fun FeedPlaylistCard(
     subtitle: String,
     artworkUrl: String?,
     badgeText: String? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null
 ) {
     val haptics = LocalHapticFeedback.current
     val cardShape = remember { AbsoluteSmoothCornerShape(18.dp, 75) }
@@ -1475,6 +1614,27 @@ private fun FeedPlaylistCard(
                 }
             }
 
+            if (onMoreClick != null) {
+                Surface(
+                    onClick = onMoreClick,
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.55f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.MoreVert,
+                            contentDescription = "More",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -1517,7 +1677,8 @@ private fun FeedPlaylistCard(
 @Composable
 private fun RecentTrackCard(
     track: RecentTrack,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null
 ) {
     val haptics = LocalHapticFeedback.current
     val ago = remember(track.date?.uts) {
@@ -1585,6 +1746,27 @@ private fun RecentTrackCard(
                     }
                 }
             }
+
+            if (onMoreClick != null) {
+                Surface(
+                    onClick = onMoreClick,
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.55f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.MoreVert,
+                            contentDescription = "More",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -1611,7 +1793,8 @@ private fun ChartTrackCard(
     rank: Int,
     track: YouTubeMusicTrack,
     isCurrentPlaying: Boolean = false,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null
 ) {
     val isTop3 = rank <= 3
     val haptics = LocalHapticFeedback.current
@@ -1695,6 +1878,20 @@ private fun ChartTrackCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            if (onMoreClick != null) {
+                IconButton(
+                    onClick = onMoreClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription = "More",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
@@ -2547,7 +2744,8 @@ private fun RegionalExploreSection(
     playerViewModel: PlayerViewModel,
     feedViewModel: FeedViewModel,
     currentSongId: String?,
-    isPlaying: Boolean
+    isPlaying: Boolean,
+    onSongMoreClick: (Song) -> Unit = {}
 ) {
     val songs = remember(section.items) { section.items.filterIsInstance<SongItem>() }
     val songTracks = remember(songs) {
@@ -2647,7 +2845,7 @@ private fun RegionalExploreSection(
                             }
                         },
                         onMoreClick = {
-                            playerViewModel.selectSongForInfo(track.toSong())
+                            onSongMoreClick(track.toSong())
                         }
                     )
                 }

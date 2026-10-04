@@ -393,12 +393,14 @@ class ExploreViewModel @Inject constructor(
                 val personalizedNewReleases = rawSections.filter { section ->
                     val t = section.title.lowercase()
                     !t.contains("video") && !t.contains("videos") && (
+                        t.contains("released") ||
                         t.contains("new release") || t.contains("new releases") ||
                         t.contains("new album") || t.contains("latest release") ||
                         t.contains("new music") || t.contains("recent release") ||
                         t.contains("novedades") || t.contains("nouveautés") ||
                         t.contains("veröffentlichungen") || t.contains("release radar") ||
-                        t.contains("new for you")
+                        t.contains("new for you") ||
+                        section.label?.lowercase()?.contains("release") == true
                     )
                 }.flatMap { it.items }.mapNotNull { item ->
                     when (item) {
@@ -412,17 +414,20 @@ class ExploreViewModel @Inject constructor(
                             thumbnail = item.thumbnail ?: "",
                             explicit = false
                         )
+                        is SongItem -> AlbumItem(
+                            browseId = item.id,
+                            playlistId = "",
+                            title = item.title,
+                            artists = item.artists,
+                            year = null,
+                            thumbnail = item.thumbnail,
+                            explicit = item.explicit
+                        )
                         else -> null
                     }
                 }.distinctBy { it.browseId }
 
-                val resolvedNewReleases = if (personalizedNewReleases.isNotEmpty()) {
-                    personalizedNewReleases
-                } else {
-                    withContext(Dispatchers.IO) {
-                        runCatching { YouTube.newReleaseAlbums().getOrNull() }.getOrNull().orEmpty()
-                    }
-                }
+                val resolvedNewReleases = personalizedNewReleases
 
                 // Progressive streaming: map to domain UI models once
                 val uiSections = rawSections.map { it.toUiModel() }

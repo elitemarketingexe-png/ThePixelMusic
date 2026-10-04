@@ -40,7 +40,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,11 +56,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.unshoo.pixelmusic.data.feed.toSong
+import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
+import com.unshoo.pixelmusic.presentation.components.PlaylistBottomSheet
+import com.unshoo.pixelmusic.presentation.components.SongInfoBottomSheet
 import com.unshoo.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
+import com.unshoo.pixelmusic.presentation.navigation.Screen
+import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
 import com.unshoo.pixelmusic.presentation.viewmodel.FeedPlaylistDetailUiState
 import com.unshoo.pixelmusic.presentation.viewmodel.FeedPlaylistDetailViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.unshoo.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
@@ -78,6 +86,13 @@ fun FeedPlaylistDetailScreen(
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val isPlaying by remember { derivedStateOf { stablePlayerState.isPlaying } }
     val currentSongId by remember { derivedStateOf { stablePlayerState.currentSong?.id } }
+
+    val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
+    var showSongInfoBottomSheet by remember { mutableStateOf(false) }
+    var showPlaylistBottomSheet by remember { mutableStateOf(false) }
+    var playlistSheetSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    val favoriteSongIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle()
+    val playlistViewModel: PlaylistViewModel = hiltViewModel()
 
     Scaffold(
         topBar = {
@@ -345,6 +360,7 @@ fun FeedPlaylistDetailScreen(
                                 },
                                 onMoreOptionsClick = {
                                     playerViewModel.selectSongForInfo(song)
+                                    showSongInfoBottomSheet = true
                                 }
                             )
                         }
@@ -377,5 +393,97 @@ fun FeedPlaylistDetailScreen(
                 }
             }
         }
+    }
+
+    if (showSongInfoBottomSheet && selectedSongForInfo != null) {
+        val currentSong = selectedSongForInfo
+        val isFavorite = remember(currentSong?.id, favoriteSongIds) {
+            derivedStateOf {
+                currentSong?.let { favoriteSongIds.contains(it.id) }
+            }
+        }.value ?: false
+
+        if (currentSong != null) {
+            SongInfoBottomSheet(
+                song = currentSong,
+                playerViewModel = playerViewModel,
+                isFavorite = isFavorite,
+                onToggleFavorite = {
+                    playerViewModel.toggleFavoriteSpecificSong(currentSong)
+                },
+                onDismiss = { showSongInfoBottomSheet = false },
+                onPlaySong = {
+                    playerViewModel.showAndPlaySong(currentSong)
+                    showSongInfoBottomSheet = false
+                },
+                onAddToQueue = {
+                    playerViewModel.addSongToQueue(currentSong)
+                    showSongInfoBottomSheet = false
+                },
+                onAddNextToQueue = {
+                    playerViewModel.addSongNextToQueue(currentSong)
+                    showSongInfoBottomSheet = false
+                },
+                onAddToPlayList = {
+                    playlistSheetSongs = listOf(currentSong)
+                    showSongInfoBottomSheet = false
+                    showPlaylistBottomSheet = true
+                },
+                onDeleteFromDevice = playerViewModel::deleteFromDevice,
+                onNavigateToAlbum = {
+                    if (currentSong.albumId != 0L) {
+                        navController.navigateSafely(Screen.AlbumDetail.createRoute(currentSong.albumId))
+                    }
+                    showSongInfoBottomSheet = false
+                },
+                onNavigateToArtist = {
+                    val target = currentSong.artists.firstOrNull()?.id?.takeIf { it != 0L && it != -1L }?.toString()
+                        ?: currentSong.artists.firstOrNull()?.name
+                        ?: currentSong.artist
+                    navController.navigateSafely(Screen.ArtistDetail.createRoute(target))
+                    showSongInfoBottomSheet = false
+                },
+                onNavigateToArtistById = { artistId ->
+                    if (artistId.isNotBlank()) {
+                        navController.navigateSafely(Screen.ArtistDetail.createRoute(artistId))
+                    }
+                    showSongInfoBottomSheet = false
+                },
+                onNavigateToGenre = {},
+                onEditSong = { newTitle, newArtist, newAlbum, newAlbumArtist, newComposer, newGenre, newLyrics, newTrackNumber, newDiscNumber, replayGainTrackGainDb, replayGainAlbumGainDb, coverArtUpdate ->
+                    playerViewModel.editSongMetadata(
+                        currentSong,
+                        newTitle,
+                        newArtist,
+                        newAlbum,
+                        newAlbumArtist,
+                        newComposer,
+                        newGenre,
+                        newLyrics,
+                        newTrackNumber,
+                        newDiscNumber,
+                        replayGainTrackGainDb,
+                        replayGainAlbumGainDb,
+                        coverArtUpdate
+                    )
+                    showSongInfoBottomSheet = false
+                },
+                generateAiMetadata = { fields ->
+                    playerViewModel.generateAiMetadata(currentSong, fields)
+                },
+                removeFromListTrigger = {}
+            )
+        }
+    }
+
+    if (showPlaylistBottomSheet) {
+        val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
+        PlaylistBottomSheet(
+            playlistUiState = playlistUiState,
+            songs = playlistSheetSongs,
+            onDismiss = { showPlaylistBottomSheet = false },
+            bottomBarHeight = 0.dp,
+            playerViewModel = playerViewModel,
+        )
     }
 }

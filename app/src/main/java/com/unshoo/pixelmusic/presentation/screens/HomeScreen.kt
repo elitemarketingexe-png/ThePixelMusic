@@ -480,8 +480,7 @@ fun HomeScreen(
                         contentType = "home_greeting"
                     ) {
                         HomeGreetingHeader(
-                            userName = userName,
-                            modifier = Modifier.padding(bottom = (-10).dp)
+                            userName = userName
                         )
                     }
                 }
