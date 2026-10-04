@@ -147,6 +147,7 @@ import com.unshoo.pixelmusic.data.backup.model.RestorePlan
 import com.unshoo.pixelmusic.data.preferences.AppThemeMode
 import com.unshoo.pixelmusic.presentation.components.PermissionIconCollage
 import com.unshoo.pixelmusic.presentation.components.BackupModuleSelectionDialog
+import com.unshoo.pixelmusic.presentation.components.BackupWarningsCollapsibleCard
 import com.unshoo.pixelmusic.presentation.components.subcomps.MaterialYouVectorDrawable
 import com.unshoo.pixelmusic.presentation.components.subcomps.SineWaveLine
 import com.unshoo.pixelmusic.presentation.components.FileExplorerDialog
@@ -1817,28 +1818,23 @@ private fun SetupRestoreDialog(
                         }
                     }
 
-                    if (plan.warnings.isNotEmpty()) {
-                        plan.warnings.forEach { warning ->
-                            Surface(
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
-                                shape = RoundedCornerShape(18.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = warning,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-                                )
-                            }
-                        }
-                    }
+                    var isWarningsExpanded by remember { mutableStateOf(false) }
 
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 12.dp)
                     ) {
+                        if (plan.warnings.isNotEmpty()) {
+                            item(key = "setup_warnings") {
+                                BackupWarningsCollapsibleCard(
+                                    warnings = plan.warnings,
+                                    isExpanded = isWarningsExpanded,
+                                    onToggleExpand = { isWarningsExpanded = !isWarningsExpanded }
+                                )
+                            }
+                        }
+
                         items(availableModules) { section ->
                             val detail = plan.moduleDetails[section]
                             val selected = section in plan.selectedModules

@@ -398,6 +398,11 @@ Backslash (\) can be used to escape character delimiters.</string>
     <string name="presentation_batch_g_backup_cd_select_all">Select all</string>
     <string name="presentation_batch_g_backup_cd_clear_selection">Clear selection</string>
     <string name="presentation_batch_g_backup_entries_will_replace">%1$d entries · Will replace current data</string>
+    <string name="presentation_batch_g_backup_warnings_count_single">1 issue found</string>
+    <string name="presentation_batch_g_backup_warnings_count_multiple">%1$d issues found</string>
+    <string name="presentation_batch_g_backup_warnings_expand_hint">Tap to expand failed IDs and warnings</string>
+    <string name="presentation_batch_g_backup_warnings_collapse_hint">Tap to collapse</string>
+    <string name="presentation_batch_g_backup_warnings_collapse_btn">Collapse</string>
     <string name="presentation_batch_g_player_cd_cloud_stream">Cloud stream</string>
     <string name="presentation_batch_g_player_cd_collapse">Collapse player</string>
     <string name="presentation_batch_g_player_cd_cast">Cast</string>
