@@ -83,7 +83,7 @@
     <string name="setcat_theme_dark">Темная тема</string>
     <string name="setcat_theme_follow_system">Как в системе</string>
     <string name="setcat_smooth_corners_title">Сглаженные углы</string>
-    <string name="setcat_smooth_corners_subtitle">Использовать сложную форму углов для улучшения эстетики; может влиять на производительность слабых устройств</string>
+    <string name="setcat_smooth_corners_subtitle">Плавное скругление углов. Может влиять на скорость на слабых устройствах.</string>
     <string name="setcat_now_playing">Сейчас играет</string>
     <string name="setcat_player_theme_label">Тема плеера</string>
     <string name="setcat_player_theme_desc">Выберите внешний вид плавающего плеера.</string>
@@ -149,7 +149,7 @@
     <string name="setcat_cast_autoplay_desc">Начинать играть сразу при смене подключений Cast.</string>
     <string name="setcat_headphones">Наушники</string>
     <string name="setcat_headphones_resume_title">Продолжать при подключении</string>
-    <string name="setcat_headphones_resume_subtitle">Если музыка встала на паузу при отключении наушников, она продолжится при их подключении.</string>
+    <string name="setcat_headphones_resume_subtitle">Автоматически продолжать воспроизведение при повторном подключении наушников.</string>
     <string name="setcat_queue_transitions">Очередь и переходы</string>
     <string name="setcat_crossfade_label">Плавное переключение</string>
     <string name="setcat_crossfade_desc">Плавный переход между песнями.</string>
@@ -381,7 +381,7 @@
     <string name="setcat_music_storage_limit_desc">Максимальный объем локального хранилища, выделенный для загруженной музыки YouTube.</string>
     <string name="genre_local_music">Местная музыка</string>
     <string name="setcat_preload_queue_enabled_title">Предварительная загрузка очереди</string>
-    <string name="setcat_preload_queue_enabled_desc">Заблаговременно разрешайте URL-адреса потоков и кэшируйте обложки альбомов для предстоящих песен в очереди.</string>
+    <string name="setcat_preload_queue_enabled_desc">Предзагружать ссылки и обложки для следующих треков в очереди.</string>
     <string name="setcat_preload_queue_size_title">Размер предварительной загрузки очереди</string>
     <string name="setcat_preload_queue_size_desc">Количество предстоящих песен, которые необходимо разрешить и кэшировать в очереди.</string>
     <string name="setcat_auto_queue_enabled_title">Динамическая очередь (автозапуск)</string>
@@ -389,9 +389,9 @@
     <string name="setcat_avoid_repetitive_songs_title">Избегайте повторяющихся песен</string>
     <string name="setcat_avoid_repetitive_songs_desc">Отфильтровывайте недавно воспроизведенные или часто меняющиеся треки из динамической очереди.</string>
     <string name="setcat_deduplicate_queue_title">Дедупликация записей очереди</string>
-    <string name="setcat_deduplicate_queue_desc">Устраните повторяющиеся или тройные записи в очереди воспроизведения, если идентичные песни существуют в локальном хранилище, Telegram или YouTube.</string>
+    <string name="setcat_deduplicate_queue_desc">Удалять дубликаты в очереди из локального хранилища, Telegram и YouTube.</string>
     <string name="setcat_prefer_telegram_alternative_title">Предпочитаю альтернативы (локальные и Telegram)</string>
-    <string name="setcat_prefer_telegram_alternative_desc">При воспроизведении песни сначала автоматически воспроизводится звук, соответствующий локальному устройству, а затем альтернативы Telegram, если они доступны, и возвращаются к YouTube. Избегает дублирования записей в очереди воспроизведения.</string>
+    <string name="setcat_prefer_telegram_alternative_desc">Сначала воспроизводить локальный трек, затем Telegram, иначе YouTube.</string>
     <string name="lastfm_integration">Интеграция Last.fm</string>
     <string name="lastfm_integration_desc">Настройте скробблинг Last.fm, текущие воспроизводимые обновления и пороговые параметры</string>
     <string name="lastfm_not_logged_in">Не авторизован</string>
@@ -413,4 +413,10 @@
     <string name="lastfm_logged_in_as">Выполнен вход как %1$s</string>
     <string name="lastfm_login_dialog_title">Ссылка на аккаунт Last.fm</string>
     <string name="lastfm_login_dialog_desc">Введите учетные данные своей учетной записи Last.fm, чтобы авторизовать скробблинг.</string>
+    <string name="setcat_telegram_artwork_title">Обложки из сети для треков Telegram</string>
+    <string name="setcat_telegram_artwork_desc">Искать совпадения треков Telegram в YouTube Music для обложек высокого качества.</string>
+    <string name="setcat_playback_client_title">Клиент воспроизведения</string>
+    <string name="setcat_playback_client_desc">Выберите клиент. Android VR быстрее; Web Client использует YouTube Music.</string>
+    <string name="setcat_playback_client_android_vr">Android VR (По умолчанию)</string>
+    <string name="setcat_playback_client_web_remix">Веб-клиент</string>
 </resources>

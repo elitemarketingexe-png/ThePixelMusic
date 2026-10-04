@@ -82,7 +82,7 @@
     <string name="setcat_theme_dark">Tema scuro</string>
     <string name="setcat_theme_follow_system">Segui sistema</string>
     <string name="setcat_smooth_corners_title">Usa angoli morbidi</string>
-    <string name="setcat_smooth_corners_subtitle">Usa angoli a forma complessa che migliorano l\'estetica ma possono influire sulle prestazioni su dispositivi di fascia bassa</string>
+    <string name="setcat_smooth_corners_subtitle">Bordi arrotondati fluidi. Può influire sulle prestazioni su dispositivi modesti.</string>
     <string name="setcat_now_playing">In riproduzione</string>
     <string name="setcat_player_theme_label">Tema player</string>
     <string name="setcat_player_theme_desc">Scegli l\'aspetto per il player fluttuante.</string>
@@ -148,7 +148,7 @@
     <string name="setcat_cast_autoplay_desc">Inizia a riprodurre immediatamente dopo aver cambiato connessioni cast.</string>
     <string name="setcat_headphones">Cuffie</string>
     <string name="setcat_headphones_resume_title">Riprendi quando le cuffie si riconnettono</string>
-    <string name="setcat_headphones_resume_subtitle">Se la riproduzione era in pausa perché le cuffie erano state rimosse, riprendi automaticamente quando si riconnettono.</string>
+    <string name="setcat_headphones_resume_subtitle">Riprendi la riproduzione automaticamente quando le cuffie si riconnettono.</string>
     <string name="setcat_queue_transitions">Coda e transizioni</string>
     <string name="setcat_crossfade_label">Crossfade</string>
     <string name="setcat_crossfade_desc">Abilita transizione fluida tra brani.</string>
@@ -380,7 +380,7 @@
     <string name="setcat_music_storage_limit_desc">Spazio di archiviazione locale massimo allocato per la musica YouTube scaricata.</string>
     <string name="genre_local_music">Musica locale</string>
     <string name="setcat_preload_queue_enabled_title">Precaricamento coda</string>
-    <string name="setcat_preload_queue_enabled_desc">Risolvi in ​​modo proattivo gli URL dello streaming e memorizza nella cache le copertine degli album per i prossimi brani in coda.</string>
+    <string name="setcat_preload_queue_enabled_desc">Precarica flussi e copertine per i prossimi brani in coda.</string>
     <string name="setcat_preload_queue_size_title">Dimensione precarico coda</string>
     <string name="setcat_preload_queue_size_desc">Numero di brani imminenti da risolvere e memorizzare nella cache nella coda.</string>
     <string name="setcat_auto_queue_enabled_title">Coda dinamica (riproduzione automatica)</string>
@@ -388,9 +388,9 @@
     <string name="setcat_avoid_repetitive_songs_title">Evita brani ripetitivi</string>
     <string name="setcat_avoid_repetitive_songs_desc">Filtra i brani riprodotti di recente o con elevata rotazione dalla coda dinamica.</string>
     <string name="setcat_deduplicate_queue_title">Voci della coda deduplicate</string>
-    <string name="setcat_deduplicate_queue_desc">Elimina le voci duplicate o triplicate nella coda di riproduzione quando esistono brani identici nella memoria locale, Telegram o YouTube.</string>
+    <string name="setcat_deduplicate_queue_desc">Rimuovi i brani duplicati in coda tra locale, Telegram e YouTube.</string>
     <string name="setcat_prefer_telegram_alternative_title">Preferisci alternative (locale e telegramma)</string>
-    <string name="setcat_prefer_telegram_alternative_desc">Quando riproduci un brano, riproduci automaticamente in streaming prima l\'audio del dispositivo locale corrispondente, quindi le alternative di Telegram se disponibili, tornando a YouTube. Evita voci duplicate nella coda di riproduzione.</string>
+    <string name="setcat_prefer_telegram_alternative_desc">Riproduci prima l\'audio locale, poi Telegram, infine YouTube.</string>
     <string name="lastfm_integration">Integrazione Last.fm</string>
     <string name="lastfm_integration_desc">Configura lo scrobbling di Last.fm, la riproduzione ora degli aggiornamenti e i parametri di soglia</string>
     <string name="lastfm_not_logged_in">Accesso non effettuato</string>
@@ -412,4 +412,10 @@
     <string name="lastfm_logged_in_as">Effettuato l\'accesso come %1$s</string>
     <string name="lastfm_login_dialog_title">Collega l\'account Last.fm</string>
     <string name="lastfm_login_dialog_desc">Inserisci le credenziali del tuo account Last.fm per autorizzare lo scrobbling.</string>
+    <string name="setcat_telegram_artwork_title">Usa copertine online per i brani Telegram</string>
+    <string name="setcat_telegram_artwork_desc">Associa i brani Telegram a YouTube Music per copertine in alta qualità.</string>
+    <string name="setcat_playback_client_title">Client di riproduzione</string>
+    <string name="setcat_playback_client_desc">Scegli il client. Android VR è più veloce; Web Client usa YouTube Music.</string>
+    <string name="setcat_playback_client_android_vr">Android VR (Predefinito)</string>
+    <string name="setcat_playback_client_web_remix">Client Web</string>
 </resources>

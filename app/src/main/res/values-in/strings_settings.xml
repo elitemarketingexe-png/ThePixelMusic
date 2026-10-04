@@ -82,7 +82,7 @@
     <string name="setcat_theme_dark">Tema Gelap</string>
     <string name="setcat_theme_follow_system">Ikuti Sistem</string>
     <string name="setcat_smooth_corners_title">Gunakan Sudut Halus</string>
-    <string name="setcat_smooth_corners_subtitle">Gunakan sudut berbentuk kompleks yang secara efektif meningkatkan estetika tetapi mungkin memengaruhi performa pada perangkat berspesifikasi rendah</string>
+    <string name="setcat_smooth_corners_subtitle">Lengkungan sudut halus. Dapat memengaruhi performa di perangkat lambat.</string>
     <string name="setcat_now_playing">Sedang Diputar</string>
     <string name="setcat_player_theme_label">Tema Pemutar</string>
     <string name="setcat_player_theme_desc">Pilih tampilan untuk pemutar melayang.</string>
@@ -148,7 +148,7 @@
     <string name="setcat_cast_autoplay_desc">Mulai memutar segera setelah beralih koneksi cast.</string>
     <string name="setcat_headphones">Headphone</string>
     <string name="setcat_headphones_resume_title">Lanjutkan saat headphone terhubung kembali</string>
-    <string name="setcat_headphones_resume_subtitle">Jika pemutaran dijeda karena headphone dilepas, lanjutkan secara otomatis saat terhubung kembali.</string>
+    <string name="setcat_headphones_resume_subtitle">Lanjutkan pemutaran otomatis saat headphone terhubung kembali.</string>
     <string name="setcat_queue_transitions">Antrean dan Transisi</string>
     <string name="setcat_crossfade_label">Crossfade</string>
     <string name="setcat_crossfade_desc">Aktifkan transisi halus antar lagu.</string>
@@ -380,7 +380,7 @@
     <string name="setcat_music_storage_limit_desc">Penyimpanan lokal maksimum yang dialokasikan untuk musik YouTube yang diunduh.</string>
     <string name="genre_local_music">Musik Lokal</string>
     <string name="setcat_preload_queue_enabled_title">Pramuat Antrian</string>
-    <string name="setcat_preload_queue_enabled_desc">Secara proaktif menyelesaikan URL streaming dan menyimpan sampul album untuk lagu-lagu mendatang dalam antrean.</string>
+    <string name="setcat_preload_queue_enabled_desc">Muat lebih awal URL stream dan sampul untuk lagu antrean berikutnya.</string>
     <string name="setcat_preload_queue_size_title">Ukuran Pramuat Antrian</string>
     <string name="setcat_preload_queue_size_desc">Jumlah lagu yang akan datang untuk diselesaikan dan disimpan dalam cache dalam antrean.</string>
     <string name="setcat_auto_queue_enabled_title">Antrean Dinamis (Putar Otomatis)</string>
@@ -388,9 +388,9 @@
     <string name="setcat_avoid_repetitive_songs_title">Hindari Lagu yang Berulang-ulang</string>
     <string name="setcat_avoid_repetitive_songs_desc">Filter trek yang baru diputar atau diputar banyak dari antrean dinamis.</string>
     <string name="setcat_deduplicate_queue_title">Hapus Duplikat Entri Antrian</string>
-    <string name="setcat_deduplicate_queue_desc">Hilangkan entri duplikat atau rangkap tiga dalam antrean pemutaran ketika lagu yang identik ada di penyimpanan lokal, Telegram, atau YouTube.</string>
+    <string name="setcat_deduplicate_queue_desc">Hapus lagu duplikat di antrean dari lokal, Telegram, dan YouTube.</string>
     <string name="setcat_prefer_telegram_alternative_title">Lebih suka Alternatif (Lokal &amp; Telegram)</string>
-    <string name="setcat_prefer_telegram_alternative_desc">Saat memutar lagu, streaming audio perangkat lokal yang cocok secara otomatis terlebih dahulu, lalu alternatif Telegram jika tersedia, kembali ke YouTube. Menghindari entri duplikat dalam antrean pemutaran.</string>
+    <string name="setcat_prefer_telegram_alternative_desc">Putar audio lokal lebih dulu, lalu Telegram, baru YouTube.</string>
     <string name="lastfm_integration">Integrasi Last.fm</string>
     <string name="lastfm_integration_desc">Konfigurasikan scrobbling Last.fm, pembaruan yang sedang diputar, dan parameter ambang batas</string>
     <string name="lastfm_not_logged_in">Belum masuk</string>
@@ -412,4 +412,10 @@
     <string name="lastfm_logged_in_as">Masuk sebagai %1$s</string>
     <string name="lastfm_login_dialog_title">Tautkan Akun Last.fm</string>
     <string name="lastfm_login_dialog_desc">Masukkan kredensial akun Last.fm Anda untuk mengotorisasi scrobbling.</string>
+    <string name="setcat_telegram_artwork_title">Gunakan sampul online untuk lagu Telegram</string>
+    <string name="setcat_telegram_artwork_desc">Cocokkan lagu Telegram dengan YouTube Music untuk sampul resolusi tinggi.</string>
+    <string name="setcat_playback_client_title">Klien Pemutaran</string>
+    <string name="setcat_playback_client_desc">Pilih klien stream. Android VR lebih cepat; Web Client memakai YouTube Music.</string>
+    <string name="setcat_playback_client_android_vr">Android VR (Default)</string>
+    <string name="setcat_playback_client_web_remix">Web Client</string>
 </resources>

@@ -82,7 +82,7 @@
     <string name="setcat_theme_dark">深色主题</string>
     <string name="setcat_theme_follow_system">跟随系统</string>
     <string name="setcat_smooth_corners_title">使用平滑圆角</string>
-    <string name="setcat_smooth_corners_subtitle">使用更复杂的圆角形状可提升美观性，但在低端设备上可能影响性能</string>
+    <string name="setcat_smooth_corners_subtitle">平滑的圆角曲线。可能会影响低端设备的性能。</string>
     <string name="setcat_now_playing">正在播放</string>
     <string name="setcat_player_theme_label">播放器主题</string>
     <string name="setcat_player_theme_desc">为浮动播放器选择外观。</string>
@@ -148,7 +148,7 @@
     <string name="setcat_cast_autoplay_desc">切换投放连接后立即开始播放。</string>
     <string name="setcat_headphones">耳机</string>
     <string name="setcat_headphones_resume_title">耳机重新连接时恢复播放</string>
-    <string name="setcat_headphones_resume_subtitle">如果是因为拔下耳机而暂停播放，耳机重新连接后将自动恢复。</string>
+    <string name="setcat_headphones_resume_subtitle">重新连接耳机时自动恢复播放。</string>
     <string name="setcat_queue_transitions">队列与过渡</string>
     <string name="setcat_crossfade_label">淡入淡出</string>
     <string name="setcat_crossfade_desc">启用歌曲之间的平滑过渡。</string>
@@ -380,7 +380,7 @@
     <string name="setcat_music_storage_limit_desc">为下载的 YouTube 音乐分配的最大本地存储空间。</string>
     <string name="genre_local_music">本地音乐</string>
     <string name="setcat_preload_queue_enabled_title">队列预加载</string>
-    <string name="setcat_preload_queue_enabled_desc">主动解析流 URL 并缓存队列中即将播放的歌曲的专辑封面。</string>
+    <string name="setcat_preload_queue_enabled_desc">预加载队列中后续歌曲的播放链接和封面。</string>
     <string name="setcat_preload_queue_size_title">队列预加载大小</string>
     <string name="setcat_preload_queue_size_desc">队列中要解析和缓存的即将播放的歌曲数量。</string>
     <string name="setcat_auto_queue_enabled_title">动态队列（自动播放）</string>
@@ -388,9 +388,9 @@
     <string name="setcat_avoid_repetitive_songs_title">避免重复的歌曲</string>
     <string name="setcat_avoid_repetitive_songs_desc">从动态队列中过滤掉最近播放或频繁旋转的曲目。</string>
     <string name="setcat_deduplicate_queue_title">删除重复队列条目</string>
-    <string name="setcat_deduplicate_queue_desc">当本地存储、Telegram 或 YouTube 上存在相同的歌曲时，消除播放队列中重复或重复的条目。</string>
+    <string name="setcat_deduplicate_queue_desc">移除播放队列中本地、Telegram 和 YouTube 之间的重复歌曲。</string>
     <string name="setcat_prefer_telegram_alternative_title">更喜欢替代方案（本地和电报）</string>
-    <string name="setcat_prefer_telegram_alternative_desc">播放歌曲时，首先自动流式传输匹配的本地设备音频，然后使用 Telegram 替代方案（如果可用），最后返回 YouTube。避免播放队列中出现重复条目​​。</string>
+    <string name="setcat_prefer_telegram_alternative_desc">优先播放匹配的本地音频，其次是 Telegram，最后回退到 YouTube。</string>
     <string name="lastfm_integration">Last.fm 集成</string>
     <string name="lastfm_integration_desc">配置 Last.fm 乱序、现在播放更新和阈值参数</string>
     <string name="lastfm_not_logged_in">未登录</string>
@@ -412,4 +412,10 @@
     <string name="lastfm_logged_in_as">以 %1$s 身份登录</string>
     <string name="lastfm_login_dialog_title">链接 Last.fm 帐户</string>
     <string name="lastfm_login_dialog_desc">输入您的 Last.fm 帐户凭据以授权记录。</string>
+    <string name="setcat_telegram_artwork_title">为 Telegram 歌曲使用在线封面</string>
+    <string name="setcat_telegram_artwork_desc">匹配 Telegram 音轨与 YouTube Music 以使用高清封面。</string>
+    <string name="setcat_playback_client_title">播放客户端</string>
+    <string name="setcat_playback_client_desc">选择流式客户端。Android VR 速度更快；Web 客户端使用 YouTube Music。</string>
+    <string name="setcat_playback_client_android_vr">Android VR（默认）</string>
+    <string name="setcat_playback_client_web_remix">Web 客户端</string>
 </resources>

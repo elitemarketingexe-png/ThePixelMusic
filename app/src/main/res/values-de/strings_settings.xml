@@ -82,7 +82,7 @@
     <string name="setcat_theme_dark">Dunkel</string>
     <string name="setcat_theme_follow_system">System folgen</string>
     <string name="setcat_smooth_corners_title">Sanfte Ecken</string>
-    <string name="setcat_smooth_corners_subtitle">Weichere Eckenform – kann auf älteren Geräten die Performance leicht beeinflussen.</string>
+    <string name="setcat_smooth_corners_subtitle">Weiche Eckenkurven. Kann Leistung auf schwächeren Geräten beeinträchtigen.</string>
     <string name="setcat_now_playing">Läuft gerade</string>
     <string name="setcat_player_theme_label">Player-Design</string>
     <string name="setcat_player_theme_desc">Wie der Player aussieht.</string>
@@ -148,7 +148,7 @@
     <string name="setcat_cast_autoplay_desc">Wiedergabe startet automatisch, wenn eine Cast-Verbindung hergestellt oder getrennt wird.</string>
     <string name="setcat_headphones">Kopfhörer</string>
     <string name="setcat_headphones_resume_title">Fortsetzen beim Wiederverbinden</string>
-    <string name="setcat_headphones_resume_subtitle">Wurde die Musik durch das Trennen der Kopfhörer pausiert, läuft sie beim Wiederverbinden weiter.</string>
+    <string name="setcat_headphones_resume_subtitle">Wiedergabe automatisch fortsetzen, wenn Kopfhörer verbunden werden.</string>
     <string name="setcat_queue_transitions">Queue &amp; Übergänge</string>
     <string name="setcat_crossfade_label">Crossfade</string>
     <string name="setcat_crossfade_desc">Songs sanft ineinander übergehen lassen.</string>
@@ -376,7 +376,7 @@
     <string name="setcat_music_storage_limit_desc">Maximaler lokaler Speicher, der für heruntergeladene YouTube-Musik zugewiesen wird.</string>
     <string name="genre_local_music">Lokale Musik</string>
     <string name="setcat_preload_queue_enabled_title">Vorladen der Warteschlange</string>
-    <string name="setcat_preload_queue_enabled_desc">Lösen Sie Stream-URLs proaktiv auf und speichern Sie Albumcover für kommende Songs in der Warteschlange zwischen.</string>
+    <string name="setcat_preload_queue_enabled_desc">Stream-URLs und Cover für nachfolgende Titel vorab laden.</string>
     <string name="setcat_preload_queue_size_title">Warteschlangen-Vorladegröße</string>
     <string name="setcat_preload_queue_size_desc">Anzahl der kommenden Songs, die aufgelöst und in der Warteschlange zwischengespeichert werden müssen.</string>
     <string name="setcat_auto_queue_enabled_title">Dynamische Warteschlange (Autoplay)</string>
@@ -384,9 +384,9 @@
     <string name="setcat_avoid_repetitive_songs_title">Vermeiden Sie sich wiederholende Lieder</string>
     <string name="setcat_avoid_repetitive_songs_desc">Filtern Sie kürzlich gespielte oder stark rotierte Titel aus der dynamischen Warteschlange heraus.</string>
     <string name="setcat_deduplicate_queue_title">Warteschlangeneinträge deduplizieren</string>
-    <string name="setcat_deduplicate_queue_desc">Eliminieren Sie doppelte oder dreifache Einträge in der Wiedergabewarteschlange, wenn identische Songs im lokalen Speicher, bei Telegram oder auf YouTube vorhanden sind.</string>
+    <string name="setcat_deduplicate_queue_desc">Doppelte Titel in der Warteschlange (Lokal, Telegram, YouTube) entfernen.</string>
     <string name="setcat_prefer_telegram_alternative_title">Bevorzugen Sie Alternativen (lokal und Telegramm)</string>
-    <string name="setcat_prefer_telegram_alternative_desc">Wenn Sie einen Song abspielen, streamen Sie automatisch zuerst den passenden Ton des lokalen Geräts, dann Telegram-Alternativen, falls verfügbar, und greifen Sie auf YouTube zurück. Vermeidet doppelte Einträge in der Wiedergabewarteschlange.</string>
+    <string name="setcat_prefer_telegram_alternative_desc">Zuerst lokales Audio abspielen, dann Telegram, sonst YouTube.</string>
     <string name="lastfm_integration">Last.fm-Integration</string>
     <string name="lastfm_integration_desc">Konfigurieren Sie Last.fm-Scrobbelung, aktuelle Wiedergabe von Updates und Schwellenwertparameter</string>
     <string name="lastfm_not_logged_in">Nicht angemeldet</string>
@@ -408,4 +408,10 @@
     <string name="lastfm_logged_in_as">Angemeldet als %1$s</string>
     <string name="lastfm_login_dialog_title">Last.fm-Konto verknüpfen</string>
     <string name="lastfm_login_dialog_desc">Geben Sie Ihre Last.fm-Kontoanmeldeinformationen ein, um das Scrobbeln zu autorisieren.</string>
+    <string name="setcat_telegram_artwork_title">Online-Cover für Telegram-Titel nutzen</string>
+    <string name="setcat_telegram_artwork_desc">Telegram-Titel mit YouTube Music für hochauflösende Cover abgleichen.</string>
+    <string name="setcat_playback_client_title">Wiedergabe-Client</string>
+    <string name="setcat_playback_client_desc">Client wählen. Android VR ist schneller; Web-Client nutzt YouTube Music.</string>
+    <string name="setcat_playback_client_android_vr">Android VR (Standard)</string>
+    <string name="setcat_playback_client_web_remix">Web-Client</string>
 </resources>

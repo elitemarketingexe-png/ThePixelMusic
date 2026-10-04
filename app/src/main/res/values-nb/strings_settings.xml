@@ -82,7 +82,7 @@
     <string name="setcat_theme_dark">Mørkt tema</string>
     <string name="setcat_theme_follow_system">Følg system</string>
     <string name="setcat_smooth_corners_title">Bruk glatte hjørner</string>
-    <string name="setcat_smooth_corners_subtitle">Bruker kompleks formede hjørner for å forbedre estetikken, men kan påvirke ytelsen på eldre enheter</string>
+    <string name="setcat_smooth_corners_subtitle">Jevne hjørnekurver. Kan påvirke ytelsen på svakere enheter.</string>
     <string name="setcat_now_playing">Spilles nå</string>
     <string name="setcat_player_theme_label">Spiller-tema</string>
     <string name="setcat_player_theme_desc">Velg utseende for den flytende spilleren.</string>
@@ -148,7 +148,7 @@
     <string name="setcat_cast_autoplay_desc">Start avspilling umiddelbart etter bytte av cast-tilkoblinger.</string>
     <string name="setcat_headphones">Hodetelefoner</string>
     <string name="setcat_headphones_resume_title">Gjenoppta når hodetelefoner kobles til</string>
-    <string name="setcat_headphones_resume_subtitle">Hvis avspillingen stoppet fordi hodetelefoner ble fjernet, gjenoppta automatisk når de kobles til igjen.</string>
+    <string name="setcat_headphones_resume_subtitle">Fortsett avspilling automatisk når hodetelefoner kobles til igjen.</string>
     <string name="setcat_queue_transitions">Kø og overganger</string>
     <string name="setcat_crossfade_label">Crossfade</string>
     <string name="setcat_crossfade_desc">Aktiver sømløs overgang mellom sanger.</string>
@@ -380,7 +380,7 @@
     <string name="setcat_music_storage_limit_desc">Maksimal lokal lagringsplass tildelt for nedlastet YouTube-musikk.</string>
     <string name="genre_local_music">Lokal musikk</string>
     <string name="setcat_preload_queue_enabled_title">Forhåndsinnlasting av kø</string>
-    <string name="setcat_preload_queue_enabled_desc">Løs proaktivt strømme-URL-er og cache-albumgrafikk for kommende sanger i køen.</string>
+    <string name="setcat_preload_queue_enabled_desc">Forhåndslast strømmer og omslag for kommende sanger i køen.</string>
     <string name="setcat_preload_queue_size_title">Forhåndsinnlastning i kø</string>
     <string name="setcat_preload_queue_size_desc">Antall kommende sanger som skal løses og cache i køen.</string>
     <string name="setcat_auto_queue_enabled_title">Dynamisk kø (autoavspilling)</string>
@@ -388,9 +388,9 @@
     <string name="setcat_avoid_repetitive_songs_title">Unngå repeterende sanger</string>
     <string name="setcat_avoid_repetitive_songs_desc">Filtrer ut nylig spilte eller sterkt roterte spor fra den dynamiske køen.</string>
     <string name="setcat_deduplicate_queue_title">Dedupliserte køoppføringer</string>
-    <string name="setcat_deduplicate_queue_desc">Eliminer dupliserte eller tredobbelte oppføringer i avspillingskøen når identiske sanger finnes på lokal lagring, Telegram eller YouTube.</string>
+    <string name="setcat_deduplicate_queue_desc">Fjern duplikatsanger i køen på tvers av lokal, Telegram og YouTube.</string>
     <string name="setcat_prefer_telegram_alternative_title">Foretrekker alternativer (lokalt og telegram)</string>
-    <string name="setcat_prefer_telegram_alternative_desc">Når du spiller av en sang, strøm automatisk matchende lokal enhetslyd først, deretter Telegram-alternativer hvis tilgjengelig, faller tilbake til YouTube. Unngår dupliserte oppføringer i avspillingskøen.</string>
+    <string name="setcat_prefer_telegram_alternative_desc">Spill av lokalt lydspor først, deretter Telegram, så YouTube.</string>
     <string name="lastfm_integration">Last.fm-integrasjon</string>
     <string name="lastfm_integration_desc">Konfigurer Last.fm scrobbling, spiller nå oppdateringer og terskelparametere</string>
     <string name="lastfm_not_logged_in">Ikke logget inn</string>
@@ -412,4 +412,10 @@
     <string name="lastfm_logged_in_as">Logget på som %1$s</string>
     <string name="lastfm_login_dialog_title">Koble Last.fm-konto</string>
     <string name="lastfm_login_dialog_desc">Skriv inn din Last.fm-kontolegitimasjon for å godkjenne scrobbling.</string>
+    <string name="setcat_telegram_artwork_title">Bruk nettbasert omslag for Telegram-sanger</string>
+    <string name="setcat_telegram_artwork_desc">Koble Telegram-spor til YouTube Music for høyoppløselige omslag.</string>
+    <string name="setcat_playback_client_title">Avspillingsklient</string>
+    <string name="setcat_playback_client_desc">Velg strømmeklient. Android VR er raskere; Web Client bruker YouTube Music.</string>
+    <string name="setcat_playback_client_android_vr">Android VR (Standard)</string>
+    <string name="setcat_playback_client_web_remix">Nettklient</string>
 </resources>

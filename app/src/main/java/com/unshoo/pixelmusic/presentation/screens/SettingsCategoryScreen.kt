@@ -1226,8 +1226,8 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_all_inclusive_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "Use online artwork for Telegram songs",
-                                    subtitle = "Match Telegram tracks by title and artist to existing YouTube Music songs and use their high-quality artwork when safe.",
+                                    title = stringResource(R.string.setcat_telegram_artwork_title),
+                                    subtitle = stringResource(R.string.setcat_telegram_artwork_desc),
                                     checked = uiState.telegramUseOnlineAlbumArt,
                                     onCheckedChange = { settingsViewModel.setTelegramUseOnlineAlbumArt(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_imagesmode_24), null, tint = MaterialTheme.colorScheme.secondary) }
@@ -1314,11 +1314,11 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_auto_delete_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 ThemeSelectorItem(
-                                    label = "Playback Client",
-                                    description = "Select the client used to resolve remote streams. Android VR streams directly and provides maximum speed, while Web Client uses YouTube Music.",
+                                    label = stringResource(R.string.setcat_playback_client_title),
+                                    description = stringResource(R.string.setcat_playback_client_desc),
                                     options = mapOf(
-                                        PlayerStreamClient.ANDROID_VR.name to "Android VR (Default)",
-                                        PlayerStreamClient.WEB_REMIX.name to "Web Client"
+                                        PlayerStreamClient.ANDROID_VR.name to stringResource(R.string.setcat_playback_client_android_vr),
+                                        PlayerStreamClient.WEB_REMIX.name to stringResource(R.string.setcat_playback_client_web_remix)
                                     ),
                                     selectedKey = uiState.playerStreamClient.name,
                                     onSelectionChanged = { key ->

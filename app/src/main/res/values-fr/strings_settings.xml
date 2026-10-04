@@ -79,7 +79,7 @@
     <string name="setcat_theme_dark">Thème sombre</string>
     <string name="setcat_theme_follow_system">Suivre le système</string>
     <string name="setcat_smooth_corners_title">Utiliser des angles lisses</string>
-    <string name="setcat_smooth_corners_subtitle">Utilise des formes d\'angles complexes pour une meilleure esthétique, mais peut affecter les performances sur les appareils bas de gamme</string>
+    <string name="setcat_smooth_corners_subtitle">Courbure d\'angles fluide. Peut ralentir les appareils modestes.</string>
     <string name="setcat_now_playing">En cours de lecture</string>
     <string name="setcat_player_theme_label">Thème du lecteur</string>
     <string name="setcat_player_theme_desc">Choisissez l\'apparence du lecteur flottant.</string>
@@ -145,7 +145,7 @@
     <string name="setcat_cast_autoplay_desc">Démarrer la lecture immédiatement après avoir changé de connexion Cast.</string>
     <string name="setcat_headphones">Casque</string>
     <string name="setcat_headphones_resume_title">Reprendre lors de la reconnexion du casque</string>
-    <string name="setcat_headphones_resume_subtitle">Si la lecture a été mise en pause car le casque a été retiré, elle reprendra automatiquement lors de sa reconnexion.</string>
+    <string name="setcat_headphones_resume_subtitle">Reprendre la lecture automatiquement à la reconnexion du casque.</string>
     <string name="setcat_queue_transitions">File d\'attente et transitions</string>
     <string name="setcat_crossfade_label">Fondu enchaîné</string>
     <string name="setcat_crossfade_desc">Activer une transition douce entre les chansons.</string>
@@ -380,7 +380,7 @@
     <string name="setcat_music_storage_limit_desc">Espace de stockage local maximum alloué pour la musique YouTube téléchargée.</string>
     <string name="genre_local_music">Musique locale</string>
     <string name="setcat_preload_queue_enabled_title">Préchargement de la file d\'attente</string>
-    <string name="setcat_preload_queue_enabled_desc">Résolvez de manière proactive les URL de flux et mettez en cache les pochettes d\'album pour les chansons à venir dans la file d\'attente.</string>
+    <string name="setcat_preload_queue_enabled_desc">Précharger les flux et pochettes des prochains morceaux.</string>
     <string name="setcat_preload_queue_size_title">Taille de préchargement de la file d\'attente</string>
     <string name="setcat_preload_queue_size_desc">Nombre de chansons à venir à résoudre et à mettre en cache dans la file d\'attente.</string>
     <string name="setcat_auto_queue_enabled_title">File d\'attente dynamique (lecture automatique)</string>
@@ -388,9 +388,9 @@
     <string name="setcat_avoid_repetitive_songs_title">Évitez les chansons répétitives</string>
     <string name="setcat_avoid_repetitive_songs_desc">Filtrez les pistes récemment jouées ou ayant subi une rotation importante de la file d\'attente dynamique.</string>
     <string name="setcat_deduplicate_queue_title">Entrées de file d\'attente de déduplication</string>
-    <string name="setcat_deduplicate_queue_desc">Éliminez les entrées en double ou en triple dans la file d\'attente de lecture lorsque des chansons identiques existent sur le stockage local, Telegram ou YouTube.</string>
+    <string name="setcat_deduplicate_queue_desc">Supprime les doublons de la file d\'attente (local, Telegram et YouTube).</string>
     <string name="setcat_prefer_telegram_alternative_title">Préférer les alternatives (locales et télégrammes)</string>
-    <string name="setcat_prefer_telegram_alternative_desc">Lors de la lecture d\'une chanson, diffusez automatiquement d\'abord l\'audio de l\'appareil local correspondant, puis les alternatives Telegram si disponibles, en revenant à YouTube. Évite les entrées en double dans la file d\'attente de lecture.</string>
+    <string name="setcat_prefer_telegram_alternative_desc">Lire l\'audio local d\'abord, puis Telegram, et enfin YouTube.</string>
     <string name="lastfm_integration">Intégration Last.fm</string>
     <string name="lastfm_integration_desc">Configurez le scrobbling Last.fm, la lecture en cours des mises à jour et les paramètres de seuil</string>
     <string name="lastfm_not_logged_in">Non connecté</string>
@@ -412,4 +412,10 @@
     <string name="lastfm_logged_in_as">Connecté en tant que %1$s</string>
     <string name="lastfm_login_dialog_title">Lier le compte Last.fm</string>
     <string name="lastfm_login_dialog_desc">Entrez les identifiants de votre compte Last.fm pour autoriser le scrobbling.</string>
+    <string name="setcat_telegram_artwork_title">Pochettes en ligne pour les titres Telegram</string>
+    <string name="setcat_telegram_artwork_desc">Associer les titres Telegram à YouTube Music pour des pochettes HD.</string>
+    <string name="setcat_playback_client_title">Client de lecture</string>
+    <string name="setcat_playback_client_desc">Choisir le client. Android VR est plus rapide; Web Client utilise YouTube Music.</string>
+    <string name="setcat_playback_client_android_vr">Android VR (Par défaut)</string>
+    <string name="setcat_playback_client_web_remix">Client Web</string>
 </resources>

@@ -2386,7 +2386,7 @@ private fun NavBarStyleOptionCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
         ),
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        border = null,
         shape = RoundedCornerShape(20.dp),
         onClick = onClick,
         modifier = Modifier.fillMaxWidth()
@@ -2517,6 +2517,12 @@ fun NavBarPreview(navBarStyle: String) {
                                         }
                                     }
                                     Icon(
+                                        painter = painterResource(R.drawable.rounded_album_24),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Icon(
                                         painter = painterResource(R.drawable.rounded_search_24),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2556,6 +2562,7 @@ fun NavBarPreview(navBarStyle: String) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(painterResource(R.drawable.rounded_home_24), null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(painterResource(R.drawable.rounded_album_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Icon(painterResource(R.drawable.rounded_search_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -2587,6 +2594,7 @@ fun NavBarPreview(navBarStyle: String) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(painterResource(R.drawable.rounded_home_24), null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(painterResource(R.drawable.rounded_album_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Icon(painterResource(R.drawable.rounded_search_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }

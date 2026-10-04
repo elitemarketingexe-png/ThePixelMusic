@@ -130,7 +130,7 @@
     <string name="setcat_color_palette_grey">Escuro e Cinza</string>
     <string name="setcat_color_palette_grey_desc">Tons monocromáticos e cinza</string>
     <string name="setcat_smooth_corners_title">Use cantos suaves</string>
-    <string name="setcat_smooth_corners_subtitle">Use cantos de formato complexo, melhorando efetivamente a estética, mas pode afetar o desempenho em dispositivos de baixo custo</string>
+    <string name="setcat_smooth_corners_subtitle">Cantos arredondados suaves. Pode afetar o desempenho em aparelhos básicos.</string>
     <string name="setcat_now_playing">Jogando agora</string>
     <string name="setcat_player_theme_label">Tema do jogador</string>
     <string name="setcat_player_theme_desc">Escolha a aparência do player flutuante.</string>
@@ -197,7 +197,7 @@
     <string name="setcat_cast_autoplay_desc">Comece a jogar imediatamente após trocar as conexões de transmissão.</string>
     <string name="setcat_headphones">Fones de ouvido</string>
     <string name="setcat_headphones_resume_title">Retomar quando os fones de ouvido forem reconectados</string>
-    <string name="setcat_headphones_resume_subtitle">Se a reprodução for pausada porque os fones de ouvido foram removidos, retome automaticamente quando eles se conectarem novamente.</string>
+    <string name="setcat_headphones_resume_subtitle">Retomar a reprodução automaticamente ao reconectar os fones.</string>
     <string name="setcat_queue_transitions">Filas e Transições</string>
     <string name="setcat_crossfade_label">Crossfade</string>
     <string name="setcat_crossfade_desc">Habilite uma transição suave entre músicas.</string>
@@ -355,7 +355,7 @@ Prompt: %2$s | Saída: %3$s | Pensei: %4$s</string>
     <string name="setcat_music_storage_limit_desc">Armazenamento local máximo alocado para músicas baixadas do YouTube.</string>
     <string name="genre_local_music">Música Local</string>
     <string name="setcat_preload_queue_enabled_title">Pré-carregamento de fila</string>
-    <string name="setcat_preload_queue_enabled_desc">Resolva proativamente URLs de stream e armazene em cache a arte do álbum para as próximas músicas na fila.</string>
+    <string name="setcat_preload_queue_enabled_desc">Pré-carregar áudio e capas para as próximas músicas da fila.</string>
     <string name="setcat_preload_queue_size_title">Tamanho de pré-carregamento da fila</string>
     <string name="setcat_preload_queue_size_desc">Número de músicas futuras a serem resolvidas e armazenadas em cache na fila.</string>
     <string name="setcat_auto_queue_enabled_title">Fila dinâmica (reprodução automática)</string>
@@ -363,9 +363,9 @@ Prompt: %2$s | Saída: %3$s | Pensei: %4$s</string>
     <string name="setcat_avoid_repetitive_songs_title">Evite músicas repetitivas</string>
     <string name="setcat_avoid_repetitive_songs_desc">Filtre faixas reproduzidas recentemente ou com alta rotação da fila dinâmica.</string>
     <string name="setcat_deduplicate_queue_title">Desduplicar entradas de fila</string>
-    <string name="setcat_deduplicate_queue_desc">Elimine entradas duplicadas ou triplicadas na fila de reprodução quando existirem músicas idênticas no armazenamento local, Telegram ou YouTube.</string>
+    <string name="setcat_deduplicate_queue_desc">Remova músicas duplicadas na fila entre local, Telegram e YouTube.</string>
     <string name="setcat_prefer_telegram_alternative_title">Prefira Alternativas (Local e Telegram)</string>
-    <string name="setcat_prefer_telegram_alternative_desc">Ao reproduzir uma música, transmita automaticamente primeiro o áudio do dispositivo local correspondente e, em seguida, as alternativas do Telegram, se disponíveis, voltando para o YouTube. Evita entradas duplicadas na fila de reprodução.</string>
+    <string name="setcat_prefer_telegram_alternative_desc">Tocar áudio local primeiro, depois Telegram e por último YouTube.</string>
     <string name="lastfm_integration">Integração Last.fm</string>
     <string name="lastfm_integration_desc">Configure o scrobbling do Last.fm, atualizações de reprodução agora e parâmetros de limite</string>
     <string name="lastfm_not_logged_in">Não logado</string>
@@ -387,4 +387,10 @@ Prompt: %2$s | Saída: %3$s | Pensei: %4$s</string>
     <string name="lastfm_logged_in_as">Logado como %1$s</string>
     <string name="lastfm_login_dialog_title">Vincular conta Last.fm</string>
     <string name="lastfm_login_dialog_desc">Insira as credenciais da sua conta Last.fm para autorizar o scrobbling.</string>
+    <string name="setcat_telegram_artwork_title">Usar capas online para músicas do Telegram</string>
+    <string name="setcat_telegram_artwork_desc">Vincule faixas do Telegram ao YouTube Music para capas em alta qualidade.</string>
+    <string name="setcat_playback_client_title">Cliente de reprodução</string>
+    <string name="setcat_playback_client_desc">Escolha o cliente. Android VR é mais rápido; Web Client usa YouTube Music.</string>
+    <string name="setcat_playback_client_android_vr">Android VR (Padrão)</string>
+    <string name="setcat_playback_client_web_remix">Web Client</string>
 </resources>
