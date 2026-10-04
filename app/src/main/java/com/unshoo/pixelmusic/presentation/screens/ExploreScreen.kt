@@ -494,7 +494,7 @@ fun ExploreScreen(
                         item(key = "feed_top_artists") {
                             FeedSectionHeader(
                                 title = stringResource(R.string.explore_section_artists_for_you),
-                                subtitle = if (state.feedData.topArtists.isNotEmpty()) "Your most replayed musicians" else "Most played artists from your library"
+                                subtitle = if (state.feedData.topArtists.isNotEmpty()) stringResource(R.string.explore_subtitle_most_replayed_musicians) else stringResource(R.string.explore_subtitle_most_played_artists)
                             )
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -587,7 +587,7 @@ fun ExploreScreen(
                                             title = track.title,
                                             subtitle = track.artist,
                                             artworkUrl = track.artworkUrl,
-                                            badgeText = "NEW",
+                                            badgeText = stringResource(R.string.badge_new),
                                             isCurrentPlaying = isPlaying && currentSongId == "youtube_${track.videoId}",
                                             onClick = {
                                                 feedViewModel.playTracksQueue(state.feedData.freshFinds, index, playerViewModel, "Fresh Finds")
@@ -606,7 +606,7 @@ fun ExploreScreen(
                             item(key = "feed_jump_back_in") {
                                 FeedSectionHeader(
                                     title = stringResource(R.string.explore_section_jump_back_in),
-                                    subtitle = if (isYtConnected && state.feedData.jumpBackIn.isNotEmpty()) "From your recent history" else "From your highly rotatory history",
+                                    subtitle = if (isYtConnected && state.feedData.jumpBackIn.isNotEmpty()) stringResource(R.string.explore_subtitle_recent_history) else stringResource(R.string.explore_subtitle_rotatory_history),
                                     actionText = stringResource(R.string.action_play_all),
                                     actionIcon = Icons.Filled.PlayArrow,
                                     onActionClick = {
@@ -653,7 +653,7 @@ fun ExploreScreen(
                                     itemsIndexed(state.feedData.mixes.distinctBy { it.seed.videoId }, key = { idx, mix -> "mix_${mix.seed.videoId}_$idx" }) { _, mix ->
                                         FeedPlaylistCard(
                                             title = mix.title,
-                                            subtitle = "Artist radio station",
+                                            subtitle = stringResource(R.string.explore_subtitle_artist_radio_station),
                                             artworkUrl = mix.seed.artworkUrl,
                                             onClick = { feedViewModel.playMix(mix, playerViewModel) }
                                         )
@@ -667,7 +667,7 @@ fun ExploreScreen(
                             item(key = "feed_heavy_rotation") {
                                 FeedSectionHeader(
                                     title = stringResource(R.string.explore_section_favorites_to_revisit),
-                                    subtitle = "From your high-affinity rotation",
+                                    subtitle = stringResource(R.string.explore_subtitle_high_affinity_rotation),
                                     actionText = stringResource(R.string.action_play_all),
                                     actionIcon = Icons.Filled.PlayArrow,
                                     onActionClick = {
@@ -697,8 +697,8 @@ fun ExploreScreen(
                         if (isYtConnected && albumsForYou.isNotEmpty()) {
                             item(key = "feed_albums") {
                                 FeedSectionHeader(
-                                    title = "Albums for you",
-                                    subtitle = if (state.feedData.recentAlbums.isNotEmpty()) "Verified records from your top artists" else "From your local album collection"
+                                    title = stringResource(R.string.explore_section_albums_for_you),
+                                    subtitle = if (state.feedData.recentAlbums.isNotEmpty()) stringResource(R.string.explore_subtitle_verified_records) else stringResource(R.string.explore_subtitle_local_albums)
                                 )
                                 FeedMediaRow {
                                     itemsIndexed(albumsForYou.distinctBy { it.browseId ?: it.title }, key = { idx, album -> "album_${album.browseId ?: album.title}_$idx" }) { _, album ->
@@ -798,9 +798,9 @@ fun ExploreScreen(
                                 itemsIndexed(newReleases.distinctBy { it.id }, key = { idx, release -> "release_${release.id}_$idx" }) { _, release ->
                                     FeedPlaylistCard(
                                         title = release.title,
-                                        subtitle = release.author ?: "Album",
+                                        subtitle = release.author ?: stringResource(R.string.unknown_album),
                                         artworkUrl = release.artworkUrl,
-                                        badgeText = "NEW",
+                                        badgeText = stringResource(R.string.badge_new),
                                         onClick = {
                                             if (release.id.startsWith("MPRE") || release.id.startsWith("FEmusic_album")) {
                                                 navController.navigateSafely(Screen.AlbumDetail.createRoute(release.id))
@@ -816,8 +816,8 @@ fun ExploreScreen(
                         val recentSongs = exploreUiState.localRecentlyAddedSongs
                         item(key = "feed_recently_added") {
                             FeedSectionHeader(
-                                title = "Recently added",
-                                subtitle = "Latest tracks from your library & downloads",
+                                title = stringResource(R.string.explore_section_recently_added),
+                                subtitle = stringResource(R.string.explore_subtitle_recently_added_desc),
                                 actionText = stringResource(R.string.action_play_all),
                                 actionIcon = Icons.Filled.PlayArrow,
                                 onActionClick = {
@@ -833,7 +833,7 @@ fun ExploreScreen(
                                         title = song.title,
                                         subtitle = song.displayArtist,
                                         artworkUrl = song.albumArtUriString,
-                                        badgeText = "RECENT",
+                                        badgeText = stringResource(R.string.badge_recent),
                                         isCurrentPlaying = isPlaying && currentSongId == song.id,
                                         onClick = {
                                             playerViewModel.showAndPlaySong(song, recentSongs, "Recently Added")
@@ -939,7 +939,7 @@ fun ExploreTopBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Explore",
+                text = stringResource(R.string.tab_explore),
                 fontFamily = GoogleSansRounded,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -1760,7 +1760,7 @@ private fun SpotlightHeroCard(
                                 modifier = Modifier.size(12.dp)
                             )
                             Text(
-                                "ARTIST SPOTLIGHT",
+                                stringResource(R.string.explore_artist_spotlight_badge),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.2.sp
@@ -1805,7 +1805,7 @@ private fun SpotlightHeroCard(
                             )
                             spotlight.topTrackTitle?.takeIf(String::isNotBlank)?.let { title ->
                                 Text(
-                                    text = "Top track: $title",
+                                    text = stringResource(R.string.explore_top_track_prefix, title),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -1830,7 +1830,7 @@ private fun SpotlightHeroCard(
                         ) {
                             Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Artist radio", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.explore_btn_artist_radio), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
 
                         FilledTonalButton(
@@ -1842,7 +1842,7 @@ private fun SpotlightHeroCard(
                             ),
                             modifier = Modifier.weight(1f).height(42.dp)
                         ) {
-                            Text("View artist", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.explore_btn_view_artist), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -2730,7 +2730,7 @@ private fun ExploreCategoryChipsRow(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = category,
+                        text = formatCategoryTitle(category),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1
@@ -2738,6 +2738,22 @@ private fun ExploreCategoryChipsRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun formatCategoryTitle(category: String): String {
+    return when (category.lowercase(java.util.Locale.ROOT).trim()) {
+        "all" -> stringResource(R.string.explore_chip_all)
+        "local" -> stringResource(R.string.explore_chip_local)
+        "podcasts" -> stringResource(R.string.explore_chip_podcasts)
+        "feel good" -> stringResource(R.string.explore_chip_feel_good)
+        "energize" -> stringResource(R.string.explore_chip_energize)
+        "relax" -> stringResource(R.string.explore_chip_relax)
+        "workout" -> stringResource(R.string.explore_chip_workout)
+        "commute" -> stringResource(R.string.explore_chip_commute)
+        "focus" -> stringResource(R.string.explore_chip_focus)
+        else -> category
     }
 }
 

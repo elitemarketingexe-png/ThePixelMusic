@@ -103,6 +103,7 @@
     <string name="setcat_navbar_style_desc">Choisissez l\'apparence de la barre de navigation.</string>
     <string name="setcat_navbar_style_default">Par défaut</string>
     <string name="setcat_navbar_style_full_width">Pleine largeur</string>
+    <string name="setcat_navbar_style_floating_pill">Pilule Flottante</string>
     <string name="setcat_compact_mode_title">Mode compact</string>
     <string name="setcat_compact_mode_subtitle">Afficher uniquement les icônes et réduire la hauteur de la barre de navigation.</string>
     <string name="setcat_navbar_corner_title">Rayon des angles de la barre</string>

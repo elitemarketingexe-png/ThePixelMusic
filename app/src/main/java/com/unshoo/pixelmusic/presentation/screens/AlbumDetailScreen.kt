@@ -433,7 +433,7 @@ fun AlbumDetailScreen(
                             onDismissRequest = { showActionsMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Download album") },
+                                text = { Text(stringResource(R.string.download_album)) },
                                 leadingIcon = { Icon(Icons.Rounded.Download, null) },
                                 onClick = {
                                     showActionsMenu = false
@@ -447,11 +447,11 @@ fun AlbumDetailScreen(
                                             androidx.work.WorkManager.getInstance(context).enqueueUniqueWork("dl_$ytId", androidx.work.ExistingWorkPolicy.KEEP, req)
                                         }
                                     }
-                                    android.widget.Toast.makeText(context, "Downloading album songs...", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.toast_downloading_album_songs), android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Add songs to playlist") },
+                                text = { Text(stringResource(R.string.add_songs_to_playlist)) },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
                                 onClick = {
                                     showActionsMenu = false
@@ -460,7 +460,7 @@ fun AlbumDetailScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text(if (isAlbumLiked) "Unlike album" else "Like album") },
+                                text = { Text(if (isAlbumLiked) stringResource(R.string.unlike_album) else stringResource(R.string.like_album)) },
                                 leadingIcon = { Icon(if (isAlbumLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null) },
                                 onClick = {
                                     showActionsMenu = false
@@ -468,7 +468,7 @@ fun AlbumDetailScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Add all to queue") },
+                                text = { Text(stringResource(R.string.add_all_to_queue)) },
                                 leadingIcon = { Icon(Icons.Rounded.Queue, null) },
                                 onClick = {
                                     showActionsMenu = false
@@ -476,7 +476,7 @@ fun AlbumDetailScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Play next in queue") },
+                                text = { Text(stringResource(R.string.play_next_in_queue)) },
                                 leadingIcon = { Icon(Icons.Rounded.Queue, null) },
                                 onClick = {
                                     showActionsMenu = false

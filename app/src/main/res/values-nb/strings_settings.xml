@@ -106,6 +106,7 @@
     <string name="setcat_navbar_style_desc">Velg utseende for navigasjonslinjen.</string>
     <string name="setcat_navbar_style_default">Standard</string>
     <string name="setcat_navbar_style_full_width">Full bredde</string>
+    <string name="setcat_navbar_style_floating_pill">Flytende Pille</string>
     <string name="setcat_compact_mode_title">Kompakt modus</string>
     <string name="setcat_compact_mode_subtitle">Vis bare ikoner og reduser høyden på NavBar.</string>
     <string name="setcat_navbar_corner_title">NavBar hjørneradius</string>

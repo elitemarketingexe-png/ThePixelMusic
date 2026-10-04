@@ -106,6 +106,7 @@
     <string name="setcat_navbar_style_desc">Scegli l\'aspetto per la barra di navigazione.</string>
     <string name="setcat_navbar_style_default">Predefinito</string>
     <string name="setcat_navbar_style_full_width">Larghezza piena</string>
+    <string name="setcat_navbar_style_floating_pill">Pillola Fluttuante</string>
     <string name="setcat_compact_mode_title">Modalità compatta</string>
     <string name="setcat_compact_mode_subtitle">Mostra solo icone e riduci l\'altezza della barra di navigazione.</string>
     <string name="setcat_navbar_corner_title">Raggio angoli barra navigazione</string>
@@ -122,7 +123,7 @@
     <string name="setcat_app_navigation_section">Navigazione app</string>
     <string name="setcat_default_tab_label">Scheda predefinita</string>
     <string name="setcat_default_tab_desc">Scegli la scheda di avvio predefinita.</string>
-    <string name="tab_home">Home</string>
+    <string name="tab_home">Inizio</string>
     <string name="setcat_library_navigation_label">Navigazione libreria</string>
     <string name="setcat_library_navigation_desc">Scegli come muoverti tra le schede della libreria.</string>
     <string name="setcat_library_nav_tab_row">Riga schede (predefinito)</string>

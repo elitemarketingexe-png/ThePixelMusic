@@ -106,6 +106,7 @@
     <string name="setcat_navbar_style_desc">내비게이션 바의 디자인을 선택하세요.</string>
     <string name="setcat_navbar_style_default">기본값</string>
     <string name="setcat_navbar_style_full_width">전체 너비</string>
+    <string name="setcat_navbar_style_floating_pill">플로팅 필</string>
     <string name="setcat_compact_mode_title">컴팩트 모드</string>
     <string name="setcat_compact_mode_subtitle">아이콘만 표시하고 내비게이션 바 높이를 줄입니다.</string>
     <string name="setcat_navbar_corner_title">내비게이션 바 모서리 반경</string>

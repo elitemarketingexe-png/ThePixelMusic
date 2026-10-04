@@ -1,6 +1,12 @@
 package com.unshoo.pixelmusic.presentation.library
 
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
+import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.data.model.SortOption
+import java.util.Locale
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
@@ -11,7 +17,8 @@ import kotlinx.serialization.json.Json
 enum class LibraryTabId(
     val stableKey: String,
     val label: String,
-    val sortOptions: List<SortOption>
+    val sortOptions: List<SortOption>,
+    @StringRes val titleRes: Int
 ) {
     Songs(
         stableKey = "SONGS",
@@ -27,7 +34,8 @@ enum class LibraryTabId(
             SortOption.SongDateAddedAsc,
             SortOption.SongDuration,
             SortOption.SongDurationAsc
-        )
+        ),
+        titleRes = R.string.tab_songs
     ),
     Albums(
         stableKey = "ALBUMS",
@@ -40,7 +48,8 @@ enum class LibraryTabId(
             SortOption.AlbumReleaseYear,
             SortOption.AlbumReleaseYearAsc,
             SortOption.AlbumDateAdded
-        )
+        ),
+        titleRes = R.string.tab_albums
     ),
     Artists(
         stableKey = "ARTIST",
@@ -50,7 +59,8 @@ enum class LibraryTabId(
             SortOption.ArtistNameZA,
             SortOption.ArtistNumSongsDesc,
             SortOption.ArtistNumSongsAsc
-        )
+        ),
+        titleRes = R.string.tab_artists
     ),
     Playlists(
         stableKey = "PLAYLISTS",
@@ -60,7 +70,8 @@ enum class LibraryTabId(
             SortOption.PlaylistNameZA,
             SortOption.PlaylistDateCreated,
             SortOption.PlaylistDateCreatedAsc
-        )
+        ),
+        titleRes = R.string.tab_playlists
     ),
     Folders(
         stableKey = "FOLDERS",
@@ -72,7 +83,8 @@ enum class LibraryTabId(
             SortOption.FolderSongCountDesc,
             SortOption.FolderSubdirCountAsc,
             SortOption.FolderSubdirCountDesc
-        )
+        ),
+        titleRes = R.string.tab_folders
     ),
     Liked(
         stableKey = "LIKED",
@@ -86,13 +98,24 @@ enum class LibraryTabId(
             SortOption.LikedSongAlbumDesc,
             SortOption.LikedSongDateLiked,
             SortOption.LikedSongDateLikedAsc
-        )
+        ),
+        titleRes = R.string.tab_liked
     );
 
     companion object {
         val defaultOrder: List<LibraryTabId> = entries.toList()
 
         fun fromStableKey(key: String): LibraryTabId? = entries.firstOrNull { it.stableKey == key }
+    }
+}
+
+@Composable
+fun LibraryTabId.getDisplayTitle(): String {
+    val raw = stringResource(titleRes)
+    return remember(raw) {
+        raw.lowercase().replaceFirstChar { char ->
+            if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+        }
     }
 }
 
@@ -106,3 +129,10 @@ internal fun decodeLibraryTabOrder(orderJson: String?): List<LibraryTabId> {
     LibraryTabId.defaultOrder.forEach { ordered.add(it) }
     return ordered.toList()
 }
+
+fun String.toLibraryTabIdOrNull(): LibraryTabId? =
+    LibraryTabId.entries.firstOrNull {
+        it.stableKey.equals(this, ignoreCase = true) ||
+            it.name.equals(this, ignoreCase = true) ||
+            it.label.equals(this, ignoreCase = true)
+    }

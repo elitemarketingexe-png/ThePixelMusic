@@ -374,7 +374,7 @@ fun ArtistDetailScreen(
                         if (isOnlineArtist && popularSongs.isNotEmpty()) {
                             item(key = "popular_songs_header", contentType = "section_header") {
                                 ArtistSectionHeaderWithSeeAll(
-                                    title = "Popular Songs",
+                                    title = stringResource(R.string.artist_popular_songs_title),
                                     icon = Icons.Rounded.MusicNote,
                                     showSeeAll = uiState.songsMoreEndpoint != null,
                                     onSeeAllClick = {
@@ -413,7 +413,7 @@ fun ArtistDetailScreen(
                         if (isOnlineArtist && albumSections.isNotEmpty()) {
                             item(key = "albums_header", contentType = "section_header") {
                                 ArtistSectionHeaderWithSeeAll(
-                                    title = "Albums",
+                                    title = stringResource(R.string.artist_albums_title),
                                     icon = Icons.Rounded.Album,
                                     showSeeAll = albumSections.size > 5,
                                     onSeeAllClick = {
@@ -457,7 +457,7 @@ fun ArtistDetailScreen(
                         if (isOnlineArtist && singlesAndEPs.isNotEmpty()) {
                             item(key = "singles_header", contentType = "section_header") {
                                 ArtistSectionHeaderWithSeeAll(
-                                    title = "Singles & EPs",
+                                    title = stringResource(R.string.artist_singles_eps_title),
                                     icon = Icons.Rounded.Album,
                                     showSeeAll = singlesAndEPs.size > 5,
                                     onSeeAllClick = {

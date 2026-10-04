@@ -732,11 +732,11 @@ fun SongInfoBottomSheet(
                                                         when {
                                                             isDownloaded -> {
                                                                 songInfoViewModel.deleteYoutubeSong(song)
-                                                                Toast.makeText(context, "Deleted from offline cache", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, context.getString(R.string.toast_deleted_from_offline_cache), Toast.LENGTH_SHORT).show()
                                                             }
                                                             isDownloading -> {
                                                                 songInfoViewModel.cancelYoutubeSongDownload(song)
-                                                                Toast.makeText(context, "Download cancelled", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, context.getString(R.string.toast_download_cancelled), Toast.LENGTH_SHORT).show()
                                                             }
                                                             else -> {
                                                                 if (song.telegramFileId != null && song.youtubeId == null) {
@@ -744,7 +744,7 @@ fun SongInfoBottomSheet(
                                                                 } else {
                                                                     songInfoViewModel.downloadYoutubeSong(song)
                                                                 }
-                                                                Toast.makeText(context, "Download started", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, context.getString(R.string.toast_download_started), Toast.LENGTH_SHORT).show()
                                                             }
                                                         }
                                                     }
@@ -812,7 +812,7 @@ fun SongInfoBottomSheet(
                                                                         }
                                                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                                                     } else {
-                                                                        Toast.makeText(context, "Removed dislike", Toast.LENGTH_SHORT).show()
+                                                                        Toast.makeText(context, context.getString(R.string.toast_removed_dislike), Toast.LENGTH_SHORT).show()
                                                                     }
                                                                 }
                                                             }
@@ -850,7 +850,7 @@ fun SongInfoBottomSheet(
                                                                 if (success) {
                                                                     Toast.makeText(
                                                                         context,
-                                                                        if (targetState) "Tuned out: Will recommend this song less" else "Removed from tuned out",
+                                                                        context.getString(if (targetState) R.string.toast_tuned_out_added else R.string.toast_tuned_out_removed),
                                                                         Toast.LENGTH_SHORT
                                                                     ).show()
                                                                 }

@@ -182,6 +182,7 @@ import com.unshoo.pixelmusic.presentation.viewmodel.PlaylistUiState
 import com.unshoo.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.SongInfoBottomSheetViewModel
 import com.unshoo.pixelmusic.data.model.LibraryTabId
+import com.unshoo.pixelmusic.data.model.getDisplayTitle
 import com.unshoo.pixelmusic.data.model.toLibraryTabIdOrNull
 import com.unshoo.pixelmusic.data.preferences.LibraryNavigationMode
 import com.unshoo.pixelmusic.data.worker.SyncProgress
@@ -896,7 +897,7 @@ fun LibraryScreen(
     }
 
     val currentTab = tabTitles.getOrNull(currentTabIndex)?.toLibraryTabIdOrNull() ?: currentTabId
-    val currentTabTitle = currentTab.displayTitle()
+    val currentTabTitle = currentTab.getDisplayTitle()
 
     val onRefresh: () -> Unit = remember(scope, playerViewModel, currentTab) {
         {
@@ -1099,7 +1100,7 @@ fun LibraryScreen(
                                 }
                             ) {
                                 Text(
-                                    text = tabId.title,
+                                    text = stringResource(tabId.titleRes),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = if (currentTabIndex == index) FontWeight.Bold else FontWeight.Medium
                                 )
@@ -3433,7 +3434,7 @@ private fun LibraryTabGridItem(
             }
 
             Text(
-                text = tabId.displayTitle(),
+                text = tabId.getDisplayTitle(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 color = textColor
@@ -3484,11 +3485,6 @@ private fun LibraryTabId.iconRes(): Int = when (this) {
     LibraryTabId.FOLDERS -> R.drawable.rounded_folder_24
     LibraryTabId.LIKED -> R.drawable.round_favorite_24
 }
-
-private fun LibraryTabId.displayTitle(): String =
-    title.lowercase().replaceFirstChar { char ->
-        if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
-    }
 
 internal fun resolveFolderNavigationDirection(initialPath: String?, targetPath: String?): Int =
     when {
@@ -4664,7 +4660,7 @@ private fun ImportPlaylistFileDialog(
                         }
                     }
                 ) {
-                    Text("Import")
+                    Text(stringResource(R.string.playlist_action_import))
                 }
             },
             dismissButton = {
@@ -4675,7 +4671,7 @@ private fun ImportPlaylistFileDialog(
                         onDismiss()
                     }
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -4691,7 +4687,7 @@ private fun ImportPlaylistFileDialog(
             },
             title = {
                 Text(
-                    text = "Playlist Already Exists",
+                    text = stringResource(R.string.playlist_already_exists_title),
                     fontFamily = GoogleSansRounded,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
@@ -4702,7 +4698,7 @@ private fun ImportPlaylistFileDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "A playlist named \"${existingPlaylist!!.name}\" already exists in your library. What would you like to do?",
+                        text = stringResource(R.string.playlist_already_exists_body, existingPlaylist!!.name),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     if (isProcessingDuplicate) {
@@ -4745,7 +4741,7 @@ private fun ImportPlaylistFileDialog(
                             }
                         }
                     ) {
-                        Text("Update Existing")
+                        Text(stringResource(R.string.playlist_update_existing))
                     }
 
                     // Import as new option
@@ -4768,7 +4764,7 @@ private fun ImportPlaylistFileDialog(
                             }
                         }
                     ) {
-                        Text("Create New")
+                        Text(stringResource(R.string.playlist_create_new))
                     }
                 }
             },
@@ -4780,7 +4776,7 @@ private fun ImportPlaylistFileDialog(
                         onDismiss()
                     }
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

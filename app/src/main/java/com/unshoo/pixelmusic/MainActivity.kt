@@ -83,6 +83,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
@@ -701,12 +702,17 @@ class MainActivity : ComponentActivity() {
     private fun MainUI(playerViewModel: PlayerViewModel, navController: NavHostController) {
         Trace.beginSection("MainActivity.MainUI")
 
-        val commonNavItems = remember {
+        val homeLabel = stringResource(R.string.tab_home)
+        val exploreLabel = stringResource(R.string.tab_explore)
+        val searchLabel = stringResource(R.string.search)
+        val libraryLabel = stringResource(R.string.tab_library)
+
+        val commonNavItems = remember(homeLabel, exploreLabel, searchLabel, libraryLabel) {
             persistentListOf(
-                BottomNavItem("Home", R.drawable.rounded_home_24, R.drawable.home_24_rounded_filled, Screen.Home),
-                BottomNavItem("Explore", R.drawable.rounded_album_24, R.drawable.rounded_album_24, Screen.Explore),
-                BottomNavItem("Search", R.drawable.rounded_search_24, R.drawable.rounded_search_24, Screen.Search),
-                BottomNavItem("Library", R.drawable.rounded_library_music_24, R.drawable.round_library_music_24, Screen.Library)
+                BottomNavItem(homeLabel, R.drawable.rounded_home_24, R.drawable.home_24_rounded_filled, Screen.Home),
+                BottomNavItem(exploreLabel, R.drawable.rounded_album_24, R.drawable.rounded_album_24, Screen.Explore),
+                BottomNavItem(searchLabel, R.drawable.rounded_search_24, R.drawable.rounded_search_24, Screen.Search),
+                BottomNavItem(libraryLabel, R.drawable.rounded_library_music_24, R.drawable.round_library_music_24, Screen.Library)
             )
         }
         val navBackStackEntry by navController.currentBackStackEntryAsState()

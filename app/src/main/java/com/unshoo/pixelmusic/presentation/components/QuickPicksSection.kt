@@ -90,7 +90,9 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.unshoo.pixelmusic.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -185,7 +187,7 @@ fun QuickPicksSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Quick Picks",
+                text = stringResource(R.string.quick_picks_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp)
@@ -203,7 +205,7 @@ fun QuickPicksSection(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = "See all quick picks",
+                        contentDescription = stringResource(R.string.see_all_quick_picks_cd),
                         modifier = Modifier.size(18.dp)
                     )
                 }

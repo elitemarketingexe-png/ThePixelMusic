@@ -52,6 +52,8 @@ import androidx.core.view.ViewCompat
 import android.view.HapticFeedbackConstants
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.library.LibraryTabId
+import com.unshoo.pixelmusic.presentation.library.getDisplayTitle
+import com.unshoo.pixelmusic.presentation.library.toLibraryTabIdOrNull
 import com.unshoo.pixelmusic.presentation.utils.LocalAppHapticsConfig
 import com.unshoo.pixelmusic.presentation.utils.performAppCompatHapticFeedback
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
@@ -193,7 +195,7 @@ fun ReorderTabsSheet(
                                             modifier = Modifier.draggableHandle()
                                         )
                                         Spacer(modifier = Modifier.width(16.dp))
-                                        Text(text = tab, style = MaterialTheme.typography.bodyLarge)
+                                        Text(text = tab.toLibraryTabIdOrNull()?.getDisplayTitle() ?: tab, style = MaterialTheme.typography.bodyLarge)
                                     }
                                 }
                             }

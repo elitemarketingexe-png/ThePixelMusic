@@ -49,8 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.unshoo.pixelmusic.R
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
@@ -139,7 +141,7 @@ fun QuickPicksAllScreen(
                         FilterChip(
                             selected = selectedCategory == category,
                             onClick = { quickPicksViewModel.setCategory(category) },
-                            label = { Text(text = category, style = MaterialTheme.typography.labelLarge) },
+                            label = { Text(text = formatCategoryTitle(category), style = MaterialTheme.typography.labelLarge) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimary
@@ -219,7 +221,7 @@ private fun QuickPicksAllHeader(songCount: Int, isLoading: Boolean, onRefresh: (
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Quick Picks",
+                    text = stringResource(R.string.quick_picks_title),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onSurface
@@ -234,20 +236,20 @@ private fun QuickPicksAllHeader(songCount: Int, isLoading: Boolean, onRefresh: (
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
-                        contentDescription = "Refresh",
+                        contentDescription = stringResource(R.string.home_empty_placeholder_refresh),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
             if (!isLoading && songCount > 0) {
                 Text(
-                    text = "$songCount songs from YouTube",
+                    text = stringResource(R.string.quick_picks_songs_from_yt, songCount),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else if (isLoading) {
                 Text(
-                    text = "Fetching from YouTube...",
+                    text = stringResource(R.string.quick_picks_fetching_from_yt),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -278,7 +280,7 @@ private fun QuickPicksActions(
                 modifier = Modifier.size(ButtonDefaults.IconSize)
             )
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text("Play All")
+            Text(stringResource(R.string.action_play_all))
         }
     }
 }

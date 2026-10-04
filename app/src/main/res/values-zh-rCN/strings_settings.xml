@@ -106,6 +106,7 @@
     <string name="setcat_navbar_style_desc">为导航栏选择外观。</string>
     <string name="setcat_navbar_style_default">默认</string>
     <string name="setcat_navbar_style_full_width">全宽</string>
+    <string name="setcat_navbar_style_floating_pill">悬浮胶囊</string>
     <string name="setcat_compact_mode_title">紧凑模式</string>
     <string name="setcat_compact_mode_subtitle">仅显示图标并降低导航栏高度。</string>
     <string name="setcat_navbar_corner_title">导航栏圆角半径</string>

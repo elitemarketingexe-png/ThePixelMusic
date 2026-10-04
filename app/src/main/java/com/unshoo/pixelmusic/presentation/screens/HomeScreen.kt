@@ -316,7 +316,7 @@ fun HomeScreen(
         yourMixSongs.isNotEmpty() || hasHomeLoadingMinimumElapsed || isBenchmarkMode
     }
 
-    val yourMixSong: String = "Today's Mix for you"
+    val yourMixSong: String = stringResource(R.string.home_todays_mix_subtitle)
 
     // 2) Observar sólo el currentSong (o null) para saber si mostrar padding
     val currentSong by remember(playerViewModel.stablePlayerState) {
@@ -1023,8 +1023,8 @@ private fun rememberYourMixTitleStyle(): TextStyle {
                 )
             ),
             fontWeight = FontWeight(760),
-            fontSize = 42.sp,
-            lineHeight = 44.sp
+            fontSize = 36.sp,
+            lineHeight = 38.sp
         )
     }
 }
@@ -1034,112 +1034,75 @@ fun HomeGreetingHeader(userName: String?) {
     val calendar = remember { java.util.Calendar.getInstance() }
     val hour = remember(calendar) { calendar.get(java.util.Calendar.HOUR_OF_DAY) }
     
-    val greeting = remember(userName, hour) {
-        val greetings = when (hour) {
+    val greetingRes = remember(hour, userName != null) {
+        val resIds = when (hour) {
             in 5..11 -> if (userName != null) {
                 listOf(
-                    "Good morning, $userName! ☀️",
-                    "Glad you're awake, $userName. 🌅",
-                    "Wakey wakey, $userName! 🎧",
-                    "Hey, morning check, $userName! ⚡",
-                    "Ready today, $userName? ☀️",
-                    "Welcome back, $userName! 🌅",
-                    "Up early, $userName? 🌅",
-                    "Morning vibe check, $userName! ✨",
-                    "Slept well, $userName? 🛌"
+                    R.string.home_greeting_morning_1,
+                    R.string.home_greeting_morning_2,
+                    R.string.home_greeting_morning_3,
+                    R.string.home_greeting_morning_4
                 )
             } else {
                 listOf(
-                    "Good morning! ☀️",
-                    "Glad you're awake. 🌅",
-                    "Wakey wakey, sunshine! 🎧",
-                    "Hey, morning check! ⚡",
-                    "Ready today? ☀️",
-                    "Welcome back! 🌅",
-                    "Up early? 🌅",
-                    "Morning vibe check! ✨",
-                    "Slept well? 🛌"
+                    R.string.home_greeting_morning_anon_1,
+                    R.string.home_greeting_morning_anon_2,
+                    R.string.home_greeting_morning_anon_3,
+                    R.string.home_greeting_morning_anon_4
                 )
             }
             in 12..16 -> if (userName != null) {
                 listOf(
-                    "Hey, how's your day, $userName? ☀️",
-                    "Need a break, $userName? 💆",
-                    "Glad to see you, $userName. 🍕",
-                    "Listening under the sun, $userName? ☀️",
-                    "Hope it's going well, $userName. 🌟",
-                    "Slay the afternoon, $userName! 💅",
-                    "Hey, what's playing, $userName? 🎧",
-                    "Midday vibe check, $userName! ⚡",
-                    "Hey, you got this, $userName! ⚡"
+                    R.string.home_greeting_afternoon_1,
+                    R.string.home_greeting_afternoon_2,
+                    R.string.home_greeting_afternoon_3,
+                    R.string.home_greeting_afternoon_4
                 )
             } else {
                 listOf(
-                    "Hey, how's your day? ☀️",
-                    "Need a break? 💆",
-                    "Glad to see you. 🍕",
-                    "Listening under the sun? ☀️",
-                    "Hope it's going well. 🌟",
-                    "Slay the afternoon! 💅",
-                    "Hey, what's playing? 🎧",
-                    "Midday vibe check! ⚡",
-                    "Hey, you got this! ⚡"
+                    R.string.home_greeting_afternoon_anon_1,
+                    R.string.home_greeting_afternoon_anon_2,
+                    R.string.home_greeting_afternoon_anon_3,
+                    R.string.home_greeting_afternoon_anon_4
                 )
             }
             in 17..21 -> if (userName != null) {
                 listOf(
-                    "Welcome home, $userName! 🏡",
-                    "Unwinding, $userName? 🛋️",
-                    "Glad you made it, $userName. 💛",
-                    "Hey, let's relax, $userName. 🍵",
-                    "Time to chill, $userName. 🌃",
-                    "Sunset listening, $userName. 🌇",
-                    "How was your day, $userName? ✨",
-                    "Hope it was good, $userName! 💛",
-                    "Ready to zone out, $userName? 🛋️"
+                    R.string.home_greeting_evening_1,
+                    R.string.home_greeting_evening_2,
+                    R.string.home_greeting_evening_3,
+                    R.string.home_greeting_evening_4
                 )
             } else {
                 listOf(
-                    "Welcome home! 🏡",
-                    "Unwinding? 🛋️",
-                    "Glad you made it. 💛",
-                    "Hey, let's relax. 🍵",
-                    "Time to chill. 🌃",
-                    "Sunset listening. 🌇",
-                    "How was your day? ✨",
-                    "Hope it was good! 💛",
-                    "Ready to zone out? 🛋️"
+                    R.string.home_greeting_evening_anon_1,
+                    R.string.home_greeting_evening_anon_2,
+                    R.string.home_greeting_evening_anon_3,
+                    R.string.home_greeting_evening_anon_4
                 )
             }
             else -> if (userName != null) {
                 listOf(
-                    "Under the stars, $userName 🌌",
-                    "Insomnia club, $userName 🌌",
-                    "Up late, $userName? 🌙",
-                    "Can't sleep, $userName? 🌌",
-                    "Still awake, $userName? 🌌",
-                    "Quiet hours, $userName. 🕯️",
-                    "Rest easy, $userName. 💤",
-                    "In the quiet, $userName. 🤍",
-                    "Midnight thoughts, $userName? 💭",
-                    "Soft music now, $userName. 🎧"
+                    R.string.home_greeting_night_1,
+                    R.string.home_greeting_night_2,
+                    R.string.home_greeting_night_3,
+                    R.string.home_greeting_night_4
                 )
             } else {
                 listOf(
-                    "Under the stars 🌌",
-                    "Insomnia club 🌌",
-                    "Up late? 🌙",
-                    "Can't sleep? 🌌",
-                    "Still awake? 🌌",
-                    "Quiet hours. 🕯️",
-                    "Rest easy. 💤",
-                    "In the quiet. 🤍",
-                    "Midnight thoughts? 💭",
-                    "Soft music now. 🎧"
+                    R.string.home_greeting_night_anon_1,
+                    R.string.home_greeting_night_anon_2,
+                    R.string.home_greeting_night_anon_3,
+                    R.string.home_greeting_night_anon_4
                 )
             }
         }
-        greetings.random()
+        resIds.random()
+    }
+    val greeting = if (userName != null) {
+        stringResource(greetingRes, userName)
+    } else {
+        stringResource(greetingRes)
     }
 
     Column(

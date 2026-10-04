@@ -106,6 +106,7 @@
     <string name="setcat_navbar_style_desc">Wie die Navigationsleiste aussieht.</string>
     <string name="setcat_navbar_style_default">Standard</string>
     <string name="setcat_navbar_style_full_width">Volle Breite</string>
+    <string name="setcat_navbar_style_floating_pill">Schwebende Pille</string>
     <string name="setcat_compact_mode_title">Kompaktmodus</string>
     <string name="setcat_compact_mode_subtitle">Nur Icons, schmälere NavBar.</string>
     <string name="setcat_navbar_corner_title">NavBar-Eckenradius</string>
@@ -122,7 +123,7 @@
     <string name="setcat_app_navigation_section">App-Navigation</string>
     <string name="setcat_default_tab_label">Start-Tab</string>
     <string name="setcat_default_tab_desc">Welcher Tab beim Öffnen der App zuerst erscheint.</string>
-    <string name="tab_home">Home</string>
+    <string name="tab_home">Startseite</string>
     <string name="setcat_library_navigation_label">Bibliotheks-Navigation</string>
     <string name="setcat_library_navigation_desc">Wie zwischen Bibliotheks-Tabs gewechselt wird.</string>
     <string name="setcat_library_nav_tab_row">Tab-Leiste (Standard)</string>
