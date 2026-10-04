@@ -140,6 +140,7 @@ fun SongInfoBottomSheet(
     val context = LocalContext.current
     var showEditSheet by remember { mutableStateOf(false) }
     var showArtistPicker by remember { mutableStateOf(false) }
+    var showAudioFormatInfoDialog by remember { mutableStateOf(false) }
     val audioMeta by songInfoViewModel.audioMeta.collectAsStateWithLifecycle()
     val notInterestedSongIds by songInfoViewModel.notInterestedSongIds.collectAsStateWithLifecycle()
     val resolvedArtists by songInfoViewModel.resolvedArtists.collectAsStateWithLifecycle()
@@ -1005,6 +1006,7 @@ fun SongInfoBottomSheet(
                                                         icon = Icons.Rounded.Info,
                                                         iconDescription = stringResource(R.string.cd_audio_format_icon),
                                                         shape = infoSegmentItemShape,
+                                                        onClick = { showAudioFormatInfoDialog = true },
                                                     )
                                                 } else if (isResolvingAudioMeta) {
                                                     SongInfoSegmentedListItem(
@@ -1013,6 +1015,7 @@ fun SongInfoBottomSheet(
                                                         icon = Icons.Rounded.Info,
                                                         iconDescription = stringResource(R.string.cd_audio_format_icon),
                                                         shape = infoSegmentItemShape,
+                                                        onClick = { showAudioFormatInfoDialog = true },
                                                     )
                                                 }
 
@@ -1158,6 +1161,20 @@ fun SongInfoBottomSheet(
             showEditSheet = false
         },
     )
+
+    if (showAudioFormatInfoDialog) {
+        AudioFormatInfoDialog(
+            song = song,
+            mimeType = audioMeta?.mimeType ?: song.mimeType,
+            bitrate = audioMeta?.bitrate ?: song.bitrate,
+            sampleRate = audioMeta?.sampleRate ?: song.sampleRate,
+            bitDepth = audioMeta?.bitDepth,
+            formatTag = audioMeta?.formatLabel,
+            provider = songLocationInfo.provider,
+            filePath = songLocationInfo.filePath ?: song.path.takeIf { !it.isNullOrBlank() } ?: if (song.isLocal) song.contentUriString else null,
+            onDismiss = { showAudioFormatInfoDialog = false }
+        )
+    }
 
     val artistPickerSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     if (showArtistPicker && resolvedArtists.isNotEmpty()) {

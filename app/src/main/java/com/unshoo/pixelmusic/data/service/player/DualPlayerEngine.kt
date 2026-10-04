@@ -641,11 +641,14 @@ class DualPlayerEngine @Inject constructor(
             val videoId = uriString.removePrefix("youtube://")
             if (videoId.isNotBlank()) {
                 val audioDir = java.io.File(context.filesDir, "audio_files")
-                val diskFile = java.io.File(audioDir, "$videoId.webm")
-                if (diskFile.isFile && diskFile.length() > 0L) {
-                    val path = diskFile.absolutePath
-                    localFilePathCache[uriString] = path
-                    return Uri.fromFile(diskFile)
+                val extensions = listOf(".webm", ".m4a", ".opus", ".mp3", ".flac", ".ogg", ".aac")
+                for (ext in extensions) {
+                    val diskFile = java.io.File(audioDir, "$videoId$ext")
+                    if (diskFile.isFile && diskFile.length() > 0L) {
+                        val path = diskFile.absolutePath
+                        localFilePathCache[uriString] = path
+                        return Uri.fromFile(diskFile)
+                    }
                 }
             }
         }

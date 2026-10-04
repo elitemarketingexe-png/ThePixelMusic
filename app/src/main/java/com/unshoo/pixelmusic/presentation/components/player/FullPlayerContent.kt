@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
+import com.unshoo.pixelmusic.presentation.components.AudioFormatInfoDialog
 import com.unshoo.pixelmusic.data.model.Lyrics
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -275,6 +276,7 @@ fun FullPlayerContent(
     var showLyricsSheet by remember { mutableStateOf(false) }
     var showShareSheet by remember { mutableStateOf(false) }
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
+    var showAudioFormatInfoDialog by rememberSaveable { mutableStateOf(false) }
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
@@ -580,7 +582,7 @@ fun FullPlayerContent(
             playbackMetadataBitDepth = playbackAudioMetadata.bitDepth,
             playbackMetadataFormatTag = playbackAudioMetadata.formatTag,
             playbackMetadataIsConfirmed = playbackAudioMetadata.isConfirmed,
-            onFormatBadgeClick = { playerViewModel.selectSongForInfo(song) },
+            onFormatBadgeClick = { showAudioFormatInfoDialog = true },
             currentPositionProvider = currentPositionProvider,
             totalDurationValue = totalDurationValue,
             showPlayerFileInfo = showPlayerFileInfo,
@@ -1044,6 +1046,24 @@ fun FullPlayerContent(
                 playerViewModel.triggerArtistNavigationFromPlayer(artistIdStr)
                 showArtistPicker = false
             }
+        )
+    }
+
+    if (showAudioFormatInfoDialog) {
+        val mediaIdClean = playbackAudioMetadata.mediaId?.removePrefix("youtube_")
+        val isMetadataForCurrentSong = mediaIdClean == null ||
+            mediaIdClean == song.id.removePrefix("youtube_") ||
+            mediaIdClean == song.youtubeId
+
+        AudioFormatInfoDialog(
+            song = song,
+            mimeType = if (isMetadataForCurrentSong) playbackAudioMetadata.mimeType ?: song.mimeType else song.mimeType,
+            bitrate = if (isMetadataForCurrentSong) playbackAudioMetadata.bitrate ?: song.bitrate else song.bitrate,
+            sampleRate = if (isMetadataForCurrentSong) playbackAudioMetadata.sampleRate ?: song.sampleRate else song.sampleRate,
+            bitDepth = if (isMetadataForCurrentSong) playbackAudioMetadata.bitDepth else null,
+            formatTag = if (isMetadataForCurrentSong) playbackAudioMetadata.formatTag else null,
+            filePath = if (song.isLocal) song.contentUriString else null,
+            onDismiss = { showAudioFormatInfoDialog = false }
         )
     }
 
