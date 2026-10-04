@@ -553,7 +553,7 @@ constructor(
 
     val hiFiModeEnabledFlow: Flow<Boolean> =
         dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.HI_FI_MODE_ENABLED] ?: false
+            preferences[PreferencesKeys.HI_FI_MODE_ENABLED] ?: com.unshoo.pixelmusic.data.service.player.HiFiCapabilityChecker.isSupported()
         }
 
     suspend fun setHiFiModeEnabled(enabled: Boolean) {

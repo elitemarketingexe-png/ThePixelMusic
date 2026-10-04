@@ -97,6 +97,7 @@ import com.unshoo.pixelmusic.data.service.MusicService
 import com.unshoo.pixelmusic.data.service.player.CastPlayer
 import com.unshoo.pixelmusic.data.service.http.MediaFileHttpServerService
 import com.unshoo.pixelmusic.data.service.player.DualPlayerEngine
+import com.unshoo.pixelmusic.data.service.player.ActiveDecoderInfo
 import com.unshoo.pixelmusic.data.worker.SyncManager
 import com.unshoo.pixelmusic.data.worker.YouTubeLibrarySyncManager
 import com.unshoo.pixelmusic.utils.AppReadinessSignal
@@ -1766,6 +1767,7 @@ class PlayerViewModel @Inject constructor(
 
     private val _playbackAudioMetadata = MutableStateFlow(PlaybackAudioMetadata())
     val playbackAudioMetadata: StateFlow<PlaybackAudioMetadata> = _playbackAudioMetadata.asStateFlow()
+    val activeDecoderInfo: StateFlow<ActiveDecoderInfo?> = dualPlayerEngine.activeDecoderInfo
 
     init {
         // The resolver publishes (and later back-fills the measured bitrate of) streams it OFFERS.

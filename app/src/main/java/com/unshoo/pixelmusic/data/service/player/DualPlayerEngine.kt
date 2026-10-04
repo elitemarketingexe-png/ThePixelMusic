@@ -971,14 +971,18 @@ class DualPlayerEngine @Inject constructor(
 
             AudioDecoderPolicy.selectPlatformDecoders(mimeType, decoderInfos)
         }
+        val isFloatSupported = HiFiCapabilityChecker.isSupported()
+        val floatEnabled = hiFiModeEnabled || isFloatSupported
         val renderersFactory = object : DefaultRenderersFactory(context) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioOutputPlaybackParams: Boolean
             ): AudioSink {
+                val caps = androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context)
                 return DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(hiFiModeEnabled)
+                    .setAudioCapabilities(caps)
+                    .setEnableFloatOutput(floatEnabled)
                     .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                     .setAudioProcessorChain(
                         DefaultAudioSink.DefaultAudioProcessorChain(
@@ -1019,7 +1023,7 @@ class DualPlayerEngine @Inject constructor(
             ) {
                 // Audio-only player: skip camera motion renderers.
             }
-        }.setEnableAudioFloatOutput(hiFiModeEnabled)
+        }.setEnableAudioFloatOutput(floatEnabled)
          .setMediaCodecSelector(mediaCodecSelector)
          .setEnableDecoderFallback(true)
          .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)

@@ -299,6 +299,7 @@ fun FullPlayerContent(
     val lyricsSyncOffset = fullPlayerSlice.lyricsSyncOffset
     val albumArtQuality = fullPlayerSlice.albumArtQuality
     val playbackAudioMetadata = fullPlayerSlice.audioMetadata
+    val activeDecoderInfo by playerViewModel.activeDecoderInfo.collectAsStateWithLifecycle()
     val showPlayerFileInfo = fullPlayerSlice.showPlayerFileInfo
     val immersiveLyricsEnabled = fullPlayerSlice.immersiveLyricsEnabled
     val immersiveLyricsTimeout = fullPlayerSlice.immersiveLyricsTimeout
@@ -1062,7 +1063,9 @@ fun FullPlayerContent(
             sampleRate = if (isMetadataForCurrentSong) playbackAudioMetadata.sampleRate ?: song.sampleRate else song.sampleRate,
             bitDepth = if (isMetadataForCurrentSong) playbackAudioMetadata.bitDepth else null,
             formatTag = if (isMetadataForCurrentSong) playbackAudioMetadata.formatTag else null,
+            provider = if (isMetadataForCurrentSong) playbackAudioMetadata.sourceName else null,
             filePath = if (song.isLocal) song.contentUriString else null,
+            activeDecoderInfo = activeDecoderInfo,
             onDismiss = { showAudioFormatInfoDialog = false }
         )
     }

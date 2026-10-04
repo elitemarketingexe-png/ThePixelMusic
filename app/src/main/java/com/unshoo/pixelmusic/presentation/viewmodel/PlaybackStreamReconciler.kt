@@ -112,6 +112,11 @@ object PlaybackStreamReconciler {
         val mimeType = when (family) {
             AudioFamily.OPUS -> OPUS_MIME
             AudioFamily.AAC -> AAC_MIME
+            AudioFamily.FLAC -> if (confirmedFamily == AudioFamily.FLAC) confirmed.mimeType else (offer?.mimeType ?: "audio/flac")
+            AudioFamily.ALAC -> if (confirmedFamily == AudioFamily.ALAC) confirmed.mimeType else (offer?.mimeType ?: "audio/alac")
+            AudioFamily.PCM -> if (confirmedFamily == AudioFamily.PCM) confirmed.mimeType else (offer?.mimeType ?: "audio/wav")
+            AudioFamily.MP3 -> if (confirmedFamily == AudioFamily.MP3) confirmed.mimeType else "audio/mpeg"
+            AudioFamily.VORBIS -> if (confirmedFamily == AudioFamily.VORBIS) confirmed.mimeType else "audio/ogg"
             else -> confirmed.mimeType ?: offer?.mimeType ?: prior?.mimeType
         }
 
