@@ -102,6 +102,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.shape.CircleShape
@@ -1293,12 +1294,14 @@ fun FullPlayerContent(
                                     },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(84.dp),
+                                        .height(88.dp),
                                     shape = AbsoluteSmoothCornerShape(22.dp, 50),
                                     color = LocalMaterialTheme.current.surfaceContainerLow
                                 ) {
                                     Column(
-                                        modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 4.dp, vertical = 6.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
@@ -1308,12 +1311,16 @@ fun FullPlayerContent(
                                             tint = LocalMaterialTheme.current.onSurface,
                                             modifier = Modifier.size(24.dp)
                                         )
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = stringResource(R.string.player_play_next),
                                             fontFamily = GoogleSansRounded,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp,
+                                            fontSize = 11.5.sp,
+                                            lineHeight = 13.5.sp,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
                                             color = LocalMaterialTheme.current.onSurface
                                         )
                                     }
@@ -1327,12 +1334,14 @@ fun FullPlayerContent(
                                     },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(84.dp),
+                                        .height(88.dp),
                                     shape = AbsoluteSmoothCornerShape(22.dp, 50),
                                     color = LocalMaterialTheme.current.surfaceContainerLow
                                 ) {
                                     Column(
-                                        modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 4.dp, vertical = 6.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
@@ -1342,12 +1351,16 @@ fun FullPlayerContent(
                                             tint = LocalMaterialTheme.current.onSurface,
                                             modifier = Modifier.size(24.dp)
                                         )
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = stringResource(R.string.player_save_to_playlist),
                                             fontFamily = GoogleSansRounded,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp,
+                                            fontSize = 11.5.sp,
+                                            lineHeight = 13.5.sp,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
                                             color = LocalMaterialTheme.current.onSurface
                                         )
                                     }
@@ -1361,12 +1374,14 @@ fun FullPlayerContent(
                                     },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(84.dp),
+                                        .height(88.dp),
                                     shape = AbsoluteSmoothCornerShape(22.dp, 50),
                                     color = LocalMaterialTheme.current.surfaceContainerLow
                                 ) {
                                     Column(
-                                        modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 4.dp, vertical = 6.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
@@ -1376,12 +1391,16 @@ fun FullPlayerContent(
                                             tint = LocalMaterialTheme.current.onSurface,
                                             modifier = Modifier.size(24.dp)
                                         )
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = stringResource(R.string.action_share),
                                             fontFamily = GoogleSansRounded,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp,
+                                            fontSize = 11.5.sp,
+                                            lineHeight = 13.5.sp,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
                                             color = LocalMaterialTheme.current.onSurface
                                         )
                                     }

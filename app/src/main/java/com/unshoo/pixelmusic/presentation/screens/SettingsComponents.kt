@@ -129,7 +129,6 @@ fun SettingsItem(
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             shape = shape,
-            border = getSettingsCardBorder(),
             onClick = onClick,
             modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
@@ -189,7 +188,6 @@ fun SwitchSettingItem(
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             shape = shape,
-            border = getSettingsCardBorder(),
             onClick = {
                 if (enabled) {
                     performAppCompatHapticFeedback(
@@ -296,7 +294,6 @@ fun ThemeSelectorItem(
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             shape = shape,
-            border = getSettingsCardBorder(),
             onClick = { showSheet = true },
             modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
@@ -444,7 +441,6 @@ fun SliderSettingsItem(
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             shape = shape,
-            border = getSettingsCardBorder(),
             modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -500,7 +496,6 @@ fun RefreshLibraryItem(
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             shape = shape,
-            border = getSettingsCardBorder(),
             modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -662,7 +657,6 @@ fun RefreshLyricsItem(
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             shape = shape,
-            border = getSettingsCardBorder(),
             modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -756,7 +750,6 @@ fun ActionSettingsItem(
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = shape,
-        border = getSettingsCardBorder(),
         modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -842,7 +835,6 @@ fun AiApiKeyItem(
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = shape,
-        border = getSettingsCardBorder(),
         modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -934,7 +926,6 @@ fun AiSystemPromptItem(
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = shape,
-        border = getSettingsCardBorder(),
         modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -1017,18 +1008,7 @@ fun AiSystemPromptItem(
 }
 
 @Composable
-fun getSettingsCardBorder(): BorderStroke? {
-    val colorScheme = MaterialTheme.colorScheme
-    val isDark = isSystemInDarkTheme()
-    val isPitchBlack = colorScheme.background == Color.Black
-    val isGreyPalette = !isDark && (colorScheme.primary == Color(0xFF191C1E) || colorScheme.surfaceVariant == Color(0xFFDFE2E8) || colorScheme.surfaceVariant == Color(0xFFE5E5EA))
-
-    return when {
-        isPitchBlack -> BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.25f))
-        isGreyPalette -> BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f))
-        else -> null
-    }
-}
+fun getSettingsCardBorder(): BorderStroke? = null
 
 @Composable
 fun AppLauncherIconItem(
@@ -1143,7 +1123,6 @@ fun AppIconStyleItem(
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        border = getSettingsCardBorder(),
         shape = shape,
         onClick = { showSheet = true },
         modifier = modifier
@@ -1408,7 +1387,6 @@ fun ThemePresetSelectorItem(
     Surface(
         onClick = { showSheet = true },
         color = MaterialTheme.colorScheme.surfaceContainer,
-        border = getSettingsCardBorder(),
         shape = shape,
         modifier = modifier.fillMaxWidth().clip(shape)
     ) {

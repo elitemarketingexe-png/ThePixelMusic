@@ -101,7 +101,6 @@ import com.unshoo.pixelmusic.presentation.screens.AiApiKeyItem
 import com.unshoo.pixelmusic.presentation.screens.SettingsItem
 import com.unshoo.pixelmusic.presentation.screens.SwitchSettingItem
 import com.unshoo.pixelmusic.presentation.screens.ThemeSelectorItem
-import com.unshoo.pixelmusic.presentation.screens.getSettingsCardBorder
 import com.unshoo.pixelmusic.presentation.viewmodel.LosslessSourcesViewModel
 import com.unshoo.pixelmusic.presentation.viewmodel.PoolCounts
 
@@ -630,7 +629,6 @@ private fun SourceOrderDialog(
                 working.forEachIndexed { index, source ->
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceContainer,
-                        border = getSettingsCardBorder(),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -797,8 +795,7 @@ private fun PoolHealthAndFeedCard(
                 )
             ),
         shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = getSettingsCardBorder()
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()

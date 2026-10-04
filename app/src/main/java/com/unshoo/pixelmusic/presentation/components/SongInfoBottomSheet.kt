@@ -58,6 +58,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -404,6 +407,7 @@ fun SongInfoBottomSheet(
                                 AutoSizingTextToFill(
                                     modifier = Modifier.padding(end = 4.dp),
                                     fontWeight = FontWeight.Light,
+                                    maxFontSizeLimit = 28.sp,
                                     text = song.title
                                 )
                             }
@@ -815,11 +819,17 @@ fun SongInfoBottomSheet(
                                                         ) {
                                                             Icon(
                                                                 imageVector = if (isDislikedState) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                                                                contentDescription = stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike)
+                                                                contentDescription = stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike),
+                                                                modifier = Modifier.size(20.dp)
                                                             )
-                                                            Spacer(Modifier.width(8.dp))
+                                                            Spacer(Modifier.width(6.dp))
                                                             Text(
-                                                                stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike)
+                                                                text = stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike),
+                                                                fontSize = 12.sp,
+                                                                lineHeight = 14.sp,
+                                                                textAlign = TextAlign.Center,
+                                                                maxLines = 2,
+                                                                overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
                                                     }
@@ -828,6 +838,7 @@ fun SongInfoBottomSheet(
                                                         modifier = Modifier
                                                             .weight(if (isYouTubeSong) 0.5f else 1f)
                                                             .heightIn(min = 66.dp),
+                                                        contentPadding = PaddingValues(horizontal = 8.dp),
                                                         colors = ButtonDefaults.filledTonalButtonColors(
                                                             containerColor = if (isNotInterested) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                                                             contentColor = if (isNotInterested) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
@@ -848,11 +859,17 @@ fun SongInfoBottomSheet(
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Rounded.Block,
-                                                            contentDescription = stringResource(if (isNotInterested) R.string.marked_not_interested else R.string.not_interested)
+                                                            contentDescription = stringResource(if (isNotInterested) R.string.marked_not_interested else R.string.not_interested),
+                                                            modifier = Modifier.size(20.dp)
                                                         )
-                                                        Spacer(Modifier.width(8.dp))
+                                                        Spacer(Modifier.width(6.dp))
                                                         Text(
-                                                            if (isNotInterested) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested)
+                                                            text = if (isNotInterested) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested),
+                                                            fontSize = 12.sp,
+                                                            lineHeight = 14.sp,
+                                                            textAlign = TextAlign.Center,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
                                                 }
@@ -1092,17 +1109,24 @@ fun SongInfoBottomSheet(
                         },
                         transformOrigin = TransformOrigin(0f, 0.5f)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        ) {
                             Icon(
                                 Icons.Rounded.Menu,
                                 contentDescription = stringResource(R.string.cd_options),
-                                modifier = Modifier.padding(horizontal = 4.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                stringResource(R.string.song_info_tab_options_badge),
+                                text = stringResource(R.string.song_info_tab_options_badge),
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -1119,17 +1143,24 @@ fun SongInfoBottomSheet(
                         },
                         transformOrigin = TransformOrigin(1f, 0.5f)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        ) {
                             Icon(
                                 Icons.Rounded.Info,
                                 contentDescription = stringResource(R.string.cd_details_tab),
-                                modifier = Modifier.padding(horizontal = 4.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                stringResource(R.string.song_info_tab_info_badge),
+                                text = stringResource(R.string.song_info_tab_info_badge),
                                 fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

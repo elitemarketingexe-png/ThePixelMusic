@@ -944,14 +944,25 @@ fun LibraryScreen(
                                 onArrowClick = { showTabSwitcherSheet = true }
                             )
                         } else {
+                            val libraryTitle = stringResource(R.string.presentation_batch_d_library_title)
+                            val titleFontSize = remember(libraryTitle) {
+                                when {
+                                    libraryTitle.length > 9 -> 28.sp
+                                    libraryTitle.length > 7 -> 32.sp
+                                    else -> 38.sp
+                                }
+                            }
                             Text(
                                 modifier = Modifier.padding(start = 8.dp),
-                                text = stringResource(R.string.presentation_batch_d_library_title),
+                                text = libraryTitle,
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 40.sp,
-                                letterSpacing = 1.sp
+                                fontSize = titleFontSize,
+                                letterSpacing = 0.5.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     },
@@ -3076,7 +3087,7 @@ fun LibraryNavigationPill(
         val idealTitleWidth = idealTextWidth +
                 titleHorizontalPadding * 2 +
                 (if (showIcon) (titleIconSize + titleIconSpacing) else 0.dp) +
-                4.dp // Tiny safety buffer
+                14.dp // Generous safety buffer for variable font glyph bounds
         val naturalTitleWidth = minOf(idealTitleWidth, maxTitleWidth)
         val minCompressedTitleWidth = (
                 titleHorizontalPadding * 2 +
@@ -3141,7 +3152,7 @@ fun LibraryNavigationPill(
                     .clickable(onClick = onClick)
             ) {
                 Box(
-                    modifier = Modifier.padding(horizontal = titleHorizontalPadding),
+                    modifier = Modifier.padding(start = titleHorizontalPadding, end = 8.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     AnimatedContent(
@@ -3200,9 +3211,7 @@ fun LibraryNavigationPill(
                                 }
                             }
                             Text(
-                                modifier = Modifier
-                                    .weight(1f, fill = false)
-                                    .padding(end = 4.dp), // Add slight end padding for safety
+                                modifier = Modifier.weight(1f, fill = false),
                                 text = targetState.title,
                                 style = titleStyle,
                                 maxLines = 1,
