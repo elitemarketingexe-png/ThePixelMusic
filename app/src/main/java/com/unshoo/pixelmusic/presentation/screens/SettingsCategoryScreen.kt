@@ -3543,9 +3543,10 @@ private fun PaletteRegenerateSongSheetContent(
 private fun SettingsSubsectionHeader(title: String) {
     Text(
         text = title,
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)
+        modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 6.dp)
     )
 }
 
@@ -3560,13 +3561,13 @@ private fun SettingsSubsection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (itemSpacing == 2.dp) Modifier.clip(RoundedCornerShape(24.dp)) else Modifier)
+            .clip(RoundedCornerShape(24.dp))
             .background(Color.Transparent),
         verticalArrangement = Arrangement.spacedBy(itemSpacing)
     ) {
         content()
     }
     if (addBottomSpace) {
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
     }
 }

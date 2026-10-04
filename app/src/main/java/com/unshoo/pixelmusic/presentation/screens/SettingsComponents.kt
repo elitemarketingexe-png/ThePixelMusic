@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.DeleteForever
@@ -122,32 +123,40 @@ fun SettingsItem(
         subtitle: String,
         leadingIcon: @Composable () -> Unit,
         trailingIcon: @Composable () -> Unit = {},
+        shape: Shape = RoundedCornerShape(4.dp),
         onClick: () -> Unit
 ) {
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = shape,
             border = getSettingsCardBorder(),
-            modifier =
-                    Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable(onClick = onClick)
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(16.dp).fillMaxWidth()
         ) {
             Box(
-                    modifier = Modifier.padding(end = 16.dp).size(24.dp),
-                    contentAlignment = Alignment.Center
-            ) { leadingIcon() }
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
+            ) {
+                leadingIcon()
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
 
             Column(
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -171,35 +180,53 @@ fun SwitchSettingItem(
         checked: Boolean,
         onCheckedChange: (Boolean) -> Unit,
         leadingIcon: @Composable (() -> Unit)? = null,
-        enabled: Boolean = true
+        enabled: Boolean = true,
+        shape: Shape = RoundedCornerShape(4.dp)
 ) {
     val view = LocalView.current
     val appHapticsConfig = LocalAppHapticsConfig.current
 
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = shape,
             border = getSettingsCardBorder(),
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            onClick = {
+                if (enabled) {
+                    performAppCompatHapticFeedback(
+                        view,
+                        appHapticsConfig,
+                        HapticFeedbackConstantsCompat.GESTURE_START
+                    )
+                    onCheckedChange(!checked)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.padding(16.dp).fillMaxWidth()
         ) {
             if (leadingIcon != null) {
                 Box(
-                        modifier = Modifier.padding(end = 4.dp).size(24.dp),
-                        contentAlignment = Alignment.Center
-                ) { leadingIcon() }
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
+                ) {
+                    leadingIcon()
+                }
+                Spacer(modifier = Modifier.width(16.dp))
             }
 
             Column(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).padding(end = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color =
                                 if (enabled) MaterialTheme.colorScheme.onSurface
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -260,58 +287,64 @@ fun ThemeSelectorItem(
         options: Map<String, String>,
         selectedKey: String,
         onSelectionChanged: (String) -> Unit,
-        leadingIcon: @Composable () -> Unit
+        leadingIcon: @Composable () -> Unit,
+        shape: Shape = RoundedCornerShape(4.dp)
 ) {
     var showSheet by remember(label) { mutableStateOf(false) }
     val selectedOption = options[selectedKey] ?: selectedKey
 
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = shape,
             border = getSettingsCardBorder(),
-            modifier =
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {
-                        showSheet = true
-                    }
+            onClick = { showSheet = true },
+            modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp).fillMaxWidth()
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
             ) {
-                Box(
-                    modifier = Modifier.padding(end = 16.dp).size(24.dp),
-                        contentAlignment = Alignment.Center
-                ) { leadingIcon() }
+                leadingIcon()
+            }
 
-                Column(modifier = Modifier.weight(1f)) {
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Selected Value Badge
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    shape = CircleShape,
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                         text = selectedOption,
+                         style = MaterialTheme.typography.labelMedium,
+                         color = MaterialTheme.colorScheme.primary,
+                         fontWeight = FontWeight.Bold,
+                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    Spacer(modifier = Modifier.height(10.dp))
-                    
-                    // Selected Value Badge
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        modifier = Modifier.align(Alignment.Start)
-                    ) {
-                        Text(
-                             text = selectedOption,
-                             style = MaterialTheme.typography.labelMedium,
-                             color = MaterialTheme.colorScheme.primary,
-                             fontWeight = FontWeight.Bold,
-                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
                 }
             }
         }
@@ -405,34 +438,45 @@ fun SliderSettingsItem(
         steps: Int,
         onValueChange: (Float) -> Unit,
         onValueChangeFinished: (() -> Unit)? = null,
+        shape: Shape = RoundedCornerShape(4.dp),
         valueText: (Float) -> String
 ) {
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = shape,
             border = getSettingsCardBorder(),
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                         text = label,
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                        text = valueText(value),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
-                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    shape = CircleShape
+                ) {
+                    Text(
+                            text = valueText(value),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(8.dp))
             Slider(
                 value = value,
                 onValueChange = onValueChange,
@@ -450,12 +494,14 @@ fun RefreshLibraryItem(
         syncProgress: SyncProgress,
         activeOperationLabel: String? = null,
         onFullSync: () -> Unit,
-        onRebuild: () -> Unit
+        onRebuild: () -> Unit,
+        shape: Shape = RoundedCornerShape(4.dp)
 ) {
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = shape,
             border = getSettingsCardBorder(),
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -463,23 +509,30 @@ fun RefreshLibraryItem(
                     modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                        modifier = Modifier.padding(end = 16.dp).size(24.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
                 ) {
                     Icon(
                             imageVector = Icons.Outlined.Sync,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(24.dp)
                     )
                 }
 
+                Spacer(modifier = Modifier.width(16.dp))
+
                 Column(
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                             text = stringResource(R.string.presentation_batch_f_refresh_library_title),
                             style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -603,12 +656,14 @@ private fun syncPhaseLabel(phase: SyncProgress.SyncPhase): String =
 fun RefreshLyricsItem(
         isRefreshing: Boolean,
         progress: LyricsRefreshProgress,
-        onRefresh: () -> Unit
+        onRefresh: () -> Unit,
+        shape: Shape = RoundedCornerShape(4.dp)
 ) {
     Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = shape,
             border = getSettingsCardBorder(),
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -616,23 +671,30 @@ fun RefreshLyricsItem(
                     modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                        modifier = Modifier.padding(end = 16.dp).size(24.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
                 ) {
                     Icon(
                             painter = painterResource(id = R.drawable.rounded_lyrics_24),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(24.dp)
                     )
                 }
 
+                Spacer(modifier = Modifier.width(16.dp))
+
                 Column(
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                             text = stringResource(R.string.presentation_batch_f_refresh_lyrics_title),
                             style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -688,12 +750,14 @@ fun ActionSettingsItem(
     onPrimaryAction: () -> Unit,
     secondaryActionLabel: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    shape: Shape = RoundedCornerShape(4.dp)
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape,
         border = getSettingsCardBorder(),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -701,19 +765,25 @@ fun ActionSettingsItem(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                    modifier = Modifier.padding(end = 16.dp).size(24.dp),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
                 ) {
                     icon()
                 }
 
+                Spacer(modifier = Modifier.width(16.dp))
+
                 Column(
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -755,7 +825,8 @@ fun AiApiKeyItem(
     apiKey: String,
     onApiKeySave: (String) -> Unit,
     title: String,
-    subtitle: String
+    subtitle: String,
+    shape: Shape = RoundedCornerShape(4.dp)
 ) {
     var localApiKey by remember(apiKey) { mutableStateOf(apiKey) }
     val hasChanges = localApiKey != apiKey
@@ -770,15 +841,18 @@ fun AiApiKeyItem(
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape,
         border = getSettingsCardBorder(),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
@@ -828,7 +902,8 @@ fun AiSystemPromptItem(
     onSystemPromptSave: (String) -> Unit,
     onReset: () -> Unit,
     title: String,
-    subtitle: String
+    subtitle: String,
+    shape: Shape = RoundedCornerShape(4.dp)
 ) {
     var localPrompt by remember(systemPrompt) { mutableStateOf(systemPrompt) }
     val hasChanges = localPrompt != systemPrompt
@@ -858,15 +933,18 @@ fun AiSystemPromptItem(
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape,
         border = getSettingsCardBorder(),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
@@ -1058,91 +1136,92 @@ fun AppIconStyleItem(
     selectedIcon: AppLauncherIcon,
     onIconSelected: (AppLauncherIcon) -> Unit,
     useSmoothCorners: Boolean = false,
+    shape: Shape = if (useSmoothCorners) AbsoluteSmoothCornerShape(4.dp, 60) else RoundedCornerShape(4.dp),
     modifier: Modifier = Modifier
 ) {
     var showSheet by remember { mutableStateOf(false) }
-    val cardShape = remember(useSmoothCorners) {
-        if (useSmoothCorners) AbsoluteSmoothCornerShape(10.dp, 60) else RoundedCornerShape(10.dp)
-    }
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = getSettingsCardBorder(),
-        shape = cardShape,
+        shape = shape,
+        onClick = { showSheet = true },
         modifier = modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .clickable { showSheet = true }
+            .clip(shape)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp).fillMaxWidth()
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 16.dp)
-                        .size(24.dp),
-                    contentAlignment = Alignment.Center
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.setcat_app_icon_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.setcat_app_icon_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Selected Value Badge & Icon Preview matching Image 3
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.align(Alignment.Start)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.setcat_app_icon_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.setcat_app_icon_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Selected Value Badge & Icon Preview matching Image 3
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.align(Alignment.Start)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        shape = CircleShape
                     ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                text = stringResource(selectedIcon.titleRes),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                            )
-                        }
+                        Text(
+                            text = stringResource(selectedIcon.titleRes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                        )
+                    }
 
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                            shape = CircleShape,
-                            modifier = Modifier.size(28.dp)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        shape = CircleShape,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = painterResource(id = selectedIcon.previewDrawableRes),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .scale(1.25f)
-                                )
-                            }
+                            Image(
+                                painter = painterResource(id = selectedIcon.previewDrawableRes),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .scale(1.25f)
+                            )
                         }
                     }
                 }
@@ -1318,12 +1397,10 @@ fun ThemePresetSelectorItem(
     selectedKey: String,
     onPresetSelected: (String) -> Unit,
     useSmoothCorners: Boolean = false,
+    shape: Shape = if (useSmoothCorners) AbsoluteSmoothCornerShape(4.dp, 60) else RoundedCornerShape(4.dp),
     modifier: Modifier = Modifier
 ) {
     var showSheet by remember { mutableStateOf(false) }
-    val cardShape = remember(useSmoothCorners) {
-        if (useSmoothCorners) AbsoluteSmoothCornerShape(10.dp, 60) else RoundedCornerShape(10.dp)
-    }
     val currentPreset = ThemePreset.fromKey(selectedKey)
     val context = LocalContext.current
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -1332,66 +1409,70 @@ fun ThemePresetSelectorItem(
         onClick = { showSheet = true },
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = getSettingsCardBorder(),
-        shape = cardShape,
-        modifier = modifier.fillMaxWidth()
+        shape = shape,
+        modifier = modifier.fillMaxWidth().clip(shape)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp).fillMaxWidth()
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 16.dp)
-                        .size(24.dp),
-                    contentAlignment = Alignment.Center
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.setcat_theme_preset_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.setcat_theme_preset_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.align(Alignment.Start)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Palette,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.setcat_theme_preset_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.setcat_theme_preset_desc),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        shape = CircleShape
                     ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                text = stringResource(currentPreset.titleRes),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                            )
-                        }
-
-                        PaletteColorDots(
-                            colors = currentPreset.getColors(isDark, context),
-                            dotSize = 18.dp,
-                            overlap = 5.dp,
-                            borderColor = MaterialTheme.colorScheme.surfaceContainer
+                        Text(
+                            text = stringResource(currentPreset.titleRes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                         )
                     }
+
+                    PaletteColorDots(
+                        colors = currentPreset.getColors(isDark, context),
+                        dotSize = 18.dp,
+                        overlap = 5.dp,
+                        borderColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
                 }
             }
         }
