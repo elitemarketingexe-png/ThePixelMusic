@@ -396,6 +396,13 @@ constructor(
         val YOUTUBE_SYNC_LISTENING_ACTIVITY = booleanPreferencesKey("youtube_sync_listening_activity")
         val YOUTUBE_PERSONALIZED_EXPLORE = booleanPreferencesKey("youtube_personalized_explore")
         val YOUTUBE_PERSONALIZED_QUEUE = booleanPreferencesKey("youtube_personalized_queue")
+
+        // App Updates
+        val AUTO_UPDATE_CHECK_ENABLED = booleanPreferencesKey("auto_update_check_enabled")
+        val LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
+        val LAST_UPDATE_ETAG = stringPreferencesKey("last_update_etag")
+        val IGNORED_UPDATE_VERSION = stringPreferencesKey("ignored_update_version")
+        val CACHED_RELEASE_INFO = stringPreferencesKey("cached_release_info")
     }
 
     val deduplicateQueueEntriesFlow: Flow<Boolean> =
@@ -2748,6 +2755,67 @@ constructor(
                 preferences[PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_ENABLED] = false
                 preferences.remove(PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_STARTED_AT)
                 preferences.remove(PreferencesKeys.ADVANCED_PERFORMANCE_DIAGNOSTICS_EXPIRES_AT)
+            }
+        }
+    }
+
+    // ────────────────────────── In-App Updates ──────────────────────────
+
+    val autoUpdateCheckEnabledFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.AUTO_UPDATE_CHECK_ENABLED] ?: true
+        }.distinctUntilChanged()
+
+    suspend fun setAutoUpdateCheckEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_UPDATE_CHECK_ENABLED] = enabled
+        }
+    }
+
+    val lastUpdateCheckTimeFlow: Flow<Long> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.LAST_UPDATE_CHECK_TIME] ?: 0L
+        }.distinctUntilChanged()
+
+    suspend fun setLastUpdateCheckTime(timestampMs: Long) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAST_UPDATE_CHECK_TIME] = timestampMs
+        }
+    }
+
+    val lastUpdateEtagFlow: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.LAST_UPDATE_ETAG] ?: ""
+        }.distinctUntilChanged()
+
+    suspend fun setLastUpdateEtag(etag: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAST_UPDATE_ETAG] = etag
+        }
+    }
+
+    val ignoredUpdateVersionFlow: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.IGNORED_UPDATE_VERSION] ?: ""
+        }.distinctUntilChanged()
+
+    suspend fun setIgnoredUpdateVersion(version: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.IGNORED_UPDATE_VERSION] = version
+        }
+    }
+
+    val cachedReleaseInfoFlow: Flow<String?> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.CACHED_RELEASE_INFO]
+        }.distinctUntilChanged()
+
+    suspend fun setCachedReleaseInfo(json: String?) {
+        dataStore.edit { preferences ->
+            if (json != null) {
+                preferences[PreferencesKeys.CACHED_RELEASE_INFO] = json
+            } else {
+                preferences.remove(PreferencesKeys.CACHED_RELEASE_INFO)
             }
         }
     }

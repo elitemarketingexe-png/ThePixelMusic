@@ -173,6 +173,13 @@ class MainActivity : ComponentActivity() {
     lateinit var themePreferencesRepository: ThemePreferencesRepository
     @Inject
     lateinit var syncManager: SyncManager
+    @Inject
+    lateinit var appUpdateScheduler: com.unshoo.pixelmusic.data.worker.AppUpdateScheduler
+    @Inject
+    lateinit var appUpdateDownloadManager: com.unshoo.pixelmusic.data.update.AppUpdateDownloadManager
+
+    private val _pendingUpdateRelease =
+        kotlinx.coroutines.flow.MutableStateFlow<Pair<com.unshoo.pixelmusic.data.model.update.AppReleaseInfo, com.unshoo.pixelmusic.data.model.update.AppReleaseAsset?>?>(null)
     // For handling shortcut navigation - using StateFlow so composables can observe changes
     private val _pendingPlaylistNavigation = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private val _pendingShuffleAll = kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -188,7 +195,7 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(AppLocaleManager.wrapContext(newBase))
     }
 
-    @OptIn(ExperimentalPermissionsApi::class)
+    @OptIn(ExperimentalPermissionsApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         LogUtils.d(this, "onCreate")
         val activeIcon = AppIconManager.getActiveLauncherIcon(this)
@@ -289,6 +296,10 @@ class MainActivity : ComponentActivity() {
                     crashLogData = CrashHandler.getCrashLog()
                     showCrashReportDialog = true
                 }
+                if (!isBenchmarkMode) {
+                    appUpdateScheduler.schedulePeriodicCheck()
+                    appUpdateScheduler.checkOnStartupIfNeeded(lifecycleScope)
+                }
             }
 
             PixelMusicTheme(
@@ -364,6 +375,19 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+
+                    // Show in-app update bottom sheet when launched from notification
+                    val pendingUpdate by _pendingUpdateRelease.collectAsStateWithLifecycle()
+                    if (pendingUpdate != null) {
+                        val (updateRelease, updateAsset) = pendingUpdate!!
+                        com.unshoo.pixelmusic.presentation.components.AppUpdateBottomSheet(
+                            release = updateRelease,
+                            targetAsset = updateAsset,
+                            currentVersion = BuildConfig.VERSION_NAME,
+                            downloadManager = appUpdateDownloadManager,
+                            onDismissRequest = { _pendingUpdateRelease.value = null }
+                        )
+                    }
                 }
             }
         }
@@ -401,6 +425,40 @@ class MainActivity : ComponentActivity() {
         if (intent == null) return
 
         when {
+            // Handle notification tap to show update dialog
+            intent.action == com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.ACTION_SHOW_UPDATE_DIALOG -> {
+                val tagName = intent.getStringExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_TAG) ?: ""
+                val title = intent.getStringExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_TITLE) ?: tagName
+                val body = intent.getStringExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_BODY) ?: ""
+                val htmlUrl = intent.getStringExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_HTML_URL) ?: ""
+                val downloadUrl = intent.getStringExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_DOWNLOAD_URL) ?: ""
+                val assetName = intent.getStringExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_ASSET_NAME) ?: ""
+                val assetSize = intent.getLongExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_ASSET_SIZE, 0L)
+                val assetArch = intent.getStringExtra(com.unshoo.pixelmusic.data.notification.AppUpdateNotificationManager.EXTRA_UPDATE_ASSET_ARCH) ?: ""
+
+                if (tagName.isNotEmpty()) {
+                    val asset = if (downloadUrl.isNotEmpty()) {
+                        com.unshoo.pixelmusic.data.model.update.AppReleaseAsset(
+                            name = assetName,
+                            downloadUrl = downloadUrl,
+                            sizeBytes = assetSize,
+                            architecture = assetArch
+                        )
+                    } else null
+
+                    val releaseInfo = com.unshoo.pixelmusic.data.model.update.AppReleaseInfo(
+                        tagName = tagName,
+                        name = title,
+                        body = body,
+                        htmlUrl = htmlUrl,
+                        assets = if (asset != null) listOf(asset) else emptyList()
+                    )
+
+                    _pendingUpdateRelease.value = releaseInfo to asset
+                }
+                intent.action = null
+            }
+
             // Handle shuffle all shortcut / tile
             intent.action == MainActivityIntentContract.ACTION_SHUFFLE_ALL -> {
                 playerViewModel.triggerShuffleAllFromTile()

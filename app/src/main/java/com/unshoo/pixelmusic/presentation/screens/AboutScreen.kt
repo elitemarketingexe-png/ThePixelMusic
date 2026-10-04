@@ -114,9 +114,14 @@ import coil.size.Size
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.components.CollapsibleCommonTopBar
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
+import com.unshoo.pixelmusic.presentation.components.AppUpdateCard
+import com.unshoo.pixelmusic.presentation.components.AppUpdateBottomSheet
 import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
 import com.unshoo.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.unshoo.pixelmusic.presentation.viewmodel.AppUpdateViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import com.unshoo.pixelmusic.ui.theme.GoogleSansRounded
@@ -125,13 +130,14 @@ import kotlin.math.roundToInt
 
 // AboutTopBar removed, replaced by CollapsibleCommonTopBar
 
-@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(UnstableApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Suppress("UNUSED_PARAMETER")
 @Composable
 fun AboutScreen(
     navController: NavController,
     viewModel: PlayerViewModel,
     onNavigationIconClick: () -> Unit,
+    updateViewModel: AppUpdateViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val versionName: String = try {
@@ -140,6 +146,14 @@ fun AboutScreen(
     } catch (_: Exception) {
         "N/A"
     }
+
+    val isCheckingUpdates by updateViewModel.isChecking.collectAsStateWithLifecycle()
+    val updateResult by updateViewModel.updateResult.collectAsStateWithLifecycle()
+    val showUpdateSheet by updateViewModel.showUpdateSheet.collectAsStateWithLifecycle()
+    val activeRelease by updateViewModel.activeRelease.collectAsStateWithLifecycle()
+    val activeTargetAsset by updateViewModel.activeTargetAsset.collectAsStateWithLifecycle()
+    val autoCheckEnabled by updateViewModel.autoUpdateCheckEnabled.collectAsStateWithLifecycle()
+    val lastCheckTime by updateViewModel.lastUpdateCheckTime.collectAsStateWithLifecycle()
 
     val transitionState = remember { MutableTransitionState(false) }
     LaunchedEffect(Unit) {
@@ -259,6 +273,27 @@ fun AboutScreen(
                 )
             }
 
+            item(key = "app_update_card") {
+                Spacer(modifier = Modifier.height(14.dp))
+                AppUpdateCard(
+                    currentVersion = versionName,
+                    isChecking = isCheckingUpdates,
+                    updateResult = updateResult,
+                    autoCheckEnabled = autoCheckEnabled,
+                    lastCheckTime = lastCheckTime,
+                    onCheckForUpdates = { updateViewModel.checkForUpdates(force = true) },
+                    onOpenUpdateSheet = {
+                        activeRelease?.let { release ->
+                            updateViewModel.openUpdateSheet(release, activeTargetAsset)
+                        }
+                    },
+                    onToggleAutoCheck = { updateViewModel.setAutoUpdateCheckEnabled(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+            }
+
             item(key = "more_actions_title") {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
@@ -309,6 +344,17 @@ fun AboutScreen(
 
         if (showPrivacyDialog) {
             PrivacyPolicyDialog(onDismiss = { showPrivacyDialog = false })
+        }
+
+        if (showUpdateSheet && activeRelease != null) {
+            AppUpdateBottomSheet(
+                release = activeRelease!!,
+                targetAsset = activeTargetAsset,
+                currentVersion = versionName,
+                downloadManager = updateViewModel.downloadManager,
+                onDismissRequest = { updateViewModel.dismissUpdateSheet() },
+                onIgnoreVersion = { updateViewModel.ignoreVersion(it) }
+            )
         }
     }
 }
