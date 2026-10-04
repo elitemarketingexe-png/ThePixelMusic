@@ -92,7 +92,15 @@ object PlaybackStreamReconciler {
         offered: OfferedStream?,
         previous: PlaybackAudioMetadata?,
     ): PlaybackAudioMetadata {
-        val family = AudioFamily.of(confirmed.mimeType)
+        val confirmedFamily = AudioFamily.of(confirmed.mimeType)
+        val offeredFamily = offered?.let { AudioFamily.of(it.mimeType) }
+
+        val family = when {
+            offered != null && offeredFamily?.isLossless == true && !confirmedFamily.isDefinitelyLossy -> offeredFamily
+            confirmedFamily != AudioFamily.OTHER -> confirmedFamily
+            offeredFamily != null && offeredFamily != AudioFamily.OTHER -> offeredFamily
+            else -> confirmedFamily
+        }
         val lossless = family.isLossless
 
         val offer = offered?.takeIf { AudioFamily.of(it.mimeType) == family }

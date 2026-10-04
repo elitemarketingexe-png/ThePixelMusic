@@ -184,6 +184,14 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
         // 50-150ms on cold start. We move it to startupScope.
         MediaItemBuilder.initialize(this)
         BotGuardTokenGenerator.initialize(this)
+
+        // Lossless sources (ArchiveTune source-pool port): initialize token providers, cached accounts,
+        // and background instance health on startupScope immediately upon app launch, off the main thread.
+        try {
+            com.unshoo.pixelmusic.data.lossless.LosslessSources.start(this, startupScope)
+        } catch (e: Throwable) {
+            Timber.w(e, "Lossless sources start-up failed (non-fatal)")
+        }
         // THERMAL OPTIMIZATION PIPELINE:
         // Consolidate background warm-up work into a staggered sequential pipeline
         // executing on warmUpScope (Thread.MIN_PRIORITY). Running 7+ parallel
@@ -223,15 +231,6 @@ class PixelMusicApplication : Application(), ImageLoaderFactory, Configuration.P
                 )
             } catch (e: Exception) {
                 Timber.w(e, "NewPipe / CardColorExtractor warm-up failed")
-            }
-
-            // Stage 2b: Lossless sources (ArchiveTune source-pool port). Registers token providers
-            // and preference observers on startupScope, then loads the cached pool feed, refreshes
-            // it, scans Tidal instances and schedules the 6-hourly SourceRefreshWorker — all on IO.
-            try {
-                com.unshoo.pixelmusic.data.lossless.LosslessSources.start(this@PixelMusicApplication, startupScope)
-            } catch (e: Throwable) {
-                Timber.w(e, "Lossless sources start-up failed (non-fatal)")
             }
 
             // Stage 3 (T+1000ms & Idle): Initialize LastFM

@@ -284,7 +284,7 @@ class SongInfoBottomSheetViewModel @Inject constructor(
                 mimeType = mime,
                 bitrate = bitrate,
                 sampleRate = sampleRate,
-                bitDepth = 16,
+                bitDepth = null,
                 formatLabel = null,
                 provider = fallbackProvider
             )

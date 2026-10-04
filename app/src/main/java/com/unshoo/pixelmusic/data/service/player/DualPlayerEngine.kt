@@ -1057,7 +1057,8 @@ class DualPlayerEngine @Inject constructor(
                 if (scheme == "telegram" || scheme == "gdrive" || scheme == "youtube") {
                     val originalUri = uriString
                     val diskUri = resolveLocalDiskFile(originalUri)
-                    if (diskUri != null) {
+                    val servesLossless = diskUri?.path?.endsWith(".flac", true) == true
+                    if (diskUri != null && (scheme != "youtube" || servesLossless || !LosslessStreamResolver.isEnabledBlocking(context) || !connectivityStateHolder.isOnline.value)) {
                         return dataSpec.buildUpon()
                             .setUri(diskUri)
                             .apply { if (cleanId != null) setKey(cleanId) }

@@ -4879,10 +4879,21 @@ class PlayerViewModel @Inject constructor(
             .resultFor(cleanMediaId)
             ?: com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.resultFor(mediaId)
         if (losslessResult != null) {
-            // A lossless stream is on offer, but offered is not playing: the player may still be
-            // on an older stream. Claim nothing until the player's own selected format confirms
-            // it (refreshPlaybackAudioMetadata); the chip stays hidden until then.
-            _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId, isConfirmed = false)
+            val tag = when {
+                losslessResult.isHiRes -> "HI-RES LOSSLESS"
+                losslessResult.isLossless -> "LOSSLESS"
+                else -> null
+            }
+            _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                mediaId = mediaId,
+                mimeType = losslessResult.mimeType,
+                bitrate = losslessResult.bitrate.takeIf { it > 0 },
+                sampleRate = losslessResult.sampleRate,
+                bitDepth = losslessResult.bitDepth,
+                formatTag = tag,
+                sourceName = losslessResult.source.name,
+                isConfirmed = false
+            )
             return
         }
 
@@ -4932,11 +4943,26 @@ class PlayerViewModel @Inject constructor(
             return
         }
 
-        // For online/remote streams (YouTube, JioSaavn, Telegram, cloud):
-        // Do NOT populate with synthetic or cached provisional format info on song change.
-        // Instead, keep isConfirmed = false with empty format info so the UI reserves space for
-        // the refreshing state (1-4s) and smoothly transitions once ExoPlayer confirms the stream format.
-        _playbackAudioMetadata.value = PlaybackAudioMetadata(mediaId = mediaId, isConfirmed = false)
+        // 3. Online/remote streams (YouTube, JioSaavn):
+        val isSaavn = song?.contentUriString?.contains("saavn") == true
+        val videoId = song?.youtubeId ?: cleanMediaId
+        val ytHelper = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper
+        val mime = ytHelper.streamMimeTypeLruCache.get("${videoId}_high")
+            ?: ytHelper.streamMimeTypeLruCache.get("${videoId}_low")
+            ?: if (isSaavn) "audio/mp4; codecs=\"mp4a.40.2\"" else "audio/webm; codecs=\"opus\""
+        val bitrate = ytHelper.streamBitrateLruCache.get("${videoId}_high")?.takeIf { it > 65_000 }
+            ?: ytHelper.streamBitrateLruCache.get("${videoId}_low")
+            ?: if (isSaavn) 320_000 else 160_000
+        val sampleRate = if (isSaavn || !mime.contains("opus", true)) 44100 else 48000
+
+        _playbackAudioMetadata.value = PlaybackAudioMetadata(
+            mediaId = mediaId,
+            mimeType = mime,
+            bitrate = bitrate,
+            sampleRate = sampleRate,
+            sourceName = if (isSaavn) "JioSaavn" else "YouTube",
+            isConfirmed = false
+        )
     }
 
     private fun com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.Result.toOfferedStream() =
@@ -5106,7 +5132,7 @@ class PlayerViewModel @Inject constructor(
                 )
             }
 
-            if (playingUriString.startsWith("http")) return
+            return
         }
 
         if (metadataProbeMediaId == mediaId && metadataProbeJob?.isActive == true) return

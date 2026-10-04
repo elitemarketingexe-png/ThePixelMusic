@@ -81,12 +81,13 @@ object LosslessSources {
                         first = false
                         return@collect
                     }
-                    runCatching {
-                        if (PoolAccountManager.isEnabled) {
-                            if (first) PoolAccountManager.loadCached(app)
-                            PoolAccountManager.refresh(app, force = !first)
+                    if (PoolAccountManager.isEnabled) {
+                        if (first) runCatching { PoolAccountManager.loadCached(app) }
+                        launch {
+                            runCatching { PoolAccountManager.refresh(app, force = !first) }
+                                .onFailure { Timber.tag(TAG).w(it, "Pool account refresh failed") }
                         }
-                    }.onFailure { Timber.tag(TAG).w(it, "Pool account startup refresh failed") }
+                    }
                     if (first) {
                         first = false
                         launch { startupTidalScan(app) }

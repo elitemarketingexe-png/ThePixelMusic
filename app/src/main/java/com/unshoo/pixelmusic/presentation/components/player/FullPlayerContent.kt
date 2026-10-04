@@ -1829,24 +1829,25 @@ private fun FullPlayerProgressSection(
         playbackMetadataMediaId.removePrefix("youtube_") == song.id.removePrefix("youtube_") ||
         (song.youtubeId != null && playbackMetadataMediaId.removePrefix("youtube_") == song.youtubeId) ||
         (playbackMetadataMediaId.isNotEmpty() && song.contentUriString.contains(playbackMetadataMediaId))
-    val localSong = song.takeIf { it.isLocal }
-    val isOnline = !song.isLocal
-    val isConfirmed = isMetadataForCurrentSong && playbackMetadataIsConfirmed
-    val isRefreshing = isOnline && !isConfirmed
+    val local = song.takeIf { it.isLocal }
+    val audioMimeType = if (isMetadataForCurrentSong) playbackMetadataMimeType ?: local?.mimeType else local?.mimeType
+    val audioBitrate = if (isMetadataForCurrentSong) playbackMetadataBitrate ?: local?.bitrate else local?.bitrate
+    val audioSampleRate = if (isMetadataForCurrentSong) playbackMetadataSampleRate ?: local?.sampleRate else local?.sampleRate
+    val audioBitDepth = if (isMetadataForCurrentSong) playbackMetadataBitDepth else null
+    val audioFormatTag = if (isMetadataForCurrentSong) playbackMetadataFormatTag else null
 
     PlayerProgressBarSection(
         songId = song.id,
         currentPositionProvider = currentPositionProvider,
         totalDurationValue = totalDurationValue,
         songDurationHintMs = song.duration,
-        audioMimeType = if (isConfirmed) playbackMetadataMimeType ?: localSong?.mimeType else localSong?.mimeType,
-        audioBitrate = if (isConfirmed) playbackMetadataBitrate ?: localSong?.bitrate else localSong?.bitrate,
-        audioSampleRate = if (isConfirmed) playbackMetadataSampleRate ?: localSong?.sampleRate else localSong?.sampleRate,
-        audioBitDepth = if (isConfirmed) playbackMetadataBitDepth else null,
-        audioFormatTag = if (isConfirmed) playbackMetadataFormatTag else null,
+        audioMimeType = audioMimeType,
+        audioBitrate = audioBitrate,
+        audioSampleRate = audioSampleRate,
+        audioBitDepth = audioBitDepth,
+        audioFormatTag = audioFormatTag,
         onFormatBadgeClick = onFormatBadgeClick,
         showAudioFileInfo = showPlayerFileInfo,
-        isAudioMetaRefreshing = isRefreshing,
         onSeek = onSeek,
         expansionFractionProvider = expansionFractionProvider,
         isPlayingProvider = isPlayingProvider,
@@ -2273,7 +2274,6 @@ private fun PlayerProgressBarSection(
     audioFormatTag: String? = null,
     onFormatBadgeClick: () -> Unit = {},
     showAudioFileInfo: Boolean,
-    isAudioMetaRefreshing: Boolean = false,
     onSeek: (Long) -> Unit,
     expansionFractionProvider: () -> Float,
     isPlayingProvider: () -> Boolean,
@@ -2428,7 +2428,7 @@ private fun PlayerProgressBarSection(
                  ProgressPlaceholder(
                      color = placeholderColor,
                      onColor = placeholderOnColor,
-                     showAudioMetaChip = showAudioFileInfo && (!displayAudioMetaLabel.isNullOrBlank() || isAudioMetaRefreshing)
+                     showAudioMetaChip = showAudioFileInfo && !displayAudioMetaLabel.isNullOrBlank()
                  )
              }
         }
@@ -2478,7 +2478,6 @@ private fun PlayerProgressBarSection(
                 isVisible = isVisible,
                 textColor = timeTextColor,
                 audioMetaLabel = displayAudioMetaLabel,
-                isRefreshing = isAudioMetaRefreshing,
                 horizontalTrackInset = progressSectionHorizontalInset,
                 onBadgeClick = onFormatBadgeClick
             )
@@ -2537,7 +2536,6 @@ private fun EfficientTimeLabels(
     isVisible: Boolean,
     textColor: Color,
     audioMetaLabel: String?,
-    isRefreshing: Boolean = false,
     horizontalTrackInset: Dp,
     onBadgeClick: (() -> Unit)? = null
 ) {
@@ -2581,58 +2579,46 @@ private fun EfficientTimeLabels(
             )
         }
 
-        val targetBadge = when {
-            !audioMetaLabel.isNullOrBlank() -> audioMetaLabel
-            isRefreshing -> ""
-            else -> null
-        }
+        val targetBadge = audioMetaLabel?.takeIf { it.isNotBlank() }
 
         // Smooth format-upgrade badge: tween-only, zero spring bounce
         AnimatedContent(
             targetState = targetBadge,
             modifier = Modifier.align(Alignment.Center),
             transitionSpec = {
-                (fadeIn(tween(350, easing = FastOutSlowInEasing))
-                    togetherWith fadeOut(tween(250, easing = FastOutSlowInEasing)))
+                (fadeIn(tween(280, easing = FastOutSlowInEasing))
+                    togetherWith fadeOut(tween(200, easing = FastOutSlowInEasing)))
                     .using(
                         androidx.compose.animation.SizeTransform(clip = false) { _, _ ->
-                            tween(350, easing = FastOutSlowInEasing)
+                            tween(300, easing = FastOutSlowInEasing)
                         }
                     )
             },
             label = "audioMetaBadge"
         ) { badge ->
-            if (badge != null) {
+            if (!badge.isNullOrBlank()) {
                 Surface(
                     modifier = Modifier
                         .padding(horizontal = 48.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .then(
-                            if (badge.isNotEmpty() && onBadgeClick != null) Modifier.clickable(onClick = onBadgeClick)
+                            if (onBadgeClick != null) Modifier.clickable(onClick = onBadgeClick)
                             else Modifier
                         ),
                     shape = RoundedCornerShape(999.dp),
-                    color = textColor.copy(alpha = if (badge.isEmpty()) 0.08f else 0.14f),
+                    color = textColor.copy(alpha = 0.14f),
                     contentColor = textColor.copy(alpha = 0.96f)
                 ) {
-                    if (badge.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .width(72.dp)
-                                .height(20.dp)
-                        )
-                    } else {
-                        Text(
-                            text = badge,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 11.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                        )
-                    }
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                    )
                 }
             }
         }

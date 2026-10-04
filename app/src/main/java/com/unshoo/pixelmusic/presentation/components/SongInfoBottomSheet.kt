@@ -315,21 +315,13 @@ fun SongInfoBottomSheet(
 
     val audioMetaLabel = remember(audioMeta) {
         val meta = audioMeta ?: return@remember null
-        val formatLabel = AudioMetaUtils.mimeTypeToFormat(meta.mimeType)
-            .takeIf { it != "-" }
-            ?.uppercase(java.util.Locale.getDefault())
+        val format = AudioMetaUtils.mimeTypeToFormat(meta.mimeType).takeIf { it != "-" }?.uppercase()
         val parts = buildList {
-            meta.sampleRate?.takeIf { it > 0 }
-                ?.let { add(String.format(java.util.Locale.US, "%.1f kHz", it / 1000.0)) }
-            meta.bitDepth?.takeIf { it > 0 }
-                ?.let { add("$it-bit") }
-            meta.bitrate?.takeIf { it > 0 }
-                ?.let {
-                    val kbps = it / 1000
-                    val formatted = java.text.NumberFormat.getIntegerInstance().format(kbps)
-                    add("$formatted kbps")
-                }
-            formatLabel?.let { add(it) }
+            meta.formatLabel?.takeIf { it.isNotBlank() }?.let { add(it.uppercase()) }
+            meta.sampleRate?.takeIf { it > 0 }?.let { add(String.format(java.util.Locale.US, "%.1f kHz", it / 1000.0)) }
+            meta.bitDepth?.takeIf { it > 0 }?.let { add("$it-bit") }
+            meta.bitrate?.takeIf { it > 0 }?.let { add("${java.text.NumberFormat.getIntegerInstance().format(it / 1000)} kbps") }
+            if (format != null && meta.formatLabel?.contains(format, true) != true) add(format)
         }
         parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
     }
