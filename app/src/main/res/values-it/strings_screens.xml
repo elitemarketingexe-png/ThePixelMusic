@@ -442,6 +442,7 @@
     <string name="home_greeting_night_anon_2">Sveglio fino a tardi? 🌙</string>
     <string name="home_greeting_night_anon_3">Ore tranquille. 🕯️</string>
     <string name="home_greeting_night_anon_4">Riposa bene. 💤</string>
+    <string name="home_header_pill_title">PixelMusic</string>
     <string name="explore_chip_all">Tutto</string>
     <string name="explore_chip_local">Locale</string>
     <string name="explore_chip_podcasts">Podcast</string>

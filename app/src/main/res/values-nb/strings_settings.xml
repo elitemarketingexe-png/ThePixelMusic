@@ -321,6 +321,10 @@
     <string name="settings_set_quick_picks_desc">Velg innholdskildemodus for Hurtigvalg-delen</string>
     <string name="settings_quick_picks_mode_title">Hurtigvalg Visningsmodus</string>
     <string name="settings_quick_picks_mode_desc">Konfigurer Quick Picks visuelle visningslayoutstil</string>
+    <string name="settings_quick_picks_mode_square">Firkantet karusell</string>
+    <string name="settings_quick_picks_mode_classic">Klassisk karusell</string>
+    <string name="settings_quick_picks_mode_list">Listerutenett</string>
+    <string name="settings_quick_picks_mode_uncontained">Flytende karusell</string>
     <string name="setcat_app_icon_title">App-ikon</string>
     <string name="setcat_app_icon_subtitle">Velg ditt foretrukne appikon</string>
     <string name="app_icon_blue_purple_title">Aurora</string>

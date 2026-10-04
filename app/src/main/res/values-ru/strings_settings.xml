@@ -322,6 +322,10 @@
     <string name="settings_set_quick_picks_desc">Выберите режим источника контента для раздела «Быстрый выбор»</string>
     <string name="settings_quick_picks_mode_title">Режим отображения быстрого выбора</string>
     <string name="settings_quick_picks_mode_desc">Настройка стиля макета визуального отображения быстрого выбора</string>
+    <string name="settings_quick_picks_mode_square">Квадратная карусель</string>
+    <string name="settings_quick_picks_mode_classic">Классическая карусель</string>
+    <string name="settings_quick_picks_mode_list">Сетка списка</string>
+    <string name="settings_quick_picks_mode_uncontained">Свободная карусель</string>
     <string name="setcat_app_icon_title">Значок приложения</string>
     <string name="setcat_app_icon_subtitle">Выберите предпочитаемый значок приложения</string>
     <string name="app_icon_blue_purple_title">Аврора</string>

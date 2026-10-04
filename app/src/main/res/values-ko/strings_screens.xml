@@ -442,6 +442,7 @@
     <string name="home_greeting_night_anon_2">늦은 시간까지 깨어있네요? 🌙</string>
     <string name="home_greeting_night_anon_3">고요한 시간. 🕯️</string>
     <string name="home_greeting_night_anon_4">편안한 밤 되세요. 💤</string>
+    <string name="home_header_pill_title">픽셀 뮤직</string>
     <string name="explore_chip_all">전체</string>
     <string name="explore_chip_local">로컬</string>
     <string name="explore_chip_podcasts">팟캐스트</string>

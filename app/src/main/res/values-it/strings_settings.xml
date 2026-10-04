@@ -321,6 +321,10 @@
     <string name="settings_set_quick_picks_desc">Scegli la modalità di origine del contenuto per la sezione Scelte rapide</string>
     <string name="settings_quick_picks_mode_title">Modalità di visualizzazione scelte rapide</string>
     <string name="settings_quick_picks_mode_desc">Configura lo stile di layout di visualizzazione visiva di Scelte rapide</string>
+    <string name="settings_quick_picks_mode_square">Carosello quadrato</string>
+    <string name="settings_quick_picks_mode_classic">Carosello classico</string>
+    <string name="settings_quick_picks_mode_list">Griglia elenco</string>
+    <string name="settings_quick_picks_mode_uncontained">Carosello continuo</string>
     <string name="setcat_app_icon_title">Icona dell\'app</string>
     <string name="setcat_app_icon_subtitle">Seleziona l\'icona dell\'app preferita</string>
     <string name="app_icon_blue_purple_title">Aurora</string>

@@ -318,6 +318,10 @@
     <string name="settings_set_quick_picks_desc">Choisissez le mode source de contenu pour la section Sélections rapides</string>
     <string name="settings_quick_picks_mode_title">Mode d\'affichage des sélections rapides</string>
     <string name="settings_quick_picks_mode_desc">Configurer le style de présentation de l\'affichage visuel Quick Picks</string>
+    <string name="settings_quick_picks_mode_square">Carrousel carré</string>
+    <string name="settings_quick_picks_mode_classic">Carrousel classique</string>
+    <string name="settings_quick_picks_mode_list">Grille de liste</string>
+    <string name="settings_quick_picks_mode_uncontained">Carrousel libre</string>
     <string name="setcat_min_tracks_per_album">Nombre minimum de pistes par album</string>
     <string name="setcat_app_icon_title">Icône de l\'application</string>
     <string name="setcat_app_icon_subtitle">Sélectionnez l\'icône de votre application préférée</string>

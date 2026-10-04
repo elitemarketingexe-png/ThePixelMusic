@@ -321,6 +321,10 @@
     <string name="settings_set_quick_picks_desc">Elija el modo de fuente de contenido para la sección Quick Picks</string>
     <string name="settings_quick_picks_mode_title">Modo de visualización de selecciones rápidas</string>
     <string name="settings_quick_picks_mode_desc">Configurar el estilo de diseño de visualización de Quick Picks</string>
+    <string name="settings_quick_picks_mode_square">Carrusel cuadrado</string>
+    <string name="settings_quick_picks_mode_classic">Carrusel clásico</string>
+    <string name="settings_quick_picks_mode_list">Cuadrícula de lista</string>
+    <string name="settings_quick_picks_mode_uncontained">Carrusel sin límites</string>
     <string name="setcat_app_icon_title">Icono de aplicación</string>
     <string name="setcat_app_icon_subtitle">Seleccione el ícono de su aplicación preferida</string>
     <string name="app_icon_blue_purple_title">Aurora</string>

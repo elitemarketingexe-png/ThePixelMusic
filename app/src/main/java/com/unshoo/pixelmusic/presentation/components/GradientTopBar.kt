@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.unshoo.pixelmusic.R
@@ -154,7 +155,7 @@ fun HomeGradientTopBar(
                         modifier = Modifier.size(28.dp)
                     )
                     Text(
-                        text = "PixelMusic",
+                        text = stringResource(R.string.home_header_pill_title),
                         fontFamily = GoogleSansRounded,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
@@ -236,7 +237,7 @@ fun HomeGradientTopBar(
                             modifier = Modifier.size(32.dp)
                         )
                         Text(
-                            text = "PixelMusic",
+                            text = stringResource(R.string.home_header_pill_title),
                             fontFamily = GoogleSansRounded,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleLarge

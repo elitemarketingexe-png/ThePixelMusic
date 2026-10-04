@@ -321,6 +321,10 @@
     <string name="settings_set_quick_picks_desc">빠른 선택 섹션에 대한 콘텐츠 소스 모드 선택</string>
     <string name="settings_quick_picks_mode_title">빠른 선택 표시 모드</string>
     <string name="settings_quick_picks_mode_desc">빠른 선택 시각적 표시 레이아웃 스타일 구성</string>
+    <string name="settings_quick_picks_mode_square">정사각형 캐러셀</string>
+    <string name="settings_quick_picks_mode_classic">클래식 캐러셀</string>
+    <string name="settings_quick_picks_mode_list">목록 격자</string>
+    <string name="settings_quick_picks_mode_uncontained">자유형 캐러셀</string>
     <string name="setcat_app_icon_title">앱 아이콘</string>
     <string name="setcat_app_icon_subtitle">선호하는 앱 아이콘을 선택하세요</string>
     <string name="app_icon_blue_purple_title">오로라</string>

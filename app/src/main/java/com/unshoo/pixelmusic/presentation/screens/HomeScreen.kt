@@ -93,6 +93,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.preferences.CollagePattern
+import com.unshoo.pixelmusic.data.preferences.QuickPicksDisplayMode
 import com.unshoo.pixelmusic.presentation.components.AlbumArtCollage
 import com.unshoo.pixelmusic.presentation.components.BetaInfoBottomSheet
 import com.unshoo.pixelmusic.presentation.components.Beta05CleanInstallDisclaimerDialog
@@ -473,11 +474,16 @@ fun HomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                item(
-                    key = "home_greeting",
-                    contentType = "home_greeting"
-                ) {
-                    HomeGreetingHeader(userName = userName)
+                if (quickPicksDisplayMode != QuickPicksDisplayMode.CARD) {
+                    item(
+                        key = "home_greeting",
+                        contentType = "home_greeting"
+                    ) {
+                        HomeGreetingHeader(
+                            userName = userName,
+                            modifier = Modifier.padding(bottom = (-10).dp)
+                        )
+                    }
                 }
 
                 // Quick Picks (above Your Mix, shown when there is engagement data)
@@ -1030,7 +1036,10 @@ private fun rememberYourMixTitleStyle(): TextStyle {
 }
 
 @Composable
-fun HomeGreetingHeader(userName: String?) {
+fun HomeGreetingHeader(
+    userName: String?,
+    modifier: Modifier = Modifier
+) {
     val calendar = remember { java.util.Calendar.getInstance() }
     val hour = remember(calendar) { calendar.get(java.util.Calendar.HOUR_OF_DAY) }
     
@@ -1106,17 +1115,20 @@ fun HomeGreetingHeader(userName: String?) {
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .padding(top = 16.dp)
+            .padding(horizontal = 20.dp)
+            .padding(top = 12.dp)
     ) {
         Text(
             text = greeting,
             fontFamily = GoogleSansRounded,
             fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.headlineLarge.copy(
-                fontSize = 30.sp
+                fontSize = if (greeting.length > 20) 24.sp else 28.sp,
+                lineHeight = if (greeting.length > 20) 30.sp else 34.sp
             ),
             color = MaterialTheme.colorScheme.onSurface
         )

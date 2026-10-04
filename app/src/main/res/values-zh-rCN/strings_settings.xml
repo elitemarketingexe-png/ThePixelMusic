@@ -321,6 +321,10 @@
     <string name="settings_set_quick_picks_desc">为“快速选择”部分选择内容源模式</string>
     <string name="settings_quick_picks_mode_title">快速选择显示模式</string>
     <string name="settings_quick_picks_mode_desc">配置快速选择视觉显示布局样式</string>
+    <string name="settings_quick_picks_mode_square">方形轮播</string>
+    <string name="settings_quick_picks_mode_classic">经典轮播</string>
+    <string name="settings_quick_picks_mode_list">列表网格</string>
+    <string name="settings_quick_picks_mode_uncontained">无边界轮播</string>
     <string name="setcat_app_icon_title">应用程序图标</string>
     <string name="setcat_app_icon_subtitle">选择您喜欢的应用程序图标</string>
     <string name="app_icon_blue_purple_title">极光</string>

@@ -2507,18 +2507,21 @@ fun NavBarPreview(navBarStyle: String) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .padding(horizontal = 6.dp),
-                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         // Active Item Pill (Home)
                                         Surface(
+                                            modifier = Modifier
+                                                .weight(1.8f)
+                                                .height(42.dp),
                                             shape = CircleShape,
                                             color = MaterialTheme.colorScheme.primaryContainer
                                         ) {
                                             Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                modifier = Modifier.fillMaxSize(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
                                             ) {
                                                 Icon(
                                                     painter = painterResource(R.drawable.rounded_home_24),
@@ -2535,18 +2538,32 @@ fun NavBarPreview(navBarStyle: String) {
                                                 )
                                             }
                                         }
-                                        Icon(
-                                            painter = painterResource(R.drawable.rounded_album_24),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Icon(
-                                            painter = painterResource(R.drawable.rounded_library_music_24),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_album_24),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_library_music_24),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
                                 }
 

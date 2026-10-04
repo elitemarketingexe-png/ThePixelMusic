@@ -442,6 +442,7 @@
     <string name="home_greeting_night_anon_2">深夜还在听歌吗？🌙</string>
     <string name="home_greeting_night_anon_3">宁静时刻。🕯️</string>
     <string name="home_greeting_night_anon_4">好好休息。💤</string>
+    <string name="home_header_pill_title">像素音乐</string>
     <string name="explore_chip_all">全部</string>
     <string name="explore_chip_local">本地</string>
     <string name="explore_chip_podcasts">播客</string>

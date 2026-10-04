@@ -23,6 +23,10 @@
     <string name="settings_set_quick_picks_desc">Escolha o modo de fonte de conteúdo para a seção Escolhas Rápidas</string>
     <string name="settings_quick_picks_mode_title">Modo de exibição de escolhas rápidas</string>
     <string name="settings_quick_picks_mode_desc">Configurar o estilo de layout de exibição visual do Quick Picks</string>
+    <string name="settings_quick_picks_mode_square">Carrossel quadrado</string>
+    <string name="settings_quick_picks_mode_classic">Carrossel clássico</string>
+    <string name="settings_quick_picks_mode_list">Grade de lista</string>
+    <string name="settings_quick_picks_mode_uncontained">Carrossel contínuo</string>
     <string name="settings_category_appearance_title">Aparência</string>
     <string name="settings_category_appearance_subtitle">Temas, layout e estilos visuais</string>
     <string name="settings_category_playback_title">Reprodução</string>

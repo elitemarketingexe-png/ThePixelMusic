@@ -26,6 +26,10 @@
     <string name="settings_set_quick_picks_desc">Choose content source mode for Quick Picks section</string>
     <string name="settings_quick_picks_mode_title">Quick Picks Display Mode</string>
     <string name="settings_quick_picks_mode_desc">Configure Quick Picks visual display layout style</string>
+    <string name="settings_quick_picks_mode_square">Square Carousel</string>
+    <string name="settings_quick_picks_mode_classic">Classic Carousel</string>
+    <string name="settings_quick_picks_mode_list">List Grid</string>
+    <string name="settings_quick_picks_mode_uncontained">Uncontained Carousel</string>
     <string name="settings_category_appearance_title">Appearance</string>
     <string name="settings_category_appearance_subtitle">Themes, layout, and visual styles</string>
     <string name="settings_category_playback_title">Playback</string>

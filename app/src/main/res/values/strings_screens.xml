@@ -440,6 +440,7 @@
     <string name="home_greeting_night_anon_2">Up late? 🌙</string>
     <string name="home_greeting_night_anon_3">Quiet hours. 🕯️</string>
     <string name="home_greeting_night_anon_4">Rest easy. 💤</string>
+    <string name="home_header_pill_title">PixelMusic</string>
     <string name="explore_chip_all">All</string>
     <string name="explore_chip_local">Local</string>
     <string name="explore_chip_podcasts">Podcasts</string>

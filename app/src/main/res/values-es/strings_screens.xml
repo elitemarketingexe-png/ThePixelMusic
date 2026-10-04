@@ -435,6 +435,7 @@
     <string name="home_greeting_night_anon_2">¿Despierto hasta tarde? 🌙</string>
     <string name="home_greeting_night_anon_3">Horas tranquilas. 🕯️</string>
     <string name="home_greeting_night_anon_4">Descansa bien. 💤</string>
+    <string name="home_header_pill_title">PixelMusic</string>
     <string name="explore_chip_all">Todo</string>
     <string name="explore_chip_local">Local</string>
     <string name="explore_chip_podcasts">Pódcasts</string>

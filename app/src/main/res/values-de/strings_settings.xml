@@ -275,6 +275,10 @@
     <string name="settings_set_quick_picks_desc">Wählen Sie den Inhaltsquellenmodus für den Abschnitt „Schnellauswahl“</string>
     <string name="settings_quick_picks_mode_title">Schnellauswahl-Anzeigemodus</string>
     <string name="settings_quick_picks_mode_desc">Konfigurieren Sie den visuellen Anzeigelayoutstil für Quick Picks</string>
+    <string name="settings_quick_picks_mode_square">Quadratisches Karussell</string>
+    <string name="settings_quick_picks_mode_classic">Klassisches Karussell</string>
+    <string name="settings_quick_picks_mode_list">Listenraster</string>
+    <string name="settings_quick_picks_mode_uncontained">Freies Karussell</string>
     <string name="setcat_app_icon_title">App-Symbol</string>
     <string name="setcat_app_icon_subtitle">Wählen Sie Ihr bevorzugtes App-Symbol</string>
     <string name="app_icon_blue_purple_title">Aurora</string>

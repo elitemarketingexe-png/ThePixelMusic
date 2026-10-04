@@ -321,6 +321,10 @@
     <string name="settings_set_quick_picks_desc">Pilih mode sumber konten untuk bagian Pilihan Cepat</string>
     <string name="settings_quick_picks_mode_title">Mode Tampilan Pilihan Cepat</string>
     <string name="settings_quick_picks_mode_desc">Konfigurasikan gaya tata letak tampilan visual Pilihan Cepat</string>
+    <string name="settings_quick_picks_mode_square">Karusel Persegi</string>
+    <string name="settings_quick_picks_mode_classic">Karusel Klasik</string>
+    <string name="settings_quick_picks_mode_list">Daftar Kisi</string>
+    <string name="settings_quick_picks_mode_uncontained">Karusel Tak Terbatas</string>
     <string name="setcat_app_icon_title">Ikon Aplikasi</string>
     <string name="setcat_app_icon_subtitle">Pilih ikon aplikasi pilihan Anda</string>
     <string name="app_icon_blue_purple_title">Aurora</string>
