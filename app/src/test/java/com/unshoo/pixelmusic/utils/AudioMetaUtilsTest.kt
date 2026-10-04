@@ -71,6 +71,17 @@ class AudioMetaUtilsTest {
     }
 
     @Test
+    fun formatAudioMetaLabel_displaysLosslessFlacWhenContainerIsM4a() {
+        val label = AudioMetaUtils.formatAudioMetaLabel(
+            mimeType = "audio/mp4",
+            bitrate = 900_000,
+            sampleRate = 44_100,
+            formatTag = "LOSSLESS"
+        )
+        assertEquals("LOSSLESS • FLAC", label)
+    }
+
+    @Test
     fun formatAudioMetaLabel_displaysHiResLossless() {
         val label = AudioMetaUtils.formatAudioMetaLabel(
             mimeType = "audio/flac",
@@ -78,6 +89,17 @@ class AudioMetaUtilsTest {
             sampleRate = 96_000,
             bitDepth = 24,
             formatTag = "HI-RES LOSSLESS"
+        )
+        assertEquals("HI-RES LOSSLESS", label)
+    }
+
+    @Test
+    fun formatAudioMetaLabel_displaysHiResLosslessWhenHigherKhz() {
+        val label = AudioMetaUtils.formatAudioMetaLabel(
+            mimeType = "audio/mp4",
+            bitrate = 2_400_000,
+            sampleRate = 96_000,
+            formatTag = "LOSSLESS"
         )
         assertEquals("HI-RES LOSSLESS", label)
     }

@@ -234,25 +234,20 @@ object AudioMetaUtils {
         val isHiRes = !isDefinitelyLossy &&
             (formatTag == "HI-RES LOSSLESS" || (sampleRate ?: 0) > 48000 || (bitDepth ?: 0) >= 24)
 
+        fun resolveLosslessCodec(): String = when {
+            pathLower.endsWith(".alac") -> "ALAC"
+            pathLower.endsWith(".wav") -> "WAV"
+            pathLower.endsWith(".aiff") -> "AIFF"
+            else -> mimeTypeToFormat(mimeType).takeIf { it != "-" && it != "m4a" && it != "aac" }?.uppercase(Locale.getDefault()) ?: "FLAC"
+        }
+
         if (isHiRes) {
-            val codec = mimeTypeToFormat(mimeType)
-                .takeIf { it != "-" }
-                ?.uppercase(Locale.getDefault())
-            return if (codec != null && codec != "FLAC") "HI-RES LOSSLESS • $codec" else "HI-RES LOSSLESS"
+            val codec = resolveLosslessCodec()
+            return if (codec != "FLAC") "HI-RES LOSSLESS • $codec" else "HI-RES LOSSLESS"
         }
 
         if (!isDefinitelyLossy && (formatTag == "LOSSLESS" || isFlacOrLossless)) {
-            val codec = mimeTypeToFormat(mimeType)
-                .takeIf { it != "-" }
-                ?.uppercase(Locale.getDefault())
-                ?: when {
-                    pathLower.endsWith(".flac") -> "FLAC"
-                    pathLower.endsWith(".alac") -> "ALAC"
-                    pathLower.endsWith(".wav") -> "WAV"
-                    pathLower.endsWith(".aiff") -> "AIFF"
-                    else -> "FLAC"
-                }
-            return "LOSSLESS • $codec"
+            return "LOSSLESS • ${resolveLosslessCodec()}"
         }
 
         val formatLabel = mimeTypeToFormat(mimeType)
