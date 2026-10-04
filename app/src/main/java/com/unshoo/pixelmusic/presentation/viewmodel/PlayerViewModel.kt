@@ -7832,6 +7832,10 @@ class PlayerViewModel @Inject constructor(
                     mediaController?.clearMediaItems()
                     lastQueueSignature = null
                     com.unshoo.pixelmusic.data.remote.youtube.AutoQueueManager.reset()
+                    mediaController?.sendCustomCommand(
+                        SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_CLOSE_PLAYER, Bundle.EMPTY),
+                        Bundle.EMPTY
+                    )
                 }
             },
             clearStablePlaybackState = {

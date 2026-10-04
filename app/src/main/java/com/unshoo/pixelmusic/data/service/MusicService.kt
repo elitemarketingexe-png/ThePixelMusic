@@ -2647,7 +2647,8 @@ class MusicService : MediaLibraryService() {
 
         if (player == null || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) {
             stopPlaybackAndUnload(
-                reason = "task_removed_idle_or_ended"
+                reason = "task_removed_idle_or_ended",
+                preservePlaybackSnapshot = false
             )
             return
         }
@@ -2977,11 +2978,6 @@ class MusicService : MediaLibraryService() {
             return
         }
 
-        val allowBackgroundPlayback = runCatching {
-            userPreferencesRepository.keepPlayingInBackgroundFlow.first()
-        }.getOrDefault(keepPlayingInBackground)
-        val shouldRestorePlaying = snapshot.playWhenReady && allowBackgroundPlayback
-
         val restoredItems = snapshot.items.mapNotNull(::buildMediaItemFromSnapshot)
         if (restoredItems.isEmpty()) {
             return
@@ -3029,27 +3025,20 @@ class MusicService : MediaLibraryService() {
                 player.repeatMode = safeRepeatMode
                 player.shuffleModeEnabled = false
                 isManualShuffleEnabled = snapshot.shuffleEnabled
-                if (shouldRestorePlaying) {
-                    player.prepare()
-                    player.playWhenReady = true
-                    player.play()
-                } else {
-                    // Paused restore: do NOT call player.prepare()!
-                    // setMediaItems() alone creates the timeline and populates currentMediaItem.
-                    // Delaying prepare() until playback is actually requested avoids loading
-                    // unresolved cloud streams in the background on cold start.
-                    player.playWhenReady = false
-                }
+                // Paused restore: do NOT call player.prepare()!
+                // setMediaItems() alone creates the timeline and populates currentMediaItem.
+                // Delaying prepare() until playback is actually requested avoids loading
+                // unresolved cloud streams in the background on cold start.
+                player.playWhenReady = false
             } finally {
                 isRestoringPlaybackSnapshot = false
             }
         }
 
         Timber.tag(TAG).i(
-            "Restored playback snapshot: items=%d index=%d playWhenReady=%s",
+            "Restored playback snapshot: items=%d index=%d",
             restoredItems.size,
-            snapshot.currentIndex,
-            shouldRestorePlaying
+            snapshot.currentIndex
         )
         schedulePlaybackSnapshotPersist(immediate = true)
 
@@ -4064,6 +4053,8 @@ class MusicService : MediaLibraryService() {
         val snapshot = capturePlaybackSnapshotFromPlayer(playWhenReadyOverride = false)
         if (snapshot != null && snapshot.items.isNotEmpty()) {
             writePlaybackSnapshotBlocking(snapshot)
+        } else {
+            clearPlaybackSnapshotBlocking()
         }
     }
 
