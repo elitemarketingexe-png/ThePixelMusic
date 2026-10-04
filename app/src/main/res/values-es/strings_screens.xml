@@ -318,9 +318,9 @@
     <string name="song_info_available_offline">Disponible sin conexión</string>
     <string name="song_info_downloading">Descargando...</string>
     <string name="song_info_download_for_offline">Descargar para escuchar sin conexión</string>
-    <string name="setup_nav_floating_pill_m3_title">Píldora flotante Material 3</string>
-    <string name="setup_nav_floating_pill_m3_desc">Cápsula flotante con indicadores activos y animaciones suaves.</string>
-    <string name="setup_nav_floating_pill_bar_title">Barra de píldora flotante</string>
+    <string name="setup_nav_floating_pill_m3_title">Píldora Expressive</string>
+    <string name="setup_nav_floating_pill_m3_desc">Cápsula flotante con botón de búsqueda separado.</string>
+    <string name="setup_nav_floating_pill_bar_title">Píldora clásica</string>
     <string name="setup_nav_floating_pill_bar_desc">Cápsula flotante con esquinas personalizables.</string>
     <string name="setup_nav_full_width_bar_title">Barra de ancho completo</string>
     <string name="setup_nav_full_width_bar_desc">Barra de navegación de borde a borde en la parte inferior.</string>

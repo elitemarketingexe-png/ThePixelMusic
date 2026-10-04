@@ -325,9 +325,9 @@
     <string name="song_info_available_offline">Disponibile offline</string>
     <string name="song_info_downloading">Download in corso...</string>
     <string name="song_info_download_for_offline">Scarica per l\'offline</string>
-    <string name="setup_nav_floating_pill_m3_title">Pillola mobile Material 3</string>
-    <string name="setup_nav_floating_pill_m3_desc">Pillola mobile con indicatori attivi e animazioni fluide.</string>
-    <string name="setup_nav_floating_pill_bar_title">Barra a pillola mobile</string>
+    <string name="setup_nav_floating_pill_m3_title">Pillola Expressive</string>
+    <string name="setup_nav_floating_pill_m3_desc">Capsula mobile con pulsante di ricerca separato.</string>
+    <string name="setup_nav_floating_pill_bar_title">Pillola classica</string>
     <string name="setup_nav_floating_pill_bar_desc">Capsula mobile con raggio degli angoli regolabile.</string>
     <string name="setup_nav_full_width_bar_title">Barra a larghezza intera</string>
     <string name="setup_nav_full_width_bar_desc">Barra di navigazione edge-to-edge lungo la parte inferiore.</string>

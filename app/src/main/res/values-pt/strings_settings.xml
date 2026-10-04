@@ -155,7 +155,7 @@
     <string name="setcat_navbar_style_desc">Escolha a aparência da barra de navegação.</string>
     <string name="setcat_navbar_style_default">Padrão</string>
     <string name="setcat_navbar_style_full_width">Largura total</string>
-    <string name="setcat_navbar_style_floating_pill">Pílula Flutuante</string>
+    <string name="setcat_navbar_style_floating_pill">Pílula Expressiva</string>
     <string name="setcat_compact_mode_title">Modo compacto</string>
     <string name="setcat_compact_mode_subtitle">Mostre apenas ícones e reduza a altura da barra de navegação.</string>
     <string name="setcat_navbar_corner_title">Raio do canto da NavBar</string>

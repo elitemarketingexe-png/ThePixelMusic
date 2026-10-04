@@ -106,7 +106,7 @@
     <string name="setcat_navbar_style_desc">Pilih tampilan untuk bilah navigasi.</string>
     <string name="setcat_navbar_style_default">Default</string>
     <string name="setcat_navbar_style_full_width">Lebar Penuh</string>
-    <string name="setcat_navbar_style_floating_pill">Pil Mengambang</string>
+    <string name="setcat_navbar_style_floating_pill">Pil Ekspresif</string>
     <string name="setcat_compact_mode_title">Mode ringkas</string>
     <string name="setcat_compact_mode_subtitle">Tampilkan hanya ikon dan kurangi tinggi navbar.</string>
     <string name="setcat_navbar_corner_title">Radius Sudut NavBar</string>

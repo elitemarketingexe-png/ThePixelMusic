@@ -106,7 +106,7 @@
     <string name="setcat_navbar_style_desc">Aspecto de la barra de navegación.</string>
     <string name="setcat_navbar_style_default">Predeterminado</string>
     <string name="setcat_navbar_style_full_width">Ancho completo</string>
-    <string name="setcat_navbar_style_floating_pill">Píldora Flotante</string>
+    <string name="setcat_navbar_style_floating_pill">Píldora Expressive</string>
     <string name="setcat_compact_mode_title">Modo compacto</string>
     <string name="setcat_compact_mode_subtitle">Solo iconos y barra más baja.</string>
     <string name="setcat_navbar_corner_title">Radio de esquinas de la barra</string>

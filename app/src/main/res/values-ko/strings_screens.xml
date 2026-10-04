@@ -325,9 +325,9 @@
     <string name="song_info_available_offline">오프라인에서 사용 가능</string>
     <string name="song_info_downloading">다운로드 중...</string>
     <string name="song_info_download_for_offline">오프라인용으로 다운로드</string>
-    <string name="setup_nav_floating_pill_m3_title">Material 3 플로팅 알약</string>
-    <string name="setup_nav_floating_pill_m3_desc">활성 표시기와 부드러운 애니메이션이 있는 플로팅 필 캡슐입니다.</string>
-    <string name="setup_nav_floating_pill_bar_title">플로팅 알약 바</string>
+    <string name="setup_nav_floating_pill_m3_title">익스프레시브 필</string>
+    <string name="setup_nav_floating_pill_m3_desc">검색 버튼이 분리된 플로팅 캡슐입니다.</string>
+    <string name="setup_nav_floating_pill_bar_title">클래식 필</string>
     <string name="setup_nav_floating_pill_bar_desc">모서리 반경을 조정할 수 있는 플로팅 캡슐입니다.</string>
     <string name="setup_nav_full_width_bar_title">전체 너비 바</string>
     <string name="setup_nav_full_width_bar_desc">하단 화면 전체를 차지하는 엣지 투 엣지 내비게이션 바입니다.</string>

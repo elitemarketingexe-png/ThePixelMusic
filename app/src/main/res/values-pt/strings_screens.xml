@@ -306,9 +306,9 @@ Mix</string>
     <string name="song_info_available_offline">Disponível Offline</string>
     <string name="song_info_downloading">Baixando...</string>
     <string name="song_info_download_for_offline">Baixar para Offline</string>
-    <string name="setup_nav_floating_pill_m3_title">Pílula Flutuante Material 3</string>
-    <string name="setup_nav_floating_pill_m3_desc">Cápsula flutuante com indicadores ativos e animações suaves.</string>
-    <string name="setup_nav_floating_pill_bar_title">Barra de Pílula Flutuante</string>
+    <string name="setup_nav_floating_pill_m3_title">Pílula Expressiva</string>
+    <string name="setup_nav_floating_pill_m3_desc">Cápsula flutuante com botão de busca separado.</string>
+    <string name="setup_nav_floating_pill_bar_title">Pílula clássica</string>
     <string name="setup_nav_floating_pill_bar_desc">Cápsula flutuante com raio de canto personalizável.</string>
     <string name="setup_nav_full_width_bar_title">Barra de Largura Total</string>
     <string name="setup_nav_full_width_bar_desc">Barra de navegação de ponta a ponta na parte inferior.</string>

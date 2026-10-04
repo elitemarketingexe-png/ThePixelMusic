@@ -323,9 +323,9 @@
     <string name="song_info_available_offline">Tersedia Offline</string>
     <string name="song_info_downloading">Mengunduh...</string>
     <string name="song_info_download_for_offline">Unduh untuk Offline</string>
-    <string name="setup_nav_floating_pill_m3_title">Pil Mengambang Material 3</string>
-    <string name="setup_nav_floating_pill_m3_desc">Kapsul mengambang dengan indikator aktif dan animasi halus.</string>
-    <string name="setup_nav_floating_pill_bar_title">Bilah Pil Mengambang</string>
+    <string name="setup_nav_floating_pill_m3_title">Pil Ekspresif</string>
+    <string name="setup_nav_floating_pill_m3_desc">Kapsul mengambang dengan tombol cari terpisah.</string>
+    <string name="setup_nav_floating_pill_bar_title">Pil Klasik</string>
     <string name="setup_nav_floating_pill_bar_desc">Kapsul mengambang dengan radius sudut yang dapat disesuaikan.</string>
     <string name="setup_nav_full_width_bar_title">Bilah Lebar Penuh</string>
     <string name="setup_nav_full_width_bar_desc">Bilah navigasi menyeluruh dari tepi ke tepi di bagian bawah.</string>

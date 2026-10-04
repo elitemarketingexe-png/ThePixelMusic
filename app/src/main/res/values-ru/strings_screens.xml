@@ -327,9 +327,9 @@
     <string name="song_info_available_offline">Доступно офлайн</string>
     <string name="song_info_downloading">Загрузка...</string>
     <string name="song_info_download_for_offline">Скачать для офлайна</string>
-    <string name="setup_nav_floating_pill_m3_title">Плавающая капсула Material 3</string>
-    <string name="setup_nav_floating_pill_m3_desc">Плавающая капсула с индикаторами активности и плавными анимациями.</string>
-    <string name="setup_nav_floating_pill_bar_title">Плавающая панель-капсула</string>
+    <string name="setup_nav_floating_pill_m3_title">Капсула Expressive</string>
+    <string name="setup_nav_floating_pill_m3_desc">Плавающая капсула с отдельной кнопкой поиска.</string>
+    <string name="setup_nav_floating_pill_bar_title">Классическая капсула</string>
     <string name="setup_nav_floating_pill_bar_desc">Плавающая капсула с настройкой радиуса углов.</string>
     <string name="setup_nav_full_width_bar_title">Полноширинная панель</string>
     <string name="setup_nav_full_width_bar_desc">Полноэкранная панель навигации в нижней части экрана.</string>

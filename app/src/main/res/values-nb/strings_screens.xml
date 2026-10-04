@@ -325,9 +325,9 @@
     <string name="song_info_available_offline">Tilgjengelig frakoblet</string>
     <string name="song_info_downloading">Laster ned...</string>
     <string name="song_info_download_for_offline">Last ned for frakoblet bruk</string>
-    <string name="setup_nav_floating_pill_m3_title">Material 3 flytende pille</string>
-    <string name="setup_nav_floating_pill_m3_desc">Flytende pille med aktive indikatorer og jevne animasjoner.</string>
-    <string name="setup_nav_floating_pill_bar_title">Flytende pillelinje</string>
+    <string name="setup_nav_floating_pill_m3_title">Ekspressiv pille</string>
+    <string name="setup_nav_floating_pill_m3_desc">Flytende kapsel med separat søkeknapp.</string>
+    <string name="setup_nav_floating_pill_bar_title">Klassisk pille</string>
     <string name="setup_nav_floating_pill_bar_desc">Flytende kapsel med justerbar hjørneradius.</string>
     <string name="setup_nav_full_width_bar_title">Linje i full bredde</string>
     <string name="setup_nav_full_width_bar_desc">Kant-til-kant-navigasjonslinje nederst på skjermen.</string>

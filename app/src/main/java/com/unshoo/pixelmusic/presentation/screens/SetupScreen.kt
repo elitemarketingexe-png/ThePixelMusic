@@ -2471,10 +2471,13 @@ fun NavBarPreview(navBarStyle: String) {
             
             // Navbar
             Box(
-                modifier = Modifier.align(Alignment.BottomCenter)
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
             ) {
                 AnimatedContent(
                     targetState = navBarStyle,
+                    modifier = Modifier.fillMaxWidth(),
                     transitionSpec = {
                         (fadeIn(animationSpec = tween(400)) + slideInVertically { it })
                             .togetherWith(fadeOut(animationSpec = tween(200)) + slideOutVertically { it })
@@ -2483,57 +2486,89 @@ fun NavBarPreview(navBarStyle: String) {
                 ) { style ->
                     when (style) {
                         NavBarStyle.FLOATING_PILL -> {
-                            // Material 3 Expressive Floating Pill Preview
-                            Surface(
+                            // Expressive Floating Pill & Detached Search FAB Preview (matches real bar)
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                                    .height(56.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                tonalElevation = 6.dp,
-                                shadowElevation = 4.dp
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                    verticalAlignment = Alignment.CenterVertically
+                                // Main Pill Toolbar
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    tonalElevation = 6.dp,
+                                    shadowElevation = 4.dp
                                 ) {
-                                    // Active item with M3 Pill indicator badge
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primaryContainer
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(
-                                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
+                                        // Active Item Pill (Home)
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primaryContainer
                                         ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.rounded_home_24),
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.rounded_home_24),
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = stringResource(R.string.tab_home),
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
                                         }
+                                        Icon(
+                                            painter = painterResource(R.drawable.rounded_album_24),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Icon(
+                                            painter = painterResource(R.drawable.rounded_library_music_24),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_album_24),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_search_24),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_library_music_24),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                }
+
+                                // Detached Search FAB
+                                Surface(
+                                    modifier = Modifier.size(52.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    tonalElevation = 6.dp,
+                                    shadowElevation = 4.dp
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.rounded_search_24),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -2542,8 +2577,8 @@ fun NavBarPreview(navBarStyle: String) {
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(56.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                    .height(52.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 tonalElevation = 6.dp,
                                 shape = AbsoluteSmoothCornerShape(
                                     cornerRadiusTL = 24.dp,
@@ -2561,42 +2596,43 @@ fun NavBarPreview(navBarStyle: String) {
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(painterResource(R.drawable.rounded_home_24), null, tint = MaterialTheme.colorScheme.primary)
-                                    Icon(painterResource(R.drawable.rounded_album_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Icon(painterResource(R.drawable.rounded_search_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(painterResource(R.drawable.rounded_home_24), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Icon(painterResource(R.drawable.rounded_album_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    Icon(painterResource(R.drawable.rounded_search_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
                         else -> {
-                            // Default Floating Bar Style Preview
+                            // Classic Floating Bar Style Preview
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 12.dp)
-                                    .height(56.dp),
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                                    .height(52.dp),
                                 shape = AbsoluteSmoothCornerShape(
-                                    cornerRadiusTL = 28.dp,
-                                    cornerRadiusTR = 28.dp,
-                                    cornerRadiusBL = 28.dp,
-                                    cornerRadiusBR = 28.dp,
+                                    cornerRadiusTL = 26.dp,
+                                    cornerRadiusTR = 26.dp,
+                                    cornerRadiusBL = 26.dp,
+                                    cornerRadiusBR = 26.dp,
                                     smoothnessAsPercentTL = 60,
                                     smoothnessAsPercentTR = 60,
                                     smoothnessAsPercentBL = 60,
                                     smoothnessAsPercentBR = 60
                                 ),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                tonalElevation = 6.dp
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                tonalElevation = 6.dp,
+                                shadowElevation = 4.dp
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(painterResource(R.drawable.rounded_home_24), null, tint = MaterialTheme.colorScheme.primary)
-                                    Icon(painterResource(R.drawable.rounded_album_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Icon(painterResource(R.drawable.rounded_search_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(painterResource(R.drawable.rounded_home_24), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Icon(painterResource(R.drawable.rounded_album_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    Icon(painterResource(R.drawable.rounded_search_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }

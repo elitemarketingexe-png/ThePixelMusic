@@ -107,7 +107,7 @@
     <string name="setcat_navbar_style_desc">Выберите внешний вид панели навигации.</string>
     <string name="setcat_navbar_style_default">По умолчанию</string>
     <string name="setcat_navbar_style_full_width">Во всю ширину</string>
-    <string name="setcat_navbar_style_floating_pill">Плавающая капсула</string>
+    <string name="setcat_navbar_style_floating_pill">Капсула Expressive</string>
     <string name="setcat_compact_mode_title">Компактный режим</string>
     <string name="setcat_compact_mode_subtitle">Показывать только иконки и уменьшить высоту панели.</string>
     <string name="setcat_navbar_corner_title">Радиус углов NavBar</string>
