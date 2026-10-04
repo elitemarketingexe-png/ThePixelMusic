@@ -628,7 +628,11 @@ fun SongInfoBottomSheet(
                                                         contentDescription = stringResource(R.string.cd_add_to_queue)
                                                     )
                                                     Spacer(Modifier.width(14.dp))
-                                                    Text(stringResource(R.string.action_add_to_queue))
+                                                    Text(
+                                                        stringResource(R.string.action_add_to_queue),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
                                                 }
                                                 FilledTonalButton(
                                                     modifier = Modifier
@@ -647,7 +651,11 @@ fun SongInfoBottomSheet(
                                                         contentDescription = stringResource(R.string.cd_play_next_in_queue)
                                                     )
                                                     Spacer(Modifier.width(8.dp))
-                                                    Text(stringResource(R.string.action_queue_next))
+                                                    Text(
+                                                        stringResource(R.string.action_queue_next),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
                                                 }
                                             }
                                         }
@@ -676,7 +684,11 @@ fun SongInfoBottomSheet(
                                                         contentDescription = stringResource(R.string.cd_add_to_playlist)
                                                     )
                                                     Spacer(Modifier.width(8.dp))
-                                                    Text(stringResource(R.string.shortcut_playlist_short))
+                                                    Text(
+                                                        stringResource(R.string.shortcut_playlist_short),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
                                                 }
 
                                                 FilledTonalButton(
@@ -704,7 +716,11 @@ fun SongInfoBottomSheet(
                                                         contentDescription = stringResource(R.string.delete_action)
                                                     )
                                                     Spacer(Modifier.width(8.dp))
-                                                    Text(stringResource(R.string.delete_action))
+                                                    Text(
+                                                        stringResource(R.string.delete_action),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
                                                 }
                                             }
                                         }
@@ -756,12 +772,20 @@ fun SongInfoBottomSheet(
                                                                 contentDescription = stringResource(R.string.song_info_available_offline)
                                                             )
                                                             Spacer(Modifier.width(8.dp))
-                                                            Text(stringResource(R.string.song_info_available_offline))
+                                                            Text(
+                                                                stringResource(R.string.song_info_available_offline),
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
                                                         }
                                                         isDownloading -> {
                                                             LoadingIndicator(modifier = Modifier.size(18.dp))
                                                             Spacer(Modifier.width(10.dp))
-                                                            Text(stringResource(R.string.song_info_downloading))
+                                                            Text(
+                                                                stringResource(R.string.song_info_downloading),
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
                                                         }
                                                         else -> {
                                                             Icon(
@@ -769,7 +793,11 @@ fun SongInfoBottomSheet(
                                                                 contentDescription = stringResource(R.string.song_info_download_for_offline)
                                                             )
                                                             Spacer(Modifier.width(8.dp))
-                                                            Text(stringResource(R.string.song_info_download_for_offline))
+                                                            Text(
+                                                                stringResource(R.string.song_info_download_for_offline),
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
                                                         }
                                                     }
                                                 }
@@ -819,16 +847,12 @@ fun SongInfoBottomSheet(
                                                         ) {
                                                             Icon(
                                                                 imageVector = if (isDislikedState) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                                                                contentDescription = stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike),
-                                                                modifier = Modifier.size(20.dp)
+                                                                contentDescription = stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike)
                                                             )
-                                                            Spacer(Modifier.width(6.dp))
+                                                            Spacer(Modifier.width(8.dp))
                                                             Text(
                                                                 text = stringResource(if (isDislikedState) R.string.action_disliked else R.string.action_dislike),
-                                                                fontSize = 12.sp,
-                                                                lineHeight = 14.sp,
-                                                                textAlign = TextAlign.Center,
-                                                                maxLines = 2,
+                                                                maxLines = 1,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
@@ -838,7 +862,6 @@ fun SongInfoBottomSheet(
                                                         modifier = Modifier
                                                             .weight(if (isYouTubeSong) 0.5f else 1f)
                                                             .heightIn(min = 66.dp),
-                                                        contentPadding = PaddingValues(horizontal = 8.dp),
                                                         colors = ButtonDefaults.filledTonalButtonColors(
                                                             containerColor = if (isNotInterested) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                                                             contentColor = if (isNotInterested) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
@@ -859,16 +882,12 @@ fun SongInfoBottomSheet(
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Rounded.Block,
-                                                            contentDescription = stringResource(if (isNotInterested) R.string.marked_not_interested else R.string.not_interested),
-                                                            modifier = Modifier.size(20.dp)
+                                                            contentDescription = stringResource(if (isNotInterested) R.string.marked_not_interested else R.string.not_interested)
                                                         )
-                                                        Spacer(Modifier.width(6.dp))
+                                                        Spacer(Modifier.width(8.dp))
                                                         Text(
                                                             text = if (isNotInterested) stringResource(R.string.marked_not_interested) else stringResource(R.string.not_interested),
-                                                            fontSize = 12.sp,
-                                                            lineHeight = 14.sp,
-                                                            textAlign = TextAlign.Center,
-                                                            maxLines = 2,
+                                                            maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
                                                     }

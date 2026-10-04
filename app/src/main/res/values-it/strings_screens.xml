@@ -453,13 +453,13 @@
     <string name="explore_chip_focus">Concentrazione</string>
     <string name="explore_artist_spotlight_badge">IN PRIMO PIANO</string>
     <string name="explore_top_track_prefix">Brano principale: %1$s</string>
-    <string name="explore_btn_artist_radio">Radio dell'artista</string>
+    <string name="explore_btn_artist_radio">Radio dell\'artista</string>
     <string name="explore_btn_view_artist">Vedi artista</string>
     <string name="explore_subtitle_most_replayed_musicians">I tuoi musicisti più riprodotti</string>
     <string name="explore_subtitle_most_played_artists">Artisti più ascoltati dalla tua libreria</string>
     <string name="explore_subtitle_recent_history">Dalla tua cronologia recente</string>
     <string name="explore_subtitle_rotatory_history">Dai tuoi brani frequenti</string>
-    <string name="explore_subtitle_artist_radio_station">Stazione radio dell'artista</string>
+    <string name="explore_subtitle_artist_radio_station">Stazione radio dell\'artista</string>
     <string name="explore_subtitle_high_affinity_rotation">Dalla tua rotazione preferita</string>
     <string name="explore_section_albums_for_you">Album per te</string>
     <string name="explore_subtitle_verified_records">Album verificati dei tuoi artisti principali</string>
@@ -471,11 +471,11 @@
     <string name="see_all_quick_picks_cd">Vedi tutte le scelte rapide</string>
     <string name="download_album">Scarica album</string>
     <string name="add_songs_to_playlist">Aggiungi brani alla playlist</string>
-    <string name="like_album">Mi piace l'album</string>
-    <string name="unlike_album">Non mi piace più l'album</string>
+    <string name="like_album">Mi piace l\'album</string>
+    <string name="unlike_album">Non mi piace più l\'album</string>
     <string name="add_all_to_queue">Aggiungi tutti alla coda</string>
     <string name="play_next_in_queue">Riproduci come successivo in coda</string>
-    <string name="toast_downloading_album_songs">Download dei brani dell'album in corso...</string>
+    <string name="toast_downloading_album_songs">Download dei brani dell\'album in corso...</string>
     <string name="toast_tuned_out_added">Ignorato: questo brano verrà consigliato meno</string>
     <string name="toast_tuned_out_removed">Rimosso dagli ignorati</string>
 
