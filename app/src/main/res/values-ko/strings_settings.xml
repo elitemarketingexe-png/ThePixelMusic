@@ -97,6 +97,8 @@
     <string name="setcat_carousel_no_peek">미리보기 없음</string>
     <string name="setcat_carousel_one_peek">하나 미리보기</string>
     <string name="setcat_home_collage">홈 콜라주</string>
+    <string name="setcat_show_collage_title">콜라주 표시</string>
+    <string name="setcat_show_collage_subtitle">홈 화면의 나만의 믹스에 모양 콜라주를 표시합니다.</string>
     <string name="setcat_collage_pattern_label">콜라주 패턴</string>
     <string name="setcat_collage_pattern_desc">\'내 믹스\' 콜라주의 모양 배치를 선택하세요.</string>
     <string name="setcat_auto_rotate_patterns_title">패턴 자동 회전</string>

@@ -97,6 +97,8 @@
     <string name="setcat_carousel_no_peek">无预览边缘</string>
     <string name="setcat_carousel_one_peek">单侧预览</string>
     <string name="setcat_home_collage">主页拼贴</string>
+    <string name="setcat_show_collage_title">显示拼贴</string>
+    <string name="setcat_show_collage_subtitle">在主屏幕的“你的混音”中显示形状拼贴。</string>
     <string name="setcat_collage_pattern_label">拼贴图案</string>
     <string name="setcat_collage_pattern_desc">为“你的 Mix”拼贴选择形状排列方式。</string>
     <string name="setcat_auto_rotate_patterns_title">自动轮换图案</string>

@@ -150,6 +150,8 @@
     <string name="setcat_carousel_no_peek">Sem espiada</string>
     <string name="setcat_carousel_one_peek">Uma espiada</string>
     <string name="setcat_home_collage">Colagem inicial</string>
+    <string name="setcat_show_collage_title">Mostrar colagem</string>
+    <string name="setcat_show_collage_subtitle">Exibir a colagem de formas no Seu Mix na tela inicial.</string>
     <string name="setcat_collage_pattern_label">Padrão de colagem</string>
     <string name="setcat_collage_pattern_desc">Escolha o arranjo de formas para a colagem Your Mix.</string>
     <string name="setcat_auto_rotate_patterns_title">Padrões de rotação automática</string>

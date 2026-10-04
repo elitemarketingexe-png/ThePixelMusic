@@ -98,6 +98,8 @@
     <string name="setcat_carousel_no_peek">Без предпросмотра краев</string>
     <string name="setcat_carousel_one_peek">С предпросмотром краев</string>
     <string name="setcat_home_collage">Коллаж на Главной</string>
+    <string name="setcat_show_collage_title">Показывать коллаж</string>
+    <string name="setcat_show_collage_subtitle">Отображать фигурный коллаж в миксе на главном экране.</string>
     <string name="setcat_collage_pattern_label">Узор коллажа</string>
     <string name="setcat_collage_pattern_desc">Выберите расположение фигур для коллажа «Ваш микс».</string>
     <string name="setcat_auto_rotate_patterns_title">Автосмена узоров</string>

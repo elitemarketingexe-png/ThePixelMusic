@@ -160,6 +160,8 @@
     <string name="setcat_carousel_no_peek">No Peek</string>
     <string name="setcat_carousel_one_peek">One Peek</string>
     <string name="setcat_home_collage">Home Collage</string>
+    <string name="setcat_show_collage_title">Show Collage</string>
+    <string name="setcat_show_collage_subtitle">Display the shape collage in Your Mix on the Home screen.</string>
     <string name="setcat_collage_pattern_label">Collage Pattern</string>
     <string name="setcat_collage_pattern_desc">Choose the shape arrangement for the Your Mix collage.</string>
     <string name="setcat_auto_rotate_patterns_title">Auto-Rotate Patterns</string>

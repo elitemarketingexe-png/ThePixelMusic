@@ -329,6 +329,7 @@ constructor(
         // Collage Pattern
         val COLLAGE_PATTERN = stringPreferencesKey("collage_pattern")
         val COLLAGE_AUTO_ROTATE = booleanPreferencesKey("collage_auto_rotate")
+        val COLLAGE_ENABLED = booleanPreferencesKey("collage_enabled")
 
         // Quick Settings / Last Playlist
         val LAST_PLAYLIST_ID = stringPreferencesKey("last_playlist_id")
@@ -2292,6 +2293,17 @@ constructor(
     suspend fun setCollageAutoRotate(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.COLLAGE_AUTO_ROTATE] = enabled
+        }
+    }
+
+    val collageEnabledFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.COLLAGE_ENABLED] ?: true
+        }
+
+    suspend fun setCollageEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.COLLAGE_ENABLED] = enabled
         }
     }
 

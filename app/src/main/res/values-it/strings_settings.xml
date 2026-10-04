@@ -97,6 +97,8 @@
     <string name="setcat_carousel_no_peek">Nessuna anteprima</string>
     <string name="setcat_carousel_one_peek">Una anteprima</string>
     <string name="setcat_home_collage">Collage home</string>
+    <string name="setcat_show_collage_title">Mostra collage</string>
+    <string name="setcat_show_collage_subtitle">Mostra il collage di forme in Il tuo mix nella schermata iniziale.</string>
     <string name="setcat_collage_pattern_label">Pattern collage</string>
     <string name="setcat_collage_pattern_desc">Scegli la disposizione delle forme per il collage Your Mix.</string>
     <string name="setcat_auto_rotate_patterns_title">Rotazione automatica pattern</string>

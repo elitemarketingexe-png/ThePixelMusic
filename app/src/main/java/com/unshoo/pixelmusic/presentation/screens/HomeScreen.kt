@@ -549,7 +549,7 @@ fun HomeScreen(
                 }
 
                 // Collage
-                if (yourMixSongs.isNotEmpty()) {
+                if (yourMixSongs.isNotEmpty() && settingsUiState.collageEnabled) {
                     item(
                         key = "album_art_collage",
                         contentType = "album_art_collage"

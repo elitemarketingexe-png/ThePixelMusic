@@ -94,6 +94,8 @@
     <string name="setcat_carousel_no_peek">Sans aperçu</string>
     <string name="setcat_carousel_one_peek">Un aperçu</string>
     <string name="setcat_home_collage">Pêle-mêle d\'accueil</string>
+    <string name="setcat_show_collage_title">Afficher le collage</string>
+    <string name="setcat_show_collage_subtitle">Afficher le collage de formes dans Votre Mix sur l\'écran d\'accueil.</string>
     <string name="setcat_collage_pattern_label">Motif du pêle-mêle</string>
     <string name="setcat_collage_pattern_desc">Choisissez la disposition des formes pour le pêle-mêle Votre Mix.</string>
     <string name="setcat_auto_rotate_patterns_title">Rotation auto des motifs</string>

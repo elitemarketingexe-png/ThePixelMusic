@@ -97,6 +97,8 @@
     <string name="setcat_carousel_no_peek">Kein Peek</string>
     <string name="setcat_carousel_one_peek">Ein Peek</string>
     <string name="setcat_home_collage">Home-Collage</string>
+    <string name="setcat_show_collage_title">Collage anzeigen</string>
+    <string name="setcat_show_collage_subtitle">Formen-Collage in Dein Mix auf dem Startbildschirm anzeigen.</string>
     <string name="setcat_collage_pattern_label">Collage-Muster</string>
     <string name="setcat_collage_pattern_desc">Formanordnung für die Collage in deinem Mix.</string>
     <string name="setcat_auto_rotate_patterns_title">Muster automatisch wechseln</string>

@@ -97,6 +97,8 @@
     <string name="setcat_carousel_no_peek">Sin vista lateral</string>
     <string name="setcat_carousel_one_peek">Una vista lateral</string>
     <string name="setcat_home_collage">Collage de inicio</string>
+    <string name="setcat_show_collage_title">Mostrar collage</string>
+    <string name="setcat_show_collage_subtitle">Mostrar el collage de figuras en Tu Mix en la pantalla de inicio.</string>
     <string name="setcat_collage_pattern_label">Patrón del collage</string>
     <string name="setcat_collage_pattern_desc">Disposición de formas para el collage de Tu mezcla.</string>
     <string name="setcat_auto_rotate_patterns_title">Rotar patrones automáticamente</string>
