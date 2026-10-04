@@ -470,7 +470,7 @@ fun ShareBottomSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Card Style: ",
+                            text = stringResource(R.string.share_card_style),
                             fontFamily = GoogleSansRounded,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium,
@@ -501,7 +501,7 @@ fun ShareBottomSheet(
                                         .clickable { useSolidLyricsCard = false }
                                 ) {
                                     Text(
-                                        text = "Glass",
+                                        text = stringResource(R.string.share_glass),
                                         fontFamily = GoogleSansRounded,
                                         fontWeight = if (!useSolidLyricsCard) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 13.sp,
@@ -522,7 +522,7 @@ fun ShareBottomSheet(
                                         .clickable { useSolidLyricsCard = true }
                                 ) {
                                     Text(
-                                        text = "Solid",
+                                        text = stringResource(R.string.share_solid),
                                         fontFamily = GoogleSansRounded,
                                         fontWeight = if (useSolidLyricsCard) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 13.sp,
@@ -578,7 +578,7 @@ fun ShareBottomSheet(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Card Theme",
+                        text = stringResource(R.string.share_card_theme),
                         fontFamily = GoogleSansRounded,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelMedium,
@@ -1610,7 +1610,7 @@ private fun LyricsGlassPanel(
         // Lyric lines — dynamic font size shrinks as more lines are selected
         if (selectedLyrics.isEmpty()) {
             Text(
-                text = "Select lyrics below to share...",
+                text = stringResource(R.string.share_select_lyrics_hint),
                 fontFamily = GoogleSansRounded,
                 fontWeight = FontWeight.Medium,
                 fontSize = 13.sp,
@@ -1701,7 +1701,7 @@ private fun LyricLineSelector(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Select Lyrics",
+                text = stringResource(R.string.share_select_lyrics_title),
                 fontFamily = GoogleSansRounded,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,

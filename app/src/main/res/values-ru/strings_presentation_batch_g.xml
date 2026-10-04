@@ -497,4 +497,102 @@
     <string name="presentation_batch_g_beta05_clean_install_body">•</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_title">Исследуйте Обновить</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">Наслаждайтесь новым элегантным макетом Material 3 Expressive на вкладке «Обзор»!</string>
+    <string-array name="presentation_batch_g_changelog_050_highlights">
+        <item>Обновление интерфейса Material 3 Expressive</item>
+        <item>10-полосный эквалайзер и эффекты</item>
+        <item>Новый процесс синхронизации библиотеки</item>
+        <item>Интеграция ИИ (модели Gemini)</item>
+        <item>Импорт и экспорт плейлистов M3U</item>
+        <item>Интеграция обложек исполнителей Deezer</item>
+        <item>Пользовательские обложки плейлистов</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_improvements">
+        <item>Рефакторинг архитектуры настроек</item>
+        <item>Анимации очереди и плеера</item>
+        <item>Профили Baseline и оптимизация производительности</item>
+        <item>Улучшенная система текстов со смещением синхронизации</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_fixes">
+        <item>Улучшения стабильности трансляции</item>
+        <item>Стабильность экрана плеера</item>
+        <item>Общие исправления ошибок и оптимизация</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_040_highlights">
+        <item>Крупный редизайн навигации</item>
+        <item>Новый проводник файлов для выбора исходных папок</item>
+        <item>Новые функции подключения и трансляции</item>
+        <item>Бесшовное переключение между удаленными устройствами</item>
+        <item>Бесшовный переход между песнями (Gapless)</item>
+        <item>Настройка плавного затухания (Crossfade)</item>
+        <item>Пользовательские переходы (только для плейлистов)</item>
+        <item>Фоновое воспроизведение после закрытия приложения</item>
+        <item>Оптимизация интерфейса</item>
+        <item>Улучшенная статистика</item>
+        <item>Переработанное управление очередью</item>
+        <item>Поддержка новых аудиоформатов и редактирования тегов</item>
+        <item>Улучшенное управление разрешениями</item>
+        <item>Мелкие исправления ошибок</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_whats_new">
+        <item>Улучшенный центр статистики прослушивания с подробными данными.</item>
+        <item>Плавающий мини-плеер для быстрого предпросмотра локальных файлов.</item>
+        <item>Вкладка папок с древовидным навигатором.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_improvements">
+        <item>Улучшенный интерфейс Material 3 для целостного внешнего вида.</item>
+        <item>Редактор метаданных теперь поддерживает смену обложки.</item>
+        <item>Плавные анимации и переходы по всему приложению.</item>
+        <item>Экран исполнителя с расширенными деталями.</item>
+        <item>Улучшенная генерация DailyMix и YourMix.</item>
+        <item>Усиленная генерация плейлистов с помощью ИИ.</item>
+        <item>Повышенная релевантность поиска.</item>
+        <item>Расширенная поддержка аудиоформатов.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_fixes">
+        <item>Устранены неточности метаданных треков.</item>
+        <item>Восстановлена надежная работа ярлыков в уведомлениях.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_added">
+        <item>Поддержка Chromecast для трансляции аудио.</item>
+        <item>Встроенный список изменений.</item>
+        <item>Поддержка файлов .LRC (встроенных и внешних).</item>
+        <item>Офлайн-тексты песен.</item>
+        <item>Синхронизированные тексты песен.</item>
+        <item>Новый экран для просмотра полной очереди.</item>
+        <item>Изменение порядка и удаление треков из очереди.</item>
+        <item>Жесты в мини-плеере (смахивание вниз для закрытия).</item>
+        <item>Дополнительные анимации Material.</item>
+        <item>Новые настройки внешнего вида.</item>
+        <item>Новые настройки очистки кэша.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_changed">
+        <item>Полный редизайн интерфейса пользователя.</item>
+        <item>Полный редизайн плеера.</item>
+        <item>Улучшения производительности медиатеки.</item>
+        <item>Ускорен запуск приложения.</item>
+        <item>ИИ теперь дает более качественные результаты.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_fixed">
+        <item>Исправлены различные ошибки в редакторе тегов.</item>
+        <item>Исправлена ошибка, из-за которой уведомление воспроизведения не закрывалось.</item>
+        <item>Исправлены ошибки, приводившие к аварийному завершению работы.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>Улучшения интеграции с ИИ и более умная генерация плейлистов.</item>
+        <item>Расширенная статистика прослушивания с новыми визуализациями.</item>
+        <item>Улучшенный процесс синхронизации медиатеки со всеми облачными провайдерами.</item>
+        <item>Улучшенное редактирование метаданных с поддержкой обложек альбомов.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>Оптимизация производительности при запуске, работе с библиотекой, очередью и плеером.</item>
+        <item>Улучшенный интерфейс Material 3 для более чистого и целостного восприятия.</item>
+        <item>Более плавные анимации и переходы по всему приложению.</item>
+        <item>Повышенная релевантность поиска и более быстрое обнаружение музыки.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>Исправлено поведение очереди и случайного воспроизведения.</item>
+        <item>Решены проблемы с фоновым воспроизведением и уведомлениями.</item>
+        <item>Общие исправления ошибок и полировка интерфейса.</item>
+    </string-array>
+
 </resources>

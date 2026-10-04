@@ -490,4 +490,110 @@
     <string name="presentation_batch_g_beta05_if_wrong_meta_title">Jelajahi Segarkan</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">Nikmati tata letak Material 3 Ekspresif baru yang ramping di seluruh tab Jelajahi!</string>
     <string name="presentation_batch_g_changelog_sec_whats_new">Apa yang Baru</string>
+    <string-array name="presentation_batch_g_changelog_060_whats_new">
+        <item>Dukungan Android Auto kini tersedia untuk pemutaran di mobil.</item>
+        <item>Dukungan Wear OS telah hadir, termasuk kontrol pemutaran jam ke ponsel yang lebih baik.</item>
+        <item>Integrasi cloud diperluas dengan peningkatan Telegram, NetEase, QQ Music, dan Google Drive.</item>
+        <item>Terakhir Diputar dan pemulihan antrean persisten menjaga sesi mendengarkan Anda selalu siap.</item>
+        <item>Alat Cadangkan &amp; Pulihkan v3 serta manajemen akun kini disertakan.</item>
+        <item>Lirik semakin pintar dengan pencarian manual cadangan dan peningkatan penyimpanan.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_improvements">
+        <item>Peningkatan performa besar pada startup, perpustakaan, antrean, dan interaksi pemutar.</item>
+        <item>Tampilan Pemutar, Transmisi, Lirik, Artis, dan Genre didesain ulang agar lebih lancar digunakan.</item>
+        <item>Alur navigasi dan pencarian lebih andal dengan penanganan rute yang lebih aman.</item>
+        <item>Kompatibilitas pemutaran audio ditingkatkan untuk lebih banyak perangkat dan format.</item>
+        <item>Alur kerja multi-seleksi diperluas untuk lagu, album, dan daftar putar.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_fixes">
+        <item>Perilaku antrean dan acak kini lebih stabil dan mudah diprediksi.</item>
+        <item>Beberapa masalah pemutaran latar belakang dan transmisi telah diperbaiki.</item>
+        <item>Masalah Timer Tidur, navigasi tab File, dan crash artis album telah diperbaiki.</item>
+        <item>Pemuatan widget dan stabilitas layanan ditingkatkan untuk mengurangi panas/memori berlebih.</item>
+        <item>Perbaikan bug umum dan penyempurnaan UI di seluruh aplikasi.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_highlights">
+        <item>Pembaruan UI Material 3 Expressive</item>
+        <item>Equalizer 10-band &amp; Efek</item>
+        <item>Alur Sinkronisasi Perpustakaan Baru</item>
+        <item>Integrasi AI (Model Gemini)</item>
+        <item>Impor/Ekspor Daftar Putar M3U</item>
+        <item>Integrasi Sampul Artis Deezer</item>
+        <item>Sampul Daftar Putar Kustom</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_improvements">
+        <item>Refaktor Arsitektur Pengaturan</item>
+        <item>Animasi Antrean &amp; Pemutar</item>
+        <item>Profil Baseline &amp; Performa</item>
+        <item>Sistem Lirik Lebih Baik dengan Offset Sinkronisasi</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_fixes">
+        <item>Peningkatan Stabilitas Transmisi</item>
+        <item>Stabilitas Lembar Pemutar</item>
+        <item>Perbaikan Bug Umum &amp; Pembersihan</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_040_highlights">
+        <item>Desain ulang navigasi utama</item>
+        <item>Penjelajah file baru untuk memilih direktori sumber</item>
+        <item>Fungsi konektivitas dan transmisi baru</item>
+        <item>Kontinuitas mulus antar perangkat jarak jauh</item>
+        <item>Transisi tanpa jeda antar lagu (Gapless)</item>
+        <item>Kontrol Crossfade</item>
+        <item>Fitur Transisi Kustom baru (hanya untuk daftar putar)</item>
+        <item>Tetap memutar setelah aplikasi ditutup</item>
+        <item>Optimalisasi UI</item>
+        <item>Fitur statistik yang ditingkatkan</item>
+        <item>Desain ulang kontrol Antrean dengan lebih banyak fitur</item>
+        <item>Peningkatan dukungan berbagai tipe file dan pengeditan metadata</item>
+        <item>Pengontrol izin yang disempurnakan</item>
+        <item>Perbaikan bug kecil</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_whats_new">
+        <item>Memperkenalkan pusat statistik mendengarkan yang lebih kaya dengan wawasan lebih dalam.</item>
+        <item>Meluncurkan pemutar cepat mengambang untuk langsung membuka dan melihat pratinjau file lokal.</item>
+        <item>Menambahkan tab folder dengan navigator gaya pohon.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_improvements">
+        <item>Menyempurnakan UI Material 3 secara keseluruhan untuk pengalaman yang lebih bersih dan kohesif.</item>
+        <item>Pengeditan metadata kini mendukung perubahan sampul album.</item>
+        <item>Animasi dan transisi yang lebih halus di seluruh aplikasi untuk navigasi yang lebih lancar.</item>
+        <item>Menyempurnakan tata letak layar artis dengan detail yang lebih kaya.</item>
+        <item>Meningkatkan pembuatan DailyMix dan YourMix dengan pilihan yang lebih cerdas dan beragam.</item>
+        <item>Memperkuat pembuatan daftar putar AI.</item>
+        <item>Peningkatan relevansi pencarian untuk penemuan lagu yang lebih cepat.</item>
+        <item>Memperluas dukungan untuk rentang format file audio yang lebih luas.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_fixes">
+        <item>Mengatasi kendala metadata agar detail lagu tetap akurat di mana saja.</item>
+        <item>Memulihkan pintasan notifikasi agar kembali ke pemutaran dengan andal.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_added">
+        <item>Dukungan Chromecast untuk mentransmisikan audio dari perangkat Anda.</item>
+        <item>Log perubahan dalam aplikasi untuk memberi Anda info fitur terbaru.</item>
+        <item>Dukungan untuk file .LRC, baik yang disematkan maupun eksternal.</item>
+        <item>Dukungan lirik offline.</item>
+        <item>Lirik tersinkronisasi (sinkron dengan lagu).</item>
+        <item>Layar baru untuk melihat antrean penuh.</item>
+        <item>Mengatur ulang dan menghapus lagu dari antrean.</item>
+        <item>Gestur pemutar mini (geser ke bawah untuk menutup).</item>
+        <item>Menambahkan lebih banyak animasi material.</item>
+        <item>Pengaturan baru untuk menyesuaikan tampilan dan nuansa.</item>
+        <item>Pengaturan baru untuk menghapus cache.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_changed">
+        <item>Desain ulang total pada antarmuka pengguna.</item>
+        <item>Desain ulang total pada pemutar musik.</item>
+        <item>Peningkatan performa pada perpustakaan musik.</item>
+        <item>Peningkatan kecepatan startup aplikasi.</item>
+        <item>AI kini memberikan hasil yang lebih baik.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_fixed">
+        <item>Memperbaiki berbagai bug pada editor tag.</item>
+        <item>Memperbaiki bug di mana notifikasi pemutaran tidak hilang.</item>
+        <item>Memperbaiki beberapa bug yang menyebabkan aplikasi berhenti tiba-tiba.</item>
+    </string-array>
+    
+    
+    
+
 </resources>

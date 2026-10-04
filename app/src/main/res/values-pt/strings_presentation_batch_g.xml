@@ -468,4 +468,124 @@ A barra invertida (\) pode ser usada para escapar dos delimitadores de caractere
     <string name="presentation_batch_g_changelog_sec_added">Adicionado</string>
     <string name="presentation_batch_g_changelog_sec_changed">Alterado</string>
     <string name="presentation_batch_g_changelog_sec_fixed">Fixo</string>
+    <string-array name="presentation_batch_g_changelog_060_whats_new">
+        <item>O suporte ao Android Auto agora está disponível para reprodução no carro.</item>
+        <item>O suporte ao Wear OS está ativo, incluindo melhores controles de reprodução do relógio para o telefone.</item>
+        <item>Integrações em nuvem expandidas com melhorias no Telegram, NetEase, QQ Music e Google Drive.</item>
+        <item>Reproduzidos recentemente e a restauração persistente da fila mantêm sua sessão pronta.</item>
+        <item>Ferramentas de backup e restauração v3 e gerenciamento de contas agora estão incluídas.</item>
+        <item>As letras ficaram mais inteligentes com busca manual alternativa e melhorias no armazenamento.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_improvements">
+        <item>Grande otimização de desempenho na inicialização, biblioteca, fila e player.</item>
+        <item>As telas do Player, Cast, Letras, Artista e Gênero foram redesenhadas para um uso mais fluido.</item>
+        <item>Os fluxos de navegação e busca estão mais confiáveis, com tratamento seguro de rotas.</item>
+        <item>Compatibilidade de reprodução de áudio aprimorada para mais dispositivos e formatos.</item>
+        <item>Fluxos de trabalho de seleção múltipla foram expandidos em músicas, álbuns e listas de reprodução.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_fixes">
+        <item>O comportamento da fila e da reprodução aleatória agora está mais estável e previsível.</item>
+        <item>Vários casos específicos de reprodução em segundo plano e transmissão foram corrigidos.</item>
+        <item>Problemas no Temporizador, navegação na aba Arquivos e falhas com artistas do álbum foram corrigidos.</item>
+        <item>O carregamento de widgets e a estabilidade do serviço foram melhorados para reduzir superaquecimento e uso de memória.</item>
+        <item>Correções gerais de bugs e polimento da interface em todo o aplicativo.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_highlights">
+        <item>Atualização da interface Material 3 Expressive</item>
+        <item>Equalizador de 10 bandas e efeitos</item>
+        <item>Novo fluxo de sincronização da biblioteca</item>
+        <item>Integração de IA (Modelos Gemini)</item>
+        <item>Importação e exportação de listas de reprodução M3U</item>
+        <item>Integração de capas de artistas do Deezer</item>
+        <item>Capas personalizadas de listas de reprodução</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_improvements">
+        <item>Refatoração da arquitetura de configurações</item>
+        <item>Animações de fila e player</item>
+        <item>Perfis de linha de base e desempenho</item>
+        <item>Melhor sistema de letras com compensação de sincronização</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_fixes">
+        <item>Melhorias na estabilidade da transmissão</item>
+        <item>Estabilidade da folha do reprodutor</item>
+        <item>Correções gerais de bugs e limpeza</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_040_highlights">
+        <item>Grande reformulação de navegação</item>
+        <item>Novo explorador de arquivos para escolher diretórios de origem</item>
+        <item>Novas funcionalidades de conectividade e transmissão</item>
+        <item>Continuidade perfeita entre dispositivos remotos</item>
+        <item>Transição perfeita entre músicas (Gapless)</item>
+        <item>Controle de crossfade</item>
+        <item>Novo recurso de transições personalizadas (apenas para playlists)</item>
+        <item>Continue reproduzindo após fechar o aplicativo</item>
+        <item>Otimizações de UI</item>
+        <item>Recurso de estatísticas aprimorado</item>
+        <item>Controle de fila redesenhado com mais recursos</item>
+        <item>Melhor suporte a tipos de arquivo para reprodução e edição de metadados</item>
+        <item>Controlador de permissões aprimorado</item>
+        <item>Pequenas correções de bugs</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_whats_new">
+        <item>Introduzido um hub de estatísticas de audição mais rico com insights aprofundados.</item>
+        <item>Lançado um miniplayer flutuante para abrir e pré-visualizar instantaneamente arquivos locais.</item>
+        <item>Adicionada uma aba de pastas com navegador em árvore e visualização pronta para playlist.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_improvements">
+        <item>Refinada a interface Material 3 para uma experiência mais limpa e coesa.</item>
+        <item>A edição de metadados agora suporta alteração de capa do álbum.</item>
+        <item>Animações e transições mais suaves em todo o app para navegação mais fluida.</item>
+        <item>Layout da tela do artista aprimorado com detalhes mais ricos.</item>
+        <item>Geração aprimorada de DailyMix e YourMix com seleções mais inteligentes e diversificadas.</item>
+        <item>Fortalecida a geração de playlists com IA.</item>
+        <item>Maior relevância de busca e apresentação para descoberta mais rápida.</item>
+        <item>Suporte expandido para uma ampla gama de formatos de arquivo de áudio.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_fixes">
+        <item>Peculiaridades de metadados resolvidas para que os detalhes permaneçam precisos em todos os lugares.</item>
+        <item>Atalhos de notificação restaurados para retornar com segurança à reprodução.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_added">
+        <item>Suporte ao Chromecast para transmitir áudio do seu dispositivo.</item>
+        <item>Log de alterações no aplicativo para mantê-lo informado sobre novos recursos.</item>
+        <item>Suporte para arquivos .LRC, incorporados e externos.</item>
+        <item>Suporte a letras offline.</item>
+        <item>Letras sincronizadas (com a música).</item>
+        <item>Nova tela para visualizar a fila completa.</item>
+        <item>Reordenar e remover músicas da fila.</item>
+        <item>Gestos no mini-reprodutor (deslizar para baixo para fechar).</item>
+        <item>Adicionadas mais animações Material.</item>
+        <item>Novas configurações para personalizar a aparência.</item>
+        <item>Novas configurações para limpar o cache.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_changed">
+        <item>Redesenho completo da interface do usuário.</item>
+        <item>Redesenho completo do reprodutor.</item>
+        <item>Melhorias de desempenho na biblioteca.</item>
+        <item>Maior velocidade de inicialização do aplicativo.</item>
+        <item>A IA agora oferece resultados melhores.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_fixed">
+        <item>Corrigidos vários bugs no editor de tags.</item>
+        <item>Corrigido um bug onde a notificação de reprodução não era apagada.</item>
+        <item>Corrigidos vários bugs que faziam o aplicativo travar.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>Melhorias na integração de IA e geração de listas de reprodução mais inteligente.</item>
+        <item>Estatísticas de audição aprimoradas com insights mais profundos e novas visualizações.</item>
+        <item>Fluxo de sincronização de biblioteca melhorado em todos os provedores de nuvem.</item>
+        <item>Melhor edição de metadados com suporte a capas de álbuns.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>Melhorias de desempenho na inicialização, biblioteca, fila e interações do reprodutor.</item>
+        <item>Interface Material 3 refinada para uma experiência mais limpa e coesa.</item>
+        <item>Animações e transições mais suaves em todo o aplicativo.</item>
+        <item>Maior relevância na busca e descoberta mais rápida.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>Comportamento da fila e reprodução aleatória corrigido para reprodução mais estável.</item>
+        <item>Problemas de reprodução em segundo plano e notificações resolvidos.</item>
+        <item>Correções gerais de bugs e polimento da interface.</item>
+    </string-array>
+
 </resources>

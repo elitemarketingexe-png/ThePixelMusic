@@ -472,4 +472,124 @@ Backslash (\\) kan brukes for å unngå tegn-separatorer.</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">Nyt det elegante nye Material 3 Expressive-oppsettet på tvers av Utforsk-fanen!</string>
     <string name="presentation_batch_g_cast_nearby_title">Enheter i nærheten</string>
     <string name="presentation_batch_g_cast_nearby_desc">Nødvendig for å oppdage og kontrollere tilkoblede Bluetooth-lydenheter.</string>
+    <string-array name="presentation_batch_g_changelog_060_whats_new">
+        <item>Android Auto-støtte er nå tilgjengelig for avspilling i bil.</item>
+        <item>Wear OS-støtte er lansert, inkludert bedre avspillingskontroll fra klokke til telefon.</item>
+        <item>Skyintegrasjoner utvidet med forbedringer for Telegram, NetEase, QQ Music og Google Disk.</item>
+        <item>Nylig spilt og vedvarende køgjenoppretting holder lytteøkten din klar.</item>
+        <item>Sikkerhetskopiering og gjenoppretting v3 samt kontoadministrasjonsverktøy er nå inkludert.</item>
+        <item>Sangtekster ble smartere med manuell søkefallback og lagringsforbedringer.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_improvements">
+        <item>Stor ytelsesforbedring ved oppstart, bibliotek, kø og spillerinteraksjoner.</item>
+        <item>Flater for Spiller, Cast, Tekster, Artist og Sjanger ble redesignet for jevnere bruk.</item>
+        <item>Navigasjon og søkeflyt er mer pålitelig med tryggere rutehåndtering.</item>
+        <item>Lydavspillingskompatibilitet forbedret for flere enheter og formater.</item>
+        <item>Flervalgsarbeidsflyter ble utvidet på tvers av sanger, album og spillelister.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_fixes">
+        <item>Kø- og tilfeldig avspilling-oppførsel er nå mer stabil og forutsigbar.</item>
+        <item>Flere spesielle tilfeller ved bakgrunnsavspilling og casting ble rettet.</item>
+        <item>Problemer med Søvntimer, Filer-fane og albumartistkrasj ble rettet.</item>
+        <item>Widget-lasting og tjenestestabilitet ble forbedret for å redusere overoppheting og minnebruk.</item>
+        <item>Generelle feilrettinger og UI-forbedringer i hele appen.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_highlights">
+        <item>Material 3 Expressive UI-oppdatering</item>
+        <item>10-bånds equalizer og effekter</item>
+        <item>Ny biblioteksynkroniseringsflyt</item>
+        <item>AI-integrasjon (Gemini-modeller)</item>
+        <item>M3U-spilleliste import/eksport</item>
+        <item>Deezer artistbilde-integrasjon</item>
+        <item>Egendefinerte spillelisteforsider</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_improvements">
+        <item>Refaktorering av innstillingsarkitektur</item>
+        <item>Kø- og spilleranimasjoner</item>
+        <item>Baseline-profiler og ytelse</item>
+        <item>Bedre tekstsystem med synk-offset</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_fixes">
+        <item>Forbedringer av castingstabilitet</item>
+        <item>Stabilitet for spillerskuff</item>
+        <item>Generelle feilrettinger og opprydding</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_040_highlights">
+        <item>Omfattende navigasjonsredesign</item>
+        <item>Ny filutforsker for å velge kildemapper</item>
+        <item>Nye tilkoblings- og castingfunksjoner</item>
+        <item>Sømløs kontinuitet mellom eksterne enheter</item>
+        <item>Gapless overgang mellom sanger</item>
+        <item>Crossfade-kontroll</item>
+        <item>Ny funksjon for egendefinerte overganger (kun for spillelister)</item>
+        <item>Fortsett avspilling etter at appen er lukket</item>
+        <item>UI-optimaliseringer</item>
+        <item>Forbedret statistikkfunksjon</item>
+        <item>Redesignet køkontroll med flere funksjoner</item>
+        <item>Forbedret støtte for ulike filtyper for avspilling og metadataredigering</item>
+        <item>Forbedret tillatelseskontroll</item>
+        <item>Mindre feilrettinger</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_whats_new">
+        <item>Introduserte et rikere lyttestatistikksenter med dypere innsikt.</item>
+        <item>Lanserte en flytende hurtigspiller for å åpne og forhåndsvise lokale filer umiddelbart.</item>
+        <item>La til en mappefane med trestruktur-navigasjon og spillelistevisning.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_improvements">
+        <item>Forfinet det generelle Material 3-grensesnittet for en renere og mer helhetlig opplevelse.</item>
+        <item>Metadataredigering støtter nå endring av coverbilde.</item>
+        <item>Mykere animasjoner og overganger i hele appen for mer flytende navigasjon.</item>
+        <item>Forbedret artistskjermoppsett med rikere detaljer.</item>
+        <item>Oppgraderte DailyMix og YourMix-generering med smartere, mer varierte utvalg.</item>
+        <item>Styrket AI-spillelistegenerering.</item>
+        <item>Forbedret søkerelevans og presentasjon for raskere oppdagelse.</item>
+        <item>Utvidet støtte for et bredere spekter av lydfilformater.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_fixes">
+        <item>Løste metadatarariteter slik at sangdetaljer forblir nøyaktige overalt.</item>
+        <item>Gjenopprettet varslingssnarveier slik at de pålitelig hopper tilbake til avspilling.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_added">
+        <item>Chromecast-støtte for casting av lyd fra enheten din.</item>
+        <item>Endringslogg i appen for å holde deg oppdatert på de nyeste funksjonene.</item>
+        <item>Støtte for .LRC-filer, både innebygde og eksterne.</item>
+        <item>Støtte for frakoblede sangtekster.</item>
+        <item>Synkroniserte sangtekster (synkronisert med sangen).</item>
+        <item>Ny skjerm for å se hele køen.</item>
+        <item>Endre rekkefølge og fjerne sanger fra køen.</item>
+        <item>Mini-spillerbevegelser (sveip ned for å lukke).</item>
+        <item>La til flere materialanimasjoner.</item>
+        <item>Nye innstillinger for å tilpasse utseende og følelse.</item>
+        <item>Nye innstillinger for å tømme hurtigbufferen.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_changed">
+        <item>Fullstendig redesign av brukergrensesnittet.</item>
+        <item>Fullstendig redesign av spilleren.</item>
+        <item>Ytelsesforbedringer i biblioteket.</item>
+        <item>Forbedret oppstartshastighet for appen.</item>
+        <item>AI gir nå bedre resultater.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_fixed">
+        <item>Rettet ulike feil i tag-editoren.</item>
+        <item>Rettet en feil der avspillingsvarselet ikke forsvant.</item>
+        <item>Rettet flere feil som førte til at appen krasjet.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>Forbedringer i AI-integrasjon og smartere spillelistegenerering.</item>
+        <item>Forbedret lyttestatistikk med dypere innsikt og nye visualiseringer.</item>
+        <item>Forbedret biblioteksynkroniseringsflyt på tvers av alle skyleverandører.</item>
+        <item>Bedre metadataredigering med støtte for albumomslag.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>Ytelsesforbedringer ved oppstart, bibliotek, kø og spillerinteraksjoner.</item>
+        <item>Forfinet Material 3-grensesnitt for en renere og mer helhetlig opplevelse.</item>
+        <item>Mykere animasjoner og overganger i hele appen.</item>
+        <item>Bedre søkerelevans og raskere oppdagelse.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>Rettet kø- og tilfeldig avspilling-oppførsel for mer stabil avspilling.</item>
+        <item>Løste problemer med bakgrunnsavspilling og varsler.</item>
+        <item>Generelle feilrettinger og UI-polering.</item>
+    </string-array>
+
 </resources>

@@ -493,7 +493,7 @@ fun ExploreScreen(
                     if (artistsForYou.isNotEmpty()) {
                         item(key = "feed_top_artists") {
                             FeedSectionHeader(
-                                title = "Artists for you",
+                                title = stringResource(R.string.explore_section_artists_for_you),
                                 subtitle = if (state.feedData.topArtists.isNotEmpty()) "Your most replayed musicians" else "Most played artists from your library"
                             )
                             LazyRow(
@@ -537,7 +537,7 @@ fun ExploreScreen(
                                     FeedSectionHeader(
                                         title = section.title,
                                         subtitle = section.subtitle,
-                                        actionText = "Play all",
+                                        actionText = stringResource(R.string.action_play_all),
                                         actionIcon = Icons.Filled.PlayArrow,
                                         onActionClick = {
                                             feedViewModel.playTracksQueue(section.items, 0, playerViewModel, section.title)
@@ -570,9 +570,9 @@ fun ExploreScreen(
                         if (isYtConnected && state.feedData.freshFinds.isNotEmpty()) {
                             item(key = "feed_fresh_finds") {
                                 FeedSectionHeader(
-                                    title = "Fresh finds",
-                                    subtitle = "New tracks matched to your listening vibe",
-                                    actionText = "Play all",
+                                    title = stringResource(R.string.explore_section_fresh_finds),
+                                    subtitle = stringResource(R.string.explore_section_fresh_finds_desc),
+                                    actionText = stringResource(R.string.action_play_all),
                                     actionIcon = Icons.Filled.PlayArrow,
                                     onActionClick = {
                                         feedViewModel.playTracksQueue(state.feedData.freshFinds, 0, playerViewModel, "Fresh Finds")
@@ -605,9 +605,9 @@ fun ExploreScreen(
                         if (jumpBackInTracks.isNotEmpty()) {
                             item(key = "feed_jump_back_in") {
                                 FeedSectionHeader(
-                                    title = "Jump back in",
+                                    title = stringResource(R.string.explore_section_jump_back_in),
                                     subtitle = if (isYtConnected && state.feedData.jumpBackIn.isNotEmpty()) "From your recent history" else "From your highly rotatory history",
-                                    actionText = "Play all",
+                                    actionText = stringResource(R.string.action_play_all),
                                     actionIcon = Icons.Filled.PlayArrow,
                                     onActionClick = {
                                         val allLocal = jumpBackInTracks.mapNotNull { exploreUiState.localSongs[it.url] }
@@ -641,9 +641,9 @@ fun ExploreScreen(
                         if (isYtConnected && state.feedData.mixes.isNotEmpty()) {
                             item(key = "feed_mixes") {
                                 FeedSectionHeader(
-                                    title = "Mixes to explore",
-                                    subtitle = "Familiar favorites & fresh combinations",
-                                    actionText = "Shuffle",
+                                    title = stringResource(R.string.explore_section_mixes_to_explore),
+                                    subtitle = stringResource(R.string.explore_section_mixes_to_explore_desc),
+                                    actionText = stringResource(R.string.action_shuffle),
                                     actionIcon = Icons.Filled.Shuffle,
                                     onActionClick = {
                                         state.feedData.mixes.randomOrNull()?.let { feedViewModel.playMix(it, playerViewModel) }
@@ -666,9 +666,9 @@ fun ExploreScreen(
                         if (isYtConnected && state.feedData.heavyRotation.isNotEmpty()) {
                             item(key = "feed_heavy_rotation") {
                                 FeedSectionHeader(
-                                    title = "Favorites to revisit",
+                                    title = stringResource(R.string.explore_section_favorites_to_revisit),
                                     subtitle = "From your high-affinity rotation",
-                                    actionText = "Play all",
+                                    actionText = stringResource(R.string.action_play_all),
                                     actionIcon = Icons.Filled.PlayArrow,
                                     onActionClick = {
                                         feedViewModel.playGeneratedQueue(state.feedData.heavyRotation, 0, playerViewModel, "Heavy Rotation")
@@ -724,9 +724,9 @@ fun ExploreScreen(
                     if (libraryPlaylists.isNotEmpty()) {
                         item(key = "feed_your_library") {
                             FeedSectionHeader(
-                                title = "Your Library",
-                                subtitle = "Your saved playlists & albums",
-                                actionText = "See All",
+                                title = stringResource(R.string.explore_section_your_library),
+                                subtitle = stringResource(R.string.explore_section_your_library_desc),
+                                actionText = stringResource(R.string.action_see_all),
                                 actionIcon = Icons.AutoMirrored.Rounded.ArrowForwardIos,
                                 onActionClick = { navController.navigateToTopLevelSafely(Screen.Library.route) }
                             )
@@ -752,9 +752,9 @@ fun ExploreScreen(
                     if (isYtConnected && chartTracks.isNotEmpty()) {
                         item(key = "feed_charts") {
                             FeedSectionHeader(
-                                title = "Trending now",
-                                subtitle = "Top chart hits in your region",
-                                actionText = "Play all",
+                                title = stringResource(R.string.explore_section_trending_now),
+                                subtitle = stringResource(R.string.explore_section_trending_now_desc),
+                                actionText = stringResource(R.string.action_play_all),
                                 actionIcon = Icons.Filled.PlayArrow,
                                 onActionClick = {
                                     feedViewModel.playTracksQueue(chartTracks, 0, playerViewModel, "Top Charts")
@@ -786,9 +786,9 @@ fun ExploreScreen(
                     if (isYtConnected && newReleases.isNotEmpty()) {
                         item(key = "feed_new_releases") {
                             FeedSectionHeader(
-                                title = "New releases",
-                                subtitle = "Fresh drops & latest albums",
-                                actionText = "See all",
+                                title = stringResource(R.string.explore_section_new_releases),
+                                subtitle = stringResource(R.string.explore_section_new_releases_desc),
+                                actionText = stringResource(R.string.action_see_all),
                                 actionIcon = Icons.AutoMirrored.Rounded.ArrowForwardIos,
                                 onActionClick = {
                                     navController.navigateSafely(Screen.FeedPlaylistDetail.createRoute("new_releases"))
@@ -818,7 +818,7 @@ fun ExploreScreen(
                             FeedSectionHeader(
                                 title = "Recently added",
                                 subtitle = "Latest tracks from your library & downloads",
-                                actionText = "Play all",
+                                actionText = stringResource(R.string.action_play_all),
                                 actionIcon = Icons.Filled.PlayArrow,
                                 onActionClick = {
                                     playerViewModel.playSongs(recentSongs, recentSongs.first(), queueName = "Recently Added")

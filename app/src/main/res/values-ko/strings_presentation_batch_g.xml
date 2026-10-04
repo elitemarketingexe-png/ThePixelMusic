@@ -472,4 +472,124 @@
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">탐색 탭 전체에서 세련되고 새로운 Material 3 표현 레이아웃을 즐겨보세요!</string>
     <string name="presentation_batch_g_cast_perm_nearby_title">주변 기기</string>
     <string name="presentation_batch_g_cast_perm_nearby_desc">연결된 Bluetooth 오디오 장비를 읽고 제어하는 ​​데 필요합니다.</string>
+    <string-array name="presentation_batch_g_changelog_060_whats_new">
+        <item>차량 내 재생을 위한 Android Auto 지원이 추가되었습니다.</item>
+        <item>향상된 시계-휴대폰 재생 제어를 포함하여 Wear OS 지원이 시작되었습니다.</item>
+        <item>Telegram, NetEase, QQ Music 및 Google Drive 개선으로 클라우드 통합이 확장되었습니다.</item>
+        <item>최근 재생 항목 및 영구 대기열 복원으로 청취 세션을 즉시 이어갈 수 있습니다.</item>
+        <item>백업 및 복원 v3와 계정 관리 도구가 포함되었습니다.</item>
+        <item>수동 검색 대체 및 저장소 개선으로 가사 기능이 더욱 스마트해졌습니다.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_improvements">
+        <item>시작, 라이브러리, 대기열 및 플레이어 상호작용 전반에 걸친 대규모 성능 최적화.</item>
+        <item>더욱 부드러운 사용을 위해 플레이어, 전송, 가사, 아티스트 및 장르 화면이 새롭게 디자인되었습니다.</item>
+        <item>더욱 안전한 경로 처리로 탐색 및 검색 흐름의 안정성이 향상되었습니다.</item>
+        <item>더 많은 기기 및 형식에 대한 오디오 재생 호환성이 향상되었습니다.</item>
+        <item>노래, 앨범 및 재생목록 전반에서 다중 선택 작업이 확장되었습니다.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_fixes">
+        <item>대기열 및 셔플 동작이 더욱 안정적이고 예측 가능해졌습니다.</item>
+        <item>여러 백그라운드 재생 및 전송 특이 사항이 수정되었습니다.</item>
+        <item>수면 타이머, 파일 탭 탐색 및 앨범 아티스트 충돌 문제가 해결되었습니다.</item>
+        <item>과열/메모리 문제를 줄이기 위해 위젯 로딩 및 서비스 안정성이 개선되었습니다.</item>
+        <item>앱 전반의 일반적인 버그 수정 및 UI 개선.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_highlights">
+        <item>Material 3 Expressive UI 업데이트</item>
+        <item>10밴드 이퀄라이저 및 효과</item>
+        <item>새로운 라이브러리 동기화 흐름</item>
+        <item>AI 통합 (Gemini 모델)</item>
+        <item>M3U 재생목록 가져오기/내보내기</item>
+        <item>Deezer 아티스트 아트워크 통합</item>
+        <item>사용자 지정 재생목록 커버</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_improvements">
+        <item>설정 아키텍처 리팩터링</item>
+        <item>대기열 및 플레이어 애니메이션</item>
+        <item>베이스라인 프로필 및 성능 최적화</item>
+        <item>동기화 오프셋을 지원하는 향상된 가사 시스템</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_fixes">
+        <item>전송(Cast) 안정성 개선</item>
+        <item>플레이어 시트 안정성</item>
+        <item>일반적인 버그 수정 및 정리</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_040_highlights">
+        <item>주요 내비게이션 재설계</item>
+        <item>소스 디렉터리 선택을 위한 새로운 파일 탐색기</item>
+        <item>새로운 연결 및 전송 기능</item>
+        <item>원격 기기 간의 원활한 연속성</item>
+        <item>곡 간 무음 없는 전환 (Gapless)</item>
+        <item>크로스페이드(Crossfade) 제어</item>
+        <item>새로운 사용자 지정 전환 기능 (재생목록 전용)</item>
+        <item>앱을 닫은 후에도 백그라운드 재생 유지</item>
+        <item>UI 최적화</item>
+        <item>통계 기능 개선</item>
+        <item>더 많은 기능을 갖춘 대기열 제어 재설계</item>
+        <item>재생 및 메타데이터 편집을 위한 다양한 파일 형식 지원 개선</item>
+        <item>권한 컨트롤러 개선</item>
+        <item>사소한 버그 수정</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_whats_new">
+        <item>세션에 대한 더 깊은 통찰력을 제공하는 더욱 풍부한 청취 통계 허브 도입.</item>
+        <item>로컬 파일을 즉시 열고 미리 볼 수 있는 플로팅 퀵 플레이어 출시.</item>
+        <item>트리 스타일 탐색기 및 재생목록 스타일 뷰가 포함된 폴더 탭 추가.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_improvements">
+        <item>더 깔끔하고 일관된 경험을 위해 전반적인 Material 3 UI 개선.</item>
+        <item>메타데이터 편집에서 앨범 커버 아트 변경 지원.</item>
+        <item>유연한 탐색을 위해 앱 전반의 애니메이션 및 화면 전환 부드럽게 조정.</item>
+        <item>더욱 풍부한 디테일로 아티스트 화면 레이아웃 향상.</item>
+        <item>더 스마트하고 다양한 추천으로 DailyMix 및 YourMix 생성 알고리즘 업그레이드.</item>
+        <item>AI 재생목록 생성 기능 강화.</item>
+        <item>더 빠른 탐색을 위해 검색 관련성 및 표시 방식 개선.</item>
+        <item>더 넓은 범위의 오디오 파일 형식 지원 확장.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_fixes">
+        <item>모든 위치에서 노래 정보가 정확하게 유지되도록 메타데이터 문제 해결.</item>
+        <item>알림 바로가기가 안정적으로 재생 화면으로 연결되도록 복원.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_added">
+        <item>기기에서 오디오를 전송하기 위한 Chromecast 지원.</item>
+        <item>최신 기능을 확인할 수 있는 인앱 변경 로그.</item>
+        <item>임베디드 및 외부 .LRC 파일 지원.</item>
+        <item>오프라인 가사 지원.</item>
+        <item>동기화된 가사 (노래와 싱크 일치).</item>
+        <item>전체 대기열을 볼 수 있는 새로운 화면.</item>
+        <item>대기열에서 노래 순서 변경 및 제거.</item>
+        <item>미니 플레이어 제스처 (아래로 스와이프하여 닫기).</item>
+        <item>더 많은 Material 애니메이션 추가.</item>
+        <item>모양과 느낌을 사용자 지정할 수 있는 새로운 설정.</item>
+        <item>캐시를 지우기 위한 새로운 설정.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_changed">
+        <item>사용자 인터페이스 전면 재설계.</item>
+        <item>플레이어 화면 전면 재설계.</item>
+        <item>라이브러리 성능 개선.</item>
+        <item>앱 시작 속도 향상.</item>
+        <item>AI가 더욱 향상된 결과를 제공합니다.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_fixed">
+        <item>태그 편집기의 다양한 버그 수정.</item>
+        <item>재생 알림이 지워지지 않던 버그 수정.</item>
+        <item>앱 비정상 종료를 유발하던 여러 버그 수정.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>AI 통합 개선 및 더욱 스마트해진 재생목록 생성.</item>
+        <item>더 깊은 통찰력과 새로운 시각화를 제공하는 향상된 청취 통계.</item>
+        <item>모든 클라우드 제공업체에 대한 라이브러리 동기화 흐름 개선.</item>
+        <item>앨범 커버 지원을 포함한 향상된 메타데이터 편집.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>시작, 라이브러리, 대기열 및 플레이어 상호작용 전반의 성능 개선.</item>
+        <item>더욱 깔끔하고 일관된 경험을 위한 정교한 Material 3 UI.</item>
+        <item>앱 전반에 걸친 더욱 부드러운 애니메이션 및 전환.</item>
+        <item>향상된 검색 관련성 및 빠른 음악 탐색.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>더 안정적인 재생을 위해 대기열 및 셔플 동작 수정.</item>
+        <item>백그라운드 재생 및 알림 문제 해결.</item>
+        <item>일반적인 버그 수정 및 UI 다듬기.</item>
+    </string-array>
+
 </resources>

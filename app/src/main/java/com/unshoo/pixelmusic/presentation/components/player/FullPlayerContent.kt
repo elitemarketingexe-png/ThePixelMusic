@@ -1287,7 +1287,7 @@ fun FullPlayerContent(
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
-                                            text = "Play next",
+                                            text = stringResource(R.string.player_play_next),
                                             fontFamily = GoogleSansRounded,
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 12.sp,
@@ -1321,7 +1321,7 @@ fun FullPlayerContent(
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
-                                            text = "Save to playlist",
+                                            text = stringResource(R.string.player_save_to_playlist),
                                             fontFamily = GoogleSansRounded,
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 12.sp,
@@ -1355,7 +1355,7 @@ fun FullPlayerContent(
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
-                                            text = "Share",
+                                            text = stringResource(R.string.action_share),
                                             fontFamily = GoogleSansRounded,
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 12.sp,
@@ -1400,7 +1400,7 @@ fun FullPlayerContent(
                                         }
                                     }
                                     Text(
-                                        text = "Start Mix from this",
+                                        text = stringResource(R.string.player_start_mix_from_this),
                                         fontFamily = GoogleSansRounded,
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleMedium,
@@ -1443,7 +1443,7 @@ fun FullPlayerContent(
                                         }
                                     }
                                     Text(
-                                        text = "Go to album",
+                                        text = stringResource(R.string.player_go_to_album),
                                         fontFamily = GoogleSansRounded,
                                         fontWeight = FontWeight.SemiBold,
                                         style = MaterialTheme.typography.bodyLarge,
@@ -1488,7 +1488,7 @@ fun FullPlayerContent(
                                         }
                                     }
                                     Text(
-                                        text = "Go to artist",
+                                        text = stringResource(R.string.player_go_to_artist),
                                         fontFamily = GoogleSansRounded,
                                         fontWeight = FontWeight.SemiBold,
                                         style = MaterialTheme.typography.bodyLarge,
@@ -1499,9 +1499,9 @@ fun FullPlayerContent(
 
                             // Download Song
                             val downloadText = when {
-                                isDownloaded -> "Downloaded"
-                                isDownloading -> "Downloading..."
-                                else -> "Download Song"
+                                isDownloaded -> stringResource(R.string.song_info_available_offline)
+                                isDownloading -> stringResource(R.string.song_info_downloading)
+                                else -> stringResource(R.string.song_info_download_for_offline)
                             }
                             val downloadIcon = if (isDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download
                             val downloadTint = if (isDownloaded) LocalMaterialTheme.current.primary else LocalMaterialTheme.current.onSurfaceVariant
@@ -1583,7 +1583,7 @@ fun FullPlayerContent(
                                         }
                                     }
                                     Text(
-                                        text = "Clear queue",
+                                        text = stringResource(R.string.player_clear_queue),
                                         fontFamily = GoogleSansRounded,
                                         fontWeight = FontWeight.SemiBold,
                                         style = MaterialTheme.typography.bodyLarge,

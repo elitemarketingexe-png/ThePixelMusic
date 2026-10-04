@@ -76,4 +76,8 @@
     <string name="presentation_batch_b_corner_radius_label">Raio do canto</string>
     <string name="presentation_batch_b_corner_dp_format">%1$d dp</string>
     <string name="presentation_batch_b_genre_shuffle_label">%1$s Aleatório</string>
+    <plurals name="presentation_batch_b_songs_dot_duration">
+        <item quantity="one">%1$d música • %2$s</item>
+        <item quantity="other">%1$d músicas • %2$s</item>
+    </plurals>
 </resources>

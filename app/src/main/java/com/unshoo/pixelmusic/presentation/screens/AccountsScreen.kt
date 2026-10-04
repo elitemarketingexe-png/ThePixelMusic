@@ -280,7 +280,7 @@ fun AccountsScreen(
             if (nonYoutubeDisconnected.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Available Services",
+                        text = stringResource(R.string.accounts_available_services),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -299,8 +299,8 @@ fun AccountsScreen(
                                 onOpenLastfmSettings = onOpenLastfmSettings
                             )
                         },
-                        title = if (nonYoutubeConnected.isNotEmpty()) "Connect More Services" else stringResource(R.string.presentation_batch_b_accounts_no_linked_title),
-                        body = if (nonYoutubeConnected.isNotEmpty()) "Link additional services to expand your unified music library." else stringResource(R.string.presentation_batch_b_accounts_no_linked_body)
+                        title = stringResource(R.string.presentation_batch_b_accounts_no_linked_title),
+                        body = stringResource(R.string.presentation_batch_b_accounts_no_linked_body)
                     )
                 }
             }
@@ -869,36 +869,36 @@ private fun YouTubeAccountCard(
                         HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
 
                         Text(
-                            text = "Synchronization & Personalization",
+                            text = stringResource(R.string.accounts_sync_personalization),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = Color.White.copy(alpha = 0.9f)
                         )
 
                         YouTubeOptionToggleRow(
-                            title = "Sync Playlists & Liked Songs",
-                            subtitle = "Sync YouTube Music playlists and likes with your local library. (Changes in app sync to YouTube)",
+                            title = stringResource(R.string.accounts_sync_playlists_likes_title),
+                            subtitle = stringResource(R.string.accounts_sync_playlists_likes_desc),
                             checked = syncPlaylistsAndLikes,
                             onCheckedChange = onToggleSyncPlaylistsAndLikes
                         )
 
                         YouTubeOptionToggleRow(
-                            title = "Sync Listening Activity",
-                            subtitle = "Share played tracks to your YouTube Music account history.",
+                            title = stringResource(R.string.accounts_sync_listening_activity_title),
+                            subtitle = stringResource(R.string.accounts_sync_listening_activity_desc),
                             checked = syncListeningActivity,
                             onCheckedChange = onToggleSyncListeningActivity
                         )
 
                         YouTubeOptionToggleRow(
-                            title = "Personalized Explore Feed",
-                            subtitle = "When off, loads the explore page anonymously without account history.",
+                            title = stringResource(R.string.accounts_personalized_explore_title),
+                            subtitle = stringResource(R.string.accounts_personalized_explore_desc),
                             checked = personalizedExplore,
                             onCheckedChange = onTogglePersonalizedExplore
                         )
 
                         YouTubeOptionToggleRow(
-                            title = "Personalized Queue & Radios",
-                            subtitle = "When off, builds auto-play recommendations purely based on current song.",
+                            title = stringResource(R.string.accounts_personalized_queue_title),
+                            subtitle = stringResource(R.string.accounts_personalized_queue_desc),
                             checked = personalizedQueue,
                             onCheckedChange = onTogglePersonalizedQueue
                         )
@@ -929,7 +929,7 @@ private fun YouTubeAccountCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Syncing Library...",
+                            text = stringResource(R.string.accounts_syncing_library),
                             fontWeight = FontWeight.SemiBold
                         )
                     } else {
@@ -939,7 +939,7 @@ private fun YouTubeAccountCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Sync Library Now",
+                            text = stringResource(R.string.accounts_sync_library_now),
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -971,7 +971,7 @@ private fun YouTubeAccountCard(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (account.isLoggingOut) "Disconnecting..." else "Disconnect Account",
+                        text = stringResource(R.string.dash_action_disconnect),
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -993,7 +993,7 @@ private fun YouTubeAccountCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Sign in to YouTube Music",
+                        text = stringResource(R.string.accounts_sign_in_youtube),
                         fontWeight = FontWeight.SemiBold
                     )
                 }

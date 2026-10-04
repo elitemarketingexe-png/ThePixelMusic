@@ -470,14 +470,14 @@ private fun SocialLinksColumn() {
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Donate for Support",
+                        text = stringResource(R.string.about_donate_support_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                         maxLines = 1,
                     )
                     Text(
-                        text = "UPI (India) & Ko-fi (Global)",
+                        text = stringResource(R.string.about_donate_support_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.75f),
                         maxLines = 1,
@@ -1179,14 +1179,14 @@ private fun PrivacyPolicyCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Privacy Policy",
+                    text = stringResource(R.string.about_privacy_policy_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
                 Text(
-                    text = "Read our privacy commitment",
+                    text = stringResource(R.string.about_privacy_policy_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -1359,7 +1359,7 @@ private fun PrivacyPolicyDialog(
                     contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
                     Text(
-                        text = "I Understand",
+                        text = stringResource(R.string.about_i_understand),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                     )

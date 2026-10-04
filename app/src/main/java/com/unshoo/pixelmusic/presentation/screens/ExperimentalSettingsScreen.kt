@@ -323,8 +323,8 @@ fun ExperimentalSettingsScreen(
 
 
                             SwitchSettingItem(
-                                title = "Floating Pill Header Bar",
-                                subtitle = "Enable floating capsule-style headers with top edge blur fade",
+                                title = stringResource(R.string.exp_floating_header_title),
+                                subtitle = stringResource(R.string.exp_floating_header_desc),
                                 checked = uiState.floatingHeaderBarEnabled,
                                 onCheckedChange = settingsViewModel::setFloatingHeaderBarEnabled,
                                 leadingIcon = {
@@ -811,7 +811,7 @@ fun ExperimentalSettingsScreen(
 
             item(key = "explore_experiments_section") {
                 SettingsSection(
-                    title = "Explore & Discovery",
+                    title = stringResource(R.string.tab_explore),
                     icon = {
                         Icon(
                             imageVector = Icons.Rounded.ViewCarousel,
@@ -830,8 +830,8 @@ fun ExperimentalSettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             SwitchSettingItem(
-                                title = "Advanced Explore Page",
-                                subtitle = "Fetch multiple continuous batches of personalized recommendations, mixes, and artist feeds from YouTube Music homepage",
+                                title = stringResource(R.string.exp_advanced_explore_title),
+                                subtitle = stringResource(R.string.exp_advanced_explore_desc),
                                 checked = uiState.advancedExplorePage,
                                 onCheckedChange = settingsViewModel::setAdvancedExplorePage,
                                 leadingIcon = {

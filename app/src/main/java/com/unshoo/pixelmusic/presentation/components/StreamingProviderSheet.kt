@@ -101,7 +101,7 @@ fun StreamingProviderSheet(
                         iconPainter = painterResource(R.drawable.ic_youtube_music),
                         iconTint = Color(0xFFFF0000),
                         title = "YouTube Music",
-                        subtitle = "Stream and import playlists",
+                        subtitle = stringResource(R.string.provider_yt_music_subtitle),
                         shape = providerSegmentItemShape,
                         onClick = {
                             onNavigateToYoutubeAuth()
@@ -113,7 +113,7 @@ fun StreamingProviderSheet(
                         iconPainter = painterResource(R.drawable.telegram),
                         iconTint = Color(0xFF2AABEE),
                         title = "Telegram",
-                        subtitle = "Stream from channels & chats",
+                        subtitle = stringResource(R.string.provider_telegram_subtitle),
                         shape = providerSegmentItemShape,
                         onClick = {
                             context.startActivity(Intent(context, TelegramLoginActivity::class.java))
@@ -125,7 +125,7 @@ fun StreamingProviderSheet(
                         iconPainter = painterResource(R.drawable.rounded_drive_export_24),
                         iconTint = Color(0xFF4285F4),
                         title = "Google Drive",
-                        subtitle = "Coming soon",
+                        subtitle = stringResource(R.string.provider_coming_soon),
                         shape = providerSegmentItemShape,
                         enabled = false,
                         onClick = { }

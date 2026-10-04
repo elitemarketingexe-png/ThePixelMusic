@@ -102,4 +102,37 @@
     <string name="presentation_batch_e_daily_mix_cost_hint">Usamos uma pequena amostra para manter os custos baixos</string>
     <string name="presentation_batch_e_daily_mix_updating">Atualizando…</string>
     <string name="presentation_batch_e_daily_mix_update">Atualizar mix diário</string>
+    <string-array name="presentation_batch_e_ai_mood_options">
+        <item>Descontraído</item>
+        <item>Energético</item>
+        <item>Feliz</item>
+        <item>Sombrio</item>
+        <item>Romântico</item>
+        <item>Melancólico</item>
+    </string-array>
+    <string-array name="presentation_batch_e_ai_activity_options">
+        <item>Treino</item>
+        <item>Foco</item>
+        <item>Viagem</item>
+        <item>Festa</item>
+        <item>Estudo</item>
+        <item>Madrugada</item>
+    </string-array>
+    <string-array name="presentation_batch_e_ai_era_options">
+        <item>@string/presentation_batch_e_ai_era_any</item>
+        <item>Anos 70</item>
+        <item>Anos 80</item>
+        <item>Anos 90</item>
+        <item>Anos 2000</item>
+        <item>Anos 2010</item>
+        <item>Anos 2020</item>
+    </string-array>
+    <plurals name="presentation_batch_e_queue_tracks_lined_up">
+        <item quantity="one">%d faixa na fila</item>
+        <item quantity="other">%d faixas na fila</item>
+    </plurals>
+    <plurals name="presentation_batch_e_n_songs_selected">
+        <item quantity="one">%d música selecionada</item>
+        <item quantity="other">%d músicas selecionadas</item>
+    </plurals>
 </resources>

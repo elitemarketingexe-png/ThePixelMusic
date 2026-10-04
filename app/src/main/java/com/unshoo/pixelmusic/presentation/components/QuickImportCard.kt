@@ -8,6 +8,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -145,14 +146,14 @@ fun QuickImportCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Quick Import",
+                        text = stringResource(R.string.quick_import_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         fontFamily = GoogleSansRounded,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Sync playlists & songs instantly",
+                        text = stringResource(R.string.quick_import_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

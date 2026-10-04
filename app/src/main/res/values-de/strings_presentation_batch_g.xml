@@ -569,4 +569,22 @@
     <string name="presentation_batch_g_beta05_clean_install_body">•</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_title">Entdecken, aktualisieren</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">Genießen Sie das elegante neue Material 3 Expressive-Layout auf der Registerkarte „Erkunden“!</string>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>Verbesserungen der KI-Integration und intelligentere Playlist-Erstellung.</item>
+        <item>Erweiterte Hörstatistiken mit tieferen Einblicken und neuen Visualisierungen.</item>
+        <item>Verbesserter Bibliothekssynchronisierungsablauf über alle Cloud-Anbieter hinweg.</item>
+        <item>Bessere Bearbeitung von Metadaten mit Unterstützung von Albumcovern.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>Leistungsverbesserungen bei Start, Bibliothek, Warteschlange und Player-Interaktionen.</item>
+        <item>Verfeinerte Material 3-Benutzeroberfläche für ein saubereres und einheitlicheres Erlebnis.</item>
+        <item>Flüssigere Animationen und Übergänge in der gesamten App.</item>
+        <item>Bessere Suchrelevanz und schnelleres Entdecken von Titeln.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>Warteschlangen- und Shuffle-Verhalten für eine stabilere Wiedergabe behoben.</item>
+        <item>Probleme bei der Hintergrundwiedergabe und bei Benachrichtigungen behoben.</item>
+        <item>Allgemeine Fehlerbehebungen und UI-Feinschliff.</item>
+    </string-array>
+
 </resources>

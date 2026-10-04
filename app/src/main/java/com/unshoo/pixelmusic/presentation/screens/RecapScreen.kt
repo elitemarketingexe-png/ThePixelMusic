@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +49,7 @@ import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.presentation.components.SmartImage
 import com.unshoo.pixelmusic.presentation.utils.rememberDominantCardColor
 import com.unshoo.pixelmusic.presentation.navigation.Screen
@@ -145,10 +147,10 @@ fun RecapScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Failed to calculate Recap stats", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.recap_failed_to_calculate), fontWeight = FontWeight.Bold)
                     Text(state.error ?: "Unknown error", style = MaterialTheme.typography.bodySmall)
                     Button(onClick = { recapViewModel.selectPeriod(state.selectedPeriod) }) {
-                        Text("Retry")
+                        Text(stringResource(R.string.library_retry))
                     }
                 }
             }
@@ -173,13 +175,13 @@ fun RecapScreen(
                         tint = colors.primary
                     )
                     Text(
-                        text = "Your Recap is Building!",
+                        text = stringResource(R.string.recap_is_building_title),
                         style = MaterialTheme.typography.titleLarge.copy(fontFamily = GoogleSansRounded),
                         fontWeight = FontWeight.Bold,
                         color = colors.onSurface
                     )
                     Text(
-                        text = "Listen to a few more tracks and playlists to unlock your personalized listening habits, top charts, and music persona.",
+                        text = stringResource(R.string.recap_is_building_desc),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.onSurfaceVariant
@@ -190,7 +192,7 @@ fun RecapScreen(
                         shape = RoundedCornerShape(24.dp)
                     ) {
                         Text(
-                            text = "🎧 Explore Music Now",
+                            text = stringResource(R.string.recap_explore_music_now),
                             fontWeight = FontWeight.Bold,
                             fontFamily = GoogleSansRounded
                         )
@@ -245,13 +247,13 @@ private fun OverviewCard(state: RecapUiState) {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = "Your Listening in Numbers",
+                text = stringResource(R.string.recap_listening_in_numbers),
                 style = MaterialTheme.typography.headlineMedium.copy(fontFamily = GoogleSansRounded),
                 fontWeight = FontWeight.Bold,
                 color = colors.onSurface
             )
             Text(
-                text = "Summary of your musical journeys.",
+                text = stringResource(R.string.recap_summary_journeys),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.onSurfaceVariant
             )
@@ -267,7 +269,7 @@ private fun OverviewCard(state: RecapUiState) {
                     .background(colors.surfaceContainerHigh.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
-                Text("Listening Time", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                Text(stringResource(R.string.recap_listening_time), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "${state.totalListeningMinutes} mins",
@@ -282,7 +284,7 @@ private fun OverviewCard(state: RecapUiState) {
                     .background(colors.surfaceContainerHigh.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
-                Text("Discovered Artists", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                Text(stringResource(R.string.recap_discovered_artists), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "${state.totalUniqueArtists}",
@@ -398,7 +400,7 @@ private fun TopTracksCard(
         ) {
             Icon(Icons.Rounded.PlayArrow, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Play Top Tracks Now", fontWeight = FontWeight.Bold, fontFamily = GoogleSansRounded)
+            Text(stringResource(R.string.recap_play_top_tracks_now), fontWeight = FontWeight.Bold, fontFamily = GoogleSansRounded)
         }
     }
 }
@@ -678,7 +680,7 @@ private fun ShareCard(state: RecapUiState, recapViewModel: RecapViewModel, rootV
             ) {
                 Icon(Icons.Rounded.Save, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Save Playlist", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.recap_save_playlist), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
 
             Button(
@@ -698,7 +700,7 @@ private fun ShareCard(state: RecapUiState, recapViewModel: RecapViewModel, rootV
             ) {
                 Icon(Icons.Rounded.Share, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Share Recap", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.recap_share_recap), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

@@ -209,4 +209,12 @@ sua biblioteca de música</string>
     <string name="presentation_batch_f_search_channel_body">Digite um nome de usuário de canal público ou link
 para sincronizar seus arquivos de áudio</string>
     <string name="presentation_batch_f_done">Feito</string>
+    <plurals name="presentation_batch_f_n_songs">
+        <item quantity="one">%d música</item>
+        <item quantity="other">%d músicas</item>
+    </plurals>
+    <plurals name="presentation_batch_f_n_topics">
+        <item quantity="one">%d tópico</item>
+        <item quantity="other">%d tópicos</item>
+    </plurals>
 </resources>

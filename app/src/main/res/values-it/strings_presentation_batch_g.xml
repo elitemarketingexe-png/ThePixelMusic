@@ -573,4 +573,22 @@ La barra rovesciata (\) può essere usata per sfuggire ai delimitatori carattere
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">Goditi il ​​nuovo ed elegante layout Material 3 Expressive nella scheda Esplora!</string>
     <string name="presentation_batch_g_cast_nearby_title">Dispositivi nelle vicinanze</string>
     <string name="presentation_batch_g_cast_nearby_desc">Necessario per rilevare e controllare i dispositivi audio Bluetooth collegati.</string>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>Miglioramenti nell\'integrazione dell\'IA e generazione più intelligente delle playlist.</item>
+        <item>Statistiche di ascolto avanzate con approfondimenti più dettagliati e nuove visualizzazioni.</item>
+        <item>Flusso di sincronizzazione della libreria migliorato su tutti i provider cloud.</item>
+        <item>Migliore modifica dei metadati con supporto per le copertine degli album.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>Miglioramenti delle prestazioni all\'avvio, nella libreria, nella coda e nel lettore.</item>
+        <item>Interfaccia Material 3 perfezionata per un\'esperienza più pulita e coerente.</item>
+        <item>Animazioni e transizioni più fluide in tutta l\'app.</item>
+        <item>Migliore pertinenza della ricerca e scoperta più rapida.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>Comportamento della coda e della riproduzione casuale corretto per una riproduzione più stabile.</item>
+        <item>Risolti i problemi di riproduzione in background e delle notifiche.</item>
+        <item>Correzioni generali di bug e rifiniture dell\'interfaccia.</item>
+    </string-array>
+
 </resources>

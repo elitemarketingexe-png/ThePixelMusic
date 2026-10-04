@@ -489,4 +489,107 @@
     <string name="presentation_batch_g_beta05_if_wrong_meta_title">探索刷新</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">在“探索”选项卡中享受时尚的全新 Material 3 Expressive 布局！</string>
     <string name="presentation_batch_g_changelog_sec_whats_new">什么是新的</string>
+    <string-array name="presentation_batch_g_changelog_060_whats_new">
+        <item>支持 Android Auto 进行车载播放。</item>
+        <item>Wear OS 支持上线，带来更出色的手表到手机播放控制。</item>
+        <item>拓展云集成，改进了 Telegram、网易云音乐、QQ 音乐和 Google 云端硬盘。</item>
+        <item>“最近播放”和持久化队列恢复功能让您的听歌体验无缝衔接。</item>
+        <item>现已包含备份与恢复 v3 以及账户管理工具。</item>
+        <item>歌词功能更加智能，支持手动搜索后备与存储改进。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_improvements">
+        <item>针对启动、媒体库、队列和播放器交互进行了深度性能优化。</item>
+        <item>播放器、投播、歌词、艺术家和流派界面全新改版，操作更流畅。</item>
+        <item>导航和搜索流程更加可靠，路由处理更安全。</item>
+        <item>提高了更多设备和格式的音频播放兼容性。</item>
+        <item>拓展了歌曲、专辑和播放列表的多选操作体验。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_060_fixes">
+        <item>队列和随机播放行为更加稳定可控。</item>
+        <item>修复了部分后台播放和投播的极端异常问题。</item>
+        <item>修复了睡眠定时器、文件标签页导航及专辑艺术家崩溃问题。</item>
+        <item>改进了微件加载和服务稳定性，降低过热和内存占用。</item>
+        <item>通用错误修复及 UI 细节打磨。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_highlights">
+        <item>Material 3 Expressive UI 全新更新</item>
+        <item>10 段均衡器与音效</item>
+        <item>全新媒体库同步流程</item>
+        <item>AI 集成（Gemini 模型）</item>
+        <item>M3U 播放列表导入与导出</item>
+        <item>Deezer 艺术家封面集成</item>
+        <item>自定义播放列表封面</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_improvements">
+        <item>设置架构重构</item>
+        <item>队列和播放器过渡动画</item>
+        <item>Baseline Profiles 与性能优化</item>
+        <item>更完善的歌词系统及同步时间偏移调整</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_050_fixes">
+        <item>投播稳定性改进</item>
+        <item>播放器底部浮层稳定性</item>
+        <item>常规问题修复与代码清理</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_040_highlights">
+        <item>重大导航重构</item>
+        <item>用于选择来源目录的全新文件浏览器</item>
+        <item>全新连接与投播功能</item>
+        <item>远程设备之间的无缝连续性</item>
+        <item>歌曲之间的无缝切换 (Gapless)</item>
+        <item>交叉淡入淡出 (Crossfade) 控制</item>
+        <item>全新自定义过渡效果（仅限播放列表）</item>
+        <item>应用关闭后继续在后台播放</item>
+        <item>UI 深度优化</item>
+        <item>改进统计功能</item>
+        <item>重新设计的队列控制，提供更多功能</item>
+        <item>改进了多种文件类型的播放与元数据编辑支持</item>
+        <item>改进权限控制器</item>
+        <item>细微错误修复</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_whats_new">
+        <item>引入了更丰富的听歌统计中心，提供更深入的收听洞察。</item>
+        <item>推出了浮动快捷播放器，可即时打开并预览本地文件。</item>
+        <item>添加了带有树状导航器和播放列表式视图的文件夹标签页。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_improvements">
+        <item>优化整体 Material 3 UI，带来更干净、更统一的视觉体验。</item>
+        <item>元数据编辑现已支持更改封面图片。</item>
+        <item>优化了全应用的动画和过渡效果，导航更加流畅。</item>
+        <item>增强了艺术家界面布局，细节更加精致。</item>
+        <item>升级 DailyMix 和 YourMix 生成算法，精选内容更加多样化。</item>
+        <item>强化了 AI 播放列表生成功能。</item>
+        <item>提高了搜索相关性与展示效果，发现音乐更迅速。</item>
+        <item>扩展了对更多音频文件格式的支持。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_030_fixes">
+        <item>修复了元数据异常，确保各处的歌曲详情保持准确。</item>
+        <item>恢复了通知快捷方式，可稳定跳转回到播放界面。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_added">
+        <item>Chromecast 支持，可从设备投播音频。</item>
+        <item>应用内更新日志，随时了解最新功能。</item>
+        <item>支持 .LRC 文件（包括内嵌与外部文件）。</item>
+        <item>离线歌词支持。</item>
+        <item>同步滚动歌词（与歌曲时间对齐）。</item>
+        <item>查看完整队列的新界面。</item>
+        <item>重新排序与从队列中移除歌曲。</item>
+        <item>迷你播放器手势（下滑关闭）。</item>
+        <item>添加了更多 Material 动画。</item>
+        <item>用于自定义外观的新设置。</item>
+        <item>用于清理缓存的新设置。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_changed">
+        <item>用户界面全面重新设计。</item>
+        <item>播放器全新重构。</item>
+        <item>媒体库性能提升。</item>
+        <item>应用启动速度提升。</item>
+        <item>AI 现可提供更优质的结果。</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_020_fixed">
+        <item>修复了标签编辑器中的多处错误。</item>
+        <item>修复了播放通知未清除的错误。</item>
+        <item>修复了导致应用崩溃的若干错误。</item>
+    </string-array>
+
 </resources>

@@ -482,7 +482,7 @@ fun SettingsCategoryScreen(
                ) {
                      when (category) {
                         SettingsCategory.CONTENT -> {
-                            SettingsSubsection(title = "Content Customization") {
+                            SettingsSubsection(title = stringResource(R.string.settings_content_customization_section)) {
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.settings_content_language_title),
                                     description = stringResource(R.string.settings_content_language_desc),
@@ -534,8 +534,8 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(Icons.Outlined.VideoLibrary, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "Hide cover and lo-fi tracks",
-                                    subtitle = "Automatically hide cover songs and lo-fi tracks from Explore feed recommendations and playback queues.",
+                                    title = stringResource(R.string.settings_filter_cover_lofi_title),
+                                    subtitle = stringResource(R.string.settings_filter_cover_lofi_desc),
                                     checked = uiState.filterCoverAndLofi,
                                     onCheckedChange = { settingsViewModel.setFilterCoverAndLofi(it) },
                                     leadingIcon = { Icon(Icons.Outlined.FilterAlt, null, tint = MaterialTheme.colorScheme.secondary) }
@@ -609,15 +609,15 @@ fun SettingsCategoryScreen(
                                     onClick = { navController.navigateSafely(Screen.ArtistSettings.route) }
                                 )
                                 SettingsItem(
-                                    title = "Download Directory",
-                                    subtitle = "Configure storage location for downloaded songs",
+                                    title = stringResource(R.string.settings_download_directory_title),
+                                    subtitle = stringResource(R.string.settings_download_directory_desc),
                                     leadingIcon = { Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { downloadDirPickerLauncher.launch(null) }
                                 )
                                 ThemeSelectorItem(
-                                    label = "Download Audio Quality",
-                                    description = "Quality for downloaded songs",
+                                    label = stringResource(R.string.settings_download_audio_quality_title),
+                                    description = stringResource(R.string.settings_download_audio_quality_desc),
                                     options = buildMap {
                                         if (uiState.isLosslessAvailable) put(com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX.name, com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX.label)
                                         put(com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.HIGH.name, com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.HIGH.label)
@@ -820,8 +820,8 @@ fun SettingsCategoryScreen(
                                 }
                                 if (isDarkActive) {
                                     SwitchSettingItem(
-                                        title = "Pitch Black",
-                                        subtitle = "Pure black theme to save battery on OLED screens",
+                                        title = stringResource(R.string.settings_pitch_black_title),
+                                        subtitle = stringResource(R.string.settings_pitch_black_desc),
                                         checked = uiState.pitchBlackEnabled,
                                         onCheckedChange = { settingsViewModel.setPitchBlackEnabled(it) },
                                         leadingIcon = { Icon(Icons.Rounded.DarkMode, null, tint = MaterialTheme.colorScheme.secondary) }
@@ -993,12 +993,12 @@ fun SettingsCategoryScreen(
                                 val jpPercent = (jpDownloadState as? com.unshoo.pixelmusic.utils.JapaneseDictionaryManager.DownloadState.Downloading)?.progressPercent ?: 0
 
                                 ActionSettingsItem(
-                                    title = "Japanese Kanji Dictionary",
+                                    title = stringResource(R.string.settings_kanji_dict_title),
                                     subtitle = when (jpDownloadState) {
                                         is com.unshoo.pixelmusic.utils.JapaneseDictionaryManager.DownloadState.Installed -> "Installed (~13 MB) • High accuracy offline Kanji parsing active"
                                         is com.unshoo.pixelmusic.utils.JapaneseDictionaryManager.DownloadState.Downloading -> "Downloading dictionary: $jpPercent%"
                                         is com.unshoo.pixelmusic.utils.JapaneseDictionaryManager.DownloadState.Error -> "Download failed: ${(jpDownloadState as com.unshoo.pixelmusic.utils.JapaneseDictionaryManager.DownloadState.Error).message}"
-                                        else -> "Built-in 0-MB Kana transliteration active. Download full Kanji dictionary on-demand (~13 MB)"
+                                        else -> stringResource(R.string.settings_kanji_dict_default_desc)
                                     },
                                     icon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) },
                                     primaryActionLabel = when {
@@ -1054,17 +1054,17 @@ fun SettingsCategoryScreen(
                                 )
                             }
 
-                            SettingsSubsection(title = "Performance & Battery") {
+                            SettingsSubsection(title = stringResource(R.string.settings_perf_battery_section)) {
                                 SwitchSettingItem(
-                                    title = "Performance Mode (Low-End & Battery Saver)",
-                                    subtitle = "Optimizes animations, blurs, and downsamples images to keep the app smooth and light on budget devices.",
+                                    title = stringResource(R.string.settings_perf_mode_title),
+                                    subtitle = stringResource(R.string.settings_perf_mode_desc),
                                     checked = uiState.performanceModeEnabled,
                                     onCheckedChange = { settingsViewModel.setPerformanceModeEnabled(it) },
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "Hardware Audio Offload",
-                                    subtitle = "Delegates audio decoding to hardware DSP to allow the CPU to sleep during playback, saving battery.",
+                                    title = stringResource(R.string.settings_hardware_audio_offload_title),
+                                    subtitle = stringResource(R.string.settings_hardware_audio_offload_desc),
                                     checked = uiState.audioOffloadEnabled,
                                     onCheckedChange = { settingsViewModel.setAudioOffloadEnabled(it) },
                                     leadingIcon = { Icon(Icons.Outlined.BatteryChargingFull, null, tint = MaterialTheme.colorScheme.secondary) }
@@ -1293,22 +1293,22 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "JioSaavn HQ Streaming",
-                                    subtitle = "Stream high-quality audio (up to 320 kbps AAC) powered by JioSaavn. When off, playback strictly uses Lossless sources and fast YouTube Opus streams, while downloads continue to use JioSaavn at your configured quality.",
+                                    title = stringResource(R.string.settings_saavn_hq_title),
+                                    subtitle = stringResource(R.string.settings_saavn_hq_desc),
                                     checked = uiState.enableSaavnStreaming,
                                     onCheckedChange = { settingsViewModel.setEnableSaavnStreaming(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "Cache liked songs manually",
-                                    subtitle = "When you like a YouTube song, download it for offline use. Off by default to prevent unexpected downloads.",
+                                    title = stringResource(R.string.settings_cache_liked_songs_title),
+                                    subtitle = stringResource(R.string.settings_cache_liked_songs_desc),
                                     checked = uiState.cacheLikedSongsOffline,
                                     onCheckedChange = { settingsViewModel.setCacheLikedSongsOffline(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.round_favorite_border_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "Cache most played songs",
-                                    subtitle = "Automatically download YouTube songs after repeated plays. Keep off if you do not want automatic downloads.",
+                                    title = stringResource(R.string.settings_cache_most_played_title),
+                                    subtitle = stringResource(R.string.settings_cache_most_played_desc),
                                     checked = uiState.cacheMostPlayedSongsOffline,
                                     onCheckedChange = { settingsViewModel.setCacheMostPlayedSongsOffline(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_auto_delete_24), null, tint = MaterialTheme.colorScheme.secondary) }
@@ -1328,10 +1328,10 @@ fun SettingsCategoryScreen(
                                 )
                             }
 
-                            SettingsSubsection(title = "Recommendations & YouTube Content") {
+                            SettingsSubsection(title = stringResource(R.string.settings_recommendations_section)) {
                                 SwitchSettingItem(
-                                    title = "Pure YouTube Music",
-                                    subtitle = "Filter out non-music video content and show only audio songs.",
+                                    title = stringResource(R.string.settings_pure_yt_music_title),
+                                    subtitle = stringResource(R.string.settings_pure_yt_music_desc),
                                     checked = uiState.pureYtMusicOnly,
                                     onCheckedChange = { settingsViewModel.setPureYtMusicOnly(it) },
                                     leadingIcon = { Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.secondary) }
@@ -1340,11 +1340,11 @@ fun SettingsCategoryScreen(
                         }
                         SettingsCategory.BEHAVIOR -> {
                             SettingsSubsection(
-                                title = "YouTube Link Integration"
+                                title = stringResource(R.string.settings_yt_link_integration_section)
                             ) {
                                 ActionSettingsItem(
-                                    title = "YouTube Link Intercept",
-                                    subtitle = "Configure Android System settings to allow Pixel Music to automatically open music.youtube.com links.",
+                                    title = stringResource(R.string.settings_yt_link_intercept_title),
+                                    subtitle = stringResource(R.string.settings_yt_link_intercept_desc),
                                     icon = {
                                         Icon(
                                             painterResource(R.drawable.rounded_touch_app_24),
@@ -1352,7 +1352,7 @@ fun SettingsCategoryScreen(
                                             tint = MaterialTheme.colorScheme.secondary
                                         )
                                     },
-                                    primaryActionLabel = "Open System Settings",
+                                    primaryActionLabel = stringResource(R.string.settings_open_system_settings),
                                     onPrimaryAction = {
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                             try {
@@ -1689,10 +1689,10 @@ fun SettingsCategoryScreen(
                             }
                         }
                         SettingsCategory.DEVELOPER -> {
-                            SettingsSubsection(title = "Lossless Audio Sources (ArchiveTune)") {
+                            SettingsSubsection(title = stringResource(R.string.settings_lossless_audio_sources_title)) {
                                 SettingsItem(
-                                    title = "Lossless Streaming Sources",
-                                    subtitle = "Tidal, Qobuz, Deezer, Apple Music via Archive pool & accounts",
+                                    title = stringResource(R.string.settings_lossless_streaming_sources_title),
+                                    subtitle = stringResource(R.string.settings_lossless_streaming_sources_desc),
                                     leadingIcon = { Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.primary) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = {
@@ -1822,7 +1822,7 @@ fun SettingsCategoryScreen(
                                 )
                             }
 
-                            SettingsSubsection(title = "Options") {
+                            SettingsSubsection(title = stringResource(R.string.settings_options_section)) {
                                 SwitchSettingItem(
                                     title = stringResource(R.string.lastfm_enable_scrobbling),
                                     subtitle = stringResource(R.string.lastfm_enable_scrobbling_desc),
@@ -1850,8 +1850,8 @@ fun SettingsCategoryScreen(
                                     }
                                 )
                                 SwitchSettingItem(
-                                    title = "Explore recommendations with Last.fm",
-                                    subtitle = "Use your Last.fm listening history, top albums, and friends to personalize the Explore page.",
+                                    title = stringResource(R.string.settings_explore_lastfm_title),
+                                    subtitle = stringResource(R.string.settings_explore_lastfm_desc),
                                     checked = uiState.exploreLastFmEnabled,
                                     onCheckedChange = { settingsViewModel.setExploreLastFmEnabled(it) },
                                     leadingIcon = { 
@@ -1864,31 +1864,31 @@ fun SettingsCategoryScreen(
                                 )
                             }
 
-                            SettingsSubsection(title = "Smart Mix Playlists") {
+                            SettingsSubsection(title = stringResource(R.string.settings_smart_mix_playlists_section)) {
                                 SwitchSettingItem(
-                                    title = "Last.fm Smart Mix",
-                                    subtitle = "Generate mixes from songs using Last.fm recommendations (\"Start Mix from this\"). When off, standard YouTube Music mix is used.",
+                                    title = stringResource(R.string.settings_lastfm_smart_mix_title),
+                                    subtitle = stringResource(R.string.settings_lastfm_smart_mix_desc),
                                     checked = uiState.lastfmSmartMixEnabled,
                                     onCheckedChange = { settingsViewModel.setLastfmSmartMixEnabled(it) },
                                     leadingIcon = { Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "Show Smart Mix playlists in Library",
-                                    subtitle = "Display or hide Last.fm/AI-generated Smart Mix playlists on the Library playlists page.",
+                                    title = stringResource(R.string.settings_show_smart_mix_in_library_title),
+                                    subtitle = stringResource(R.string.settings_show_smart_mix_in_library_desc),
                                     checked = uiState.showSmartMixPlaylists,
                                     onCheckedChange = { settingsViewModel.setShowSmartMixPlaylists(it) },
                                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.QueueMusic, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = "Sync local playlists to YouTube Music",
-                                    subtitle = "When off, PixelMusic imports YouTube Music playlists but will not create or modify playlists on YouTube Music.",
+                                    title = stringResource(R.string.settings_sync_local_playlists_yt_title),
+                                    subtitle = stringResource(R.string.settings_sync_local_playlists_yt_desc),
                                     checked = uiState.youtubePlaylistUploadSyncEnabled,
                                     onCheckedChange = { settingsViewModel.setYoutubePlaylistUploadSyncEnabled(it) },
                                     leadingIcon = { Icon(Icons.Outlined.Public, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 ThemeSelectorItem(
-                                    label = "Generated Playlists Retention",
-                                    description = "Choose how long to keep generated Last.fm mix playlists in your library.",
+                                    label = stringResource(R.string.settings_generated_retention_label),
+                                    description = stringResource(R.string.settings_generated_retention_desc),
                                     options = mapOf(
                                         "permanent" to "Permanently Store",
                                         "24_hours" to "Delete after 24 hours",

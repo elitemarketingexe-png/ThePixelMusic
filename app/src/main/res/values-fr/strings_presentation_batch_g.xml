@@ -569,4 +569,22 @@
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">Profitez de la nouvelle disposition élégante de Material 3 Expressive dans l\'onglet Explorer !</string>
     <string name="presentation_batch_g_cast_nearby_title">Appareils à proximité</string>
     <string name="presentation_batch_g_cast_nearby_desc">Nécessaire pour détecter et contrôler les appareils audio Bluetooth connectés.</string>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>Améliorations de l\'intégration de l\'IA et génération de listes de lecture plus intelligente.</item>
+        <item>Statistiques d\'écoute enrichies avec des aperçus plus approfondis et de nouvelles visualisations.</item>
+        <item>Flux de synchronisation de la bibliothèque amélioré pour tous les fournisseurs cloud.</item>
+        <item>Meilleure édition des métadonnées avec prise en charge des pochettes d\'album.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>Gains de performances au démarrage, dans la bibliothèque, la file d\'attente et le lecteur.</item>
+        <item>Interface Material 3 affinée pour une expérience plus épurée et cohérente.</item>
+        <item>Animations et transitions plus fluides dans toute l\'application.</item>
+        <item>Pertinence de recherche accrue et découverte plus rapide.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>Comportement de la file d\'attente et de la lecture aléatoire corrigé pour une meilleure stabilité.</item>
+        <item>Résolution des problèmes de lecture en arrière-plan et de notifications.</item>
+        <item>Corrections de bugs généraux et finitions de l\'interface.</item>
+    </string-array>
+
 </resources>

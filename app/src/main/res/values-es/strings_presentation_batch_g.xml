@@ -574,4 +574,22 @@ Backslash (\) can be used to escape character delimiters.</string>
     <string name="presentation_batch_g_beta05_if_wrong_meta_body">¡Disfruta del nuevo y elegante diseño Material 3 Expressive en la pestaña Explorar!</string>
     <string name="presentation_batch_g_cast_nearby_title">Dispositivos cercanos</string>
     <string name="presentation_batch_g_cast_nearby_desc">Requerido para detectar y controlar dispositivos de audio Bluetooth conectados.</string>
+    <string-array name="presentation_batch_g_changelog_070_highlights">
+        <item>Mejoras en la integración de IA y generación de listas de reproducción más inteligente.</item>
+        <item>Estadísticas de escucha mejoradas con información más detallada y nuevas visualizaciones.</item>
+        <item>Flujo de sincronización de biblioteca mejorado en todos los proveedores en la nube.</item>
+        <item>Mejor edición de metadatos con soporte para carátulas de álbumes.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_improvements">
+        <item>Mejoras de rendimiento en el inicio, biblioteca, cola e interacciones del reproductor.</item>
+        <item>Interfaz Material 3 refinada para una experiencia más limpia y cohesiva.</item>
+        <item>Animaciones y transiciones más fluidas en toda la aplicación.</item>
+        <item>Mejor relevancia de búsqueda y descubrimiento más rápido.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_070_fixes">
+        <item>Comportamiento de cola y reproducción aleatoria corregido para una reproducción más estable.</item>
+        <item>Problemas resueltos con la reproducción en segundo plano y las notificaciones.</item>
+        <item>Corrección general de errores y mejoras visuales.</item>
+    </string-array>
+
 </resources>

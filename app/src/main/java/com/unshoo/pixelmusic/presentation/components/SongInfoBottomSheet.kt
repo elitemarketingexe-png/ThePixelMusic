@@ -468,12 +468,12 @@ fun SongInfoBottomSheet(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Rounded.Shuffle,
-                                                    contentDescription = "Start Mix from this",
+                                                    contentDescription = stringResource(R.string.player_start_mix_from_this),
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                                 Spacer(Modifier.width(12.dp))
                                                 Text(
-                                                    text = "Start Mix from this",
+                                                    text = stringResource(R.string.player_start_mix_from_this),
                                                     fontFamily = GoogleSansRounded,
                                                     fontWeight = FontWeight.Bold
                                                 )
@@ -748,23 +748,23 @@ fun SongInfoBottomSheet(
                                                         isDownloaded -> {
                                                             Icon(
                                                                 imageVector = Icons.Rounded.CheckCircle,
-                                                                contentDescription = "Available Offline"
+                                                                contentDescription = stringResource(R.string.song_info_available_offline)
                                                             )
                                                             Spacer(Modifier.width(8.dp))
-                                                            Text("Available Offline")
+                                                            Text(stringResource(R.string.song_info_available_offline))
                                                         }
                                                         isDownloading -> {
                                                             LoadingIndicator(modifier = Modifier.size(18.dp))
                                                             Spacer(Modifier.width(10.dp))
-                                                            Text("Downloading...")
+                                                            Text(stringResource(R.string.song_info_downloading))
                                                         }
                                                         else -> {
                                                             Icon(
                                                                 imageVector = Icons.Rounded.Download,
-                                                                contentDescription = "Download for Offline"
+                                                                contentDescription = stringResource(R.string.song_info_download_for_offline)
                                                             )
                                                             Spacer(Modifier.width(8.dp))
-                                                            Text("Download for Offline")
+                                                            Text(stringResource(R.string.song_info_download_for_offline))
                                                         }
                                                     }
                                                 }

@@ -2314,8 +2314,8 @@ fun NavBarLayoutPage(
         ) {
             // Material 3 Expressive Floating Pill Card
             NavBarStyleOptionCard(
-                title = "Material 3 Floating Pill",
-                subtitle = "Expressive pill capsule with active item indicators & dynamic animations",
+                title = stringResource(R.string.setup_nav_floating_pill_m3_title),
+                subtitle = stringResource(R.string.setup_nav_floating_pill_m3_desc),
                 icon = Icons.Rounded.AutoAwesome,
                 isSelected = currentStyle == NavBarStyle.FLOATING_PILL,
                 onClick = { onModeSelected(NavBarStyle.FLOATING_PILL) }
@@ -2323,8 +2323,8 @@ fun NavBarLayoutPage(
 
             // Default Floating Pill Card
             NavBarStyleOptionCard(
-                title = "Floating Pill Bar",
-                subtitle = "Clean floating capsule with smooth animations & corner customization",
+                title = stringResource(R.string.setup_nav_floating_pill_bar_title),
+                subtitle = stringResource(R.string.setup_nav_floating_pill_bar_desc),
                 icon = Icons.Rounded.Navigation,
                 isSelected = currentStyle == NavBarStyle.DEFAULT,
                 onClick = { onModeSelected(NavBarStyle.DEFAULT) }
@@ -2332,8 +2332,8 @@ fun NavBarLayoutPage(
 
             // Full Width Card
             NavBarStyleOptionCard(
-                title = "Full Width Bar",
-                subtitle = "Classic edge-to-edge navigation bar across the bottom",
+                title = stringResource(R.string.setup_nav_full_width_bar_title),
+                subtitle = stringResource(R.string.setup_nav_full_width_bar_desc),
                 icon = Icons.Rounded.ViewStream,
                 isSelected = currentStyle == NavBarStyle.FULL_WIDTH,
                 onClick = { onModeSelected(NavBarStyle.FULL_WIDTH) }
