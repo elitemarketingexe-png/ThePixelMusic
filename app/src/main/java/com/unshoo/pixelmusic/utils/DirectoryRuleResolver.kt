@@ -18,11 +18,10 @@ class DirectoryRuleResolver(
     private val hasRules = allowedRoots.isNotEmpty() || blockedRoots.isNotEmpty()
 
     fun isBlocked(path: String): Boolean {
-        if (!hasRules) return false
-        
         // Logic: Find the most specific (longest) rule that matches the path.
-        // If the longest matching rule is a "blocked" rule, then it's blocked.
-        // If it's an "allowed" rule (nesting exception), or no rule matches, it's allowed.
+        // If an explicit allow rule is equal to or deeper than a block rule, it's allowed.
+        // If an explicit block rule is deeper, it's blocked.
+        // If no explicit rule matches, recording directories are blocked by default, others allowed.
 
         var deepestBlockLen = -1
         var deepestAllowLen = -1
@@ -35,10 +34,6 @@ class DirectoryRuleResolver(
             }
         }
 
-        // Optimization: If no block rule matches, we don't need to check allow rules
-        // (unless we deny by default, but here default is allow)
-        if (deepestBlockLen == -1) return false
-
         for (root in allowedRoots) {
             if (isParentOrSame(root, path)) {
                 if (root.length > deepestAllowLen) {
@@ -47,19 +42,48 @@ class DirectoryRuleResolver(
             }
         }
 
-        return deepestBlockLen > deepestAllowLen
+        if (deepestAllowLen >= 0 && deepestAllowLen >= deepestBlockLen) {
+            return false
+        }
+
+        if (deepestBlockLen >= 0) {
+            return true
+        }
+
+        // Default exclusion: exclude recordings directories out-of-the-box
+        return isRecordingDirectory(path)
     }
 
     private fun normalize(path: String?): String? {
         if (path.isNullOrBlank()) return null
-        return if (path.endsWith("/")) path.dropLast(1) else path
+        val trimmed = path.trim().replace('\\', '/')
+        return if (trimmed.endsWith("/")) trimmed.dropLast(1) else trimmed
     }
 
     private fun isParentOrSame(root: String, path: String): Boolean {
-        if (!path.startsWith(root, ignoreCase = true)) return false
-        // It starts with root. Check if it's exactly root or a subdirectory (slash after root)
-        // Check needs to safeguard bounds
-        if (path.length == root.length) return true
-        return path[root.length] == '/'
+        val normPath = path.replace('\\', '/')
+        if (!normPath.startsWith(root, ignoreCase = true)) return false
+        if (normPath.length == root.length) return true
+        return normPath[root.length] == '/'
+    }
+
+    companion object {
+        private val RECORDING_DIR_NAMES = setOf(
+            "recordings",
+            "recording",
+            "voice recorder",
+            "voicerecorder",
+            "sound_recorder",
+            "sound recorder",
+            "call_recordings",
+            "call recordings",
+            "callrecordings"
+        )
+
+        fun isRecordingDirectory(path: String): Boolean {
+            val normalized = path.replace('\\', '/').trimEnd('/')
+            val segments = normalized.split('/')
+            return segments.any { it.lowercase() in RECORDING_DIR_NAMES }
+        }
     }
 }

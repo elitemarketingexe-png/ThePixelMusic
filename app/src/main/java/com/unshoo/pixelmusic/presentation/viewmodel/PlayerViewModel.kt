@@ -5634,9 +5634,13 @@ class PlayerViewModel @Inject constructor(
                 syncDisplayedMediaItemIfChanged(playerCtrl)
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                if (shuffleModeEnabled) {
-                    playerCtrl.shuffleModeEnabled = false
+                if (isRemoteSessionControllingPlayback()) return
+                if (playbackStateHolder.stablePlayerState.value.isShuffleEnabled != shuffleModeEnabled) {
+                    if (!playbackStateHolder.stablePlayerState.value.isShuffleTransitionInProgress) {
+                        toggleShuffle()
+                    }
                 }
+                updateCurrentPlaybackQueueFromPlayer(playerCtrl)
             }
             override fun onRepeatModeChanged(repeatMode: Int) {
                 playbackStateHolder.updateStablePlayerState { it.copy(repeatMode = repeatMode) }
@@ -6501,6 +6505,7 @@ class PlayerViewModel @Inject constructor(
             currentQueueSourceName = _playerUiState.value.currentQueueSourceName,
             updateQueueCallback = { newQueue ->
                 _playerUiState.update { it.copy(currentPlaybackQueue = newQueue.toPlaybackQueue()) }
+                syncShuffleStateWithSession(playbackStateHolder.stablePlayerState.value.isShuffleEnabled)
             }
         )
     }

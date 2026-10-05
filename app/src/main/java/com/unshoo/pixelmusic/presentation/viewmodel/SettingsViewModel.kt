@@ -115,7 +115,7 @@ data class SettingsUiState(
     val immersiveLyricsEnabled: Boolean = false,
     val immersiveLyricsTimeout: Long = 4000L,
     val useAnimatedLyrics: Boolean = false,
-    val advancedExplorePage: Boolean = false,
+    val advancedExplorePage: Boolean = true,
     val animatedLyricsBlurEnabled: Boolean = true,
     val animatedLyricsBlurStrength: Float = 2.5f,
     val floatingHeaderBarEnabled: Boolean = true,

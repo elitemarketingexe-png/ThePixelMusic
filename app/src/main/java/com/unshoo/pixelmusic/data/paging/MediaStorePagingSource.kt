@@ -137,9 +137,25 @@ class MediaStorePagingSource(
                     forceRefresh = false
                 )
 
+                val rawTitle = cursor.getString(titleCol).normalizeMetadataTextOrEmpty()
+                val finalTitle = rawTitle.ifBlank {
+                    java.io.File(path).nameWithoutExtension.ifBlank { "Unknown Title" }
+                }
+                val rawDuration = cursor.getLong(durationCol)
+                val duration = if (rawDuration > 0) rawDuration else {
+                    runCatching { com.unshoo.pixelmusic.data.media.AudioMetadataReader.read(java.io.File(path))?.durationMs }.getOrNull() ?: 0L
+                }
+                val mimeType = when (val ext = path.substringAfterLast('.', "").lowercase()) {
+                    "alac" -> "audio/alac"
+                    "caf" -> "audio/x-caf"
+                    "m4a", "m4b", "m4p" -> "audio/mp4"
+                    "aac" -> "audio/aac"
+                    else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+                }
+
                 val song = Song(
                     id = id.toString(),
-                    title = cursor.getString(titleCol).normalizeMetadataTextOrEmpty(),
+                    title = finalTitle,
                     artist = cursor.getString(artistCol).normalizeMetadataTextOrEmpty(),
                     artistId = cursor.getLong(artistIdCol),
                     artists = emptyList(),
@@ -149,7 +165,7 @@ class MediaStorePagingSource(
                     path = path,
                     contentUriString = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString(),
                     albumArtUriString = albumArtUriString,
-                    duration = cursor.getLong(durationCol),
+                    duration = duration,
                     genre = songIdToGenreMap[id],
                     lyrics = null,
                     isFavorite = false, // Not critical for paging source display usually, or passed in?
@@ -157,7 +173,7 @@ class MediaStorePagingSource(
                     year = cursor.getInt(yearCol),
                     dateAdded = cursor.getLong(dateAddedCol),
                     dateModified = cursor.getLong(dateModifiedCol),
-                    mimeType = null,
+                    mimeType = mimeType,
                     bitrate = null,
                     sampleRate = null
                 )

@@ -1646,6 +1646,10 @@ class DualPlayerEngine @Inject constructor(
     }
 
     fun cancelNext() {
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post { cancelNext() }
+            return
+        }
         transitionJob?.cancel()
         transitionRunning = false
         pendingTransitionTarget = null

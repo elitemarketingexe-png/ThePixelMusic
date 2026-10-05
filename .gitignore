@@ -42,3 +42,4 @@ pixelmusic_*.txt
 scratch/
 profiling_logs/
 run_profiler.ps1
+*_PROFILING_REPORT.md

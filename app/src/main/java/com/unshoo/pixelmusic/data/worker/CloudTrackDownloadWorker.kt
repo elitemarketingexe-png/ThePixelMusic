@@ -495,12 +495,21 @@ class CloudTrackDownloadWorker @AssistedInject constructor(
                     throw IOException("Invalid YouTube video identifier")
                 }
                 val youtubeSong = com.unshoo.pixelmusic.data.model.youtube.Song(youtubeId = id)
-                val streamUrl = YoutubeHelper.getSongPlayerUrlWithQuality(
+                var streamUrl = YoutubeHelper.getSongPlayerUrlWithQuality(
                     applicationContext,
                     youtubeSong,
                     maxBitrateKbps = 0,
                     forDownload = true
                 )
+                if (streamUrl.isBlank()) {
+                    streamUrl = YoutubeHelper.getSongPlayerUrlWithQuality(
+                        applicationContext,
+                        youtubeSong,
+                        maxBitrateKbps = 0,
+                        forDownload = true,
+                        bypassLossless = true
+                    )
+                }
                 if (streamUrl.isBlank()) {
                     throw IOException("Failed to resolve audio stream URL")
                 }

@@ -1201,7 +1201,9 @@ object YoutubeHelper {
         context: Context,
         song: Song,
         maxBitrateKbps: Int = 0,
-        forDownload: Boolean = true
+        forDownload: Boolean = true,
+        bypassLossless: Boolean = false,
+        bypassSaavn: Boolean = false
     ): String {
         val videoId = song.youtubeId
 
@@ -1266,9 +1268,11 @@ object YoutubeHelper {
         }
 
         // Lossless sources gate (ArchiveTune source-pool port)
-        // Downloads: only attempt Lossless (FLAC/ALAC) when user configured MAX quality.
+        // Downloads: only attempt Lossless (FLAC/ALAC) when user configured MAX quality and lossless is not bypassed.
         // Playback: check lossless first whenever enabled.
-        val shouldTryLossless = if (forDownload) {
+        val shouldTryLossless = if (bypassLossless) {
+            false
+        } else if (forDownload) {
             isLosslessEnabled && downloadQuality == com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX
         } else {
             isLosslessEnabled
@@ -1291,7 +1295,9 @@ object YoutubeHelper {
         //   * Medium: JioSaavn 160 kbps
         //   * Low: bypass JioSaavn completely, fall back to YouTube downloads
         // - For playback: only if JioSaavn streaming toggle is ON
-        val shouldTrySaavn = if (forDownload) {
+        val shouldTrySaavn = if (bypassSaavn) {
+            false
+        } else if (forDownload) {
             downloadQuality != com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.LOW
         } else {
             isSaavnEnabled

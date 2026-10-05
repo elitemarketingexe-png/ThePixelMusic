@@ -55,6 +55,7 @@ data class ExploreUiState(
     val homePageSections: List<HomePage.Section> = emptyList(),
     val homePageContinuation: String? = null,
     val newReleaseAlbums: List<AlbumItem> = emptyList(),
+    val albumsForYou: List<AlbumItem> = emptyList(),
     val chartsPage: unshoo.ianshulyadav.pixelmusic.innertube.pages.ChartsPage? = null,
     val error: String? = null,
     val selectedFilter: String = "All",
@@ -67,7 +68,7 @@ data class ExploreUiState(
     val localTopArtists: List<FeedArtist> = emptyList(),
     val localHighlyRotatoryTracks: List<RecentTrack> = emptyList(),
     val localRecentlyAddedSongs: List<Song> = emptyList(),
-    val isAdvancedExploreEnabled: Boolean = false,
+    val isAdvancedExploreEnabled: Boolean = true,
 )
 
 @HiltViewModel
@@ -429,6 +430,30 @@ class ExploreViewModel @Inject constructor(
 
                 val resolvedNewReleases = personalizedNewReleases
 
+                // Extract personalized albums directly from user's authenticated YouTube Home feed
+                val personalizedAlbums = rawSections.filter { section ->
+                    val t = section.title.lowercase()
+                    !t.contains("video") && !t.contains("videos") && (
+                        t.contains("album") || t.contains("for you") || t.contains("recommended") ||
+                        t.contains("albums for you") || t.contains("popular albums") ||
+                        section.label?.lowercase()?.contains("album") == true
+                    )
+                }.flatMap { it.items }.mapNotNull { item ->
+                    when (item) {
+                        is AlbumItem -> item
+                        is PlaylistItem -> AlbumItem(
+                            browseId = item.id,
+                            playlistId = item.id,
+                            title = item.title,
+                            artists = listOfNotNull(item.author),
+                            year = null,
+                            thumbnail = item.thumbnail ?: "",
+                            explicit = false
+                        )
+                        else -> null
+                    }
+                }.distinctBy { it.browseId }
+
                 // Progressive streaming: map to domain UI models once
                 val uiSections = rawSections.map { it.toUiModel() }
                 val rawChips = initialHome.chips ?: emptyList()
@@ -447,6 +472,7 @@ class ExploreViewModel @Inject constructor(
                         homePageSections = rawSections,
                         homePageContinuation = currentContinuation,
                         newReleaseAlbums = resolvedNewReleases,
+                        albumsForYou = personalizedAlbums,
                         moodChips = rawChips,
                         isAdvancedExploreEnabled = isAdvancedExploreEnabled
                     )
@@ -654,6 +680,7 @@ class ExploreViewModel @Inject constructor(
                 homePageSections = rawSections,
                 explorePageSections = emptyList(),
                 newReleaseAlbums = emptyList(),
+                albumsForYou = emptyList(),
                 moodChips = emptyList(),
                 localSongs = localMap,
                 localRecentlyAddedSongs = allOfflineSongs.take(20)

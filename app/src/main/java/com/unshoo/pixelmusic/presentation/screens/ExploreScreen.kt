@@ -204,9 +204,7 @@ fun ExploreScreen(
         val quickShelf = exploreUiState.homePageSections
             .firstOrNull { 
                 val t = it.title.lowercase()
-                t.contains("quick") || t.contains("listen again") || t.contains("start radio")
-            } ?: exploreUiState.homePageSections.firstOrNull { section ->
-                section.items.any { it is SongItem }
+                (t.contains("quick pick") || t.contains("quick picks")) && !t.contains("start radio")
             }
         quickShelf?.items
             ?.filterIsInstance<SongItem>()
@@ -215,9 +213,8 @@ fun ExploreScreen(
             .orEmpty()
     }
     val isYtConnected = state.feedData.isYtConnected
-    val effectiveQuickPicks = remember(quickPicksRaw, ytHomeQuickPicks, isYtConnected) {
-        if (isYtConnected && ytHomeQuickPicks.isNotEmpty()) ytHomeQuickPicks
-        else if (quickPicksRaw.isNotEmpty()) quickPicksRaw
+    val effectiveQuickPicks = remember(quickPicksRaw, ytHomeQuickPicks) {
+        if (quickPicksRaw.isNotEmpty()) quickPicksRaw
         else ytHomeQuickPicks
     }
     val quickPicks = remember(effectiveQuickPicks, isOnline) {
@@ -252,10 +249,11 @@ fun ExploreScreen(
     val playlistViewModel: PlaylistViewModel = hiltViewModel()
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, exploreViewModel) {
+    DisposableEffect(lifecycleOwner, exploreViewModel, quickPicksViewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
                 exploreViewModel.loadData()
+                quickPicksViewModel.refreshIfStale()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -311,8 +309,8 @@ fun ExploreScreen(
         }
     }
 
-    val newReleases = remember(exploreUiState.newReleaseAlbums, state.feedData.newReleases, isOnline) {
-        if (!isOnline) {
+    val newReleases = remember(exploreUiState.newReleaseAlbums, state.feedData.newReleases, isOnline, isYtConnected) {
+        if (!isOnline || !isYtConnected) {
             emptyList()
         } else if (exploreUiState.newReleaseAlbums.isNotEmpty()) {
             exploreUiState.newReleaseAlbums
@@ -330,11 +328,19 @@ fun ExploreScreen(
         }
     }
 
-    // Albums for you: Remote verified records -> Local album collection
-    val albumsForYou = remember(state.feedData.recentAlbums, localAlbums, isOnline) {
-        if (isOnline && state.feedData.recentAlbums.isNotEmpty()) {
-            state.feedData.recentAlbums.distinctBy { it.browseId ?: it.title }
+    // Albums for you: Authenticated account homepage albums -> Local user albums fallback
+    val albumsForYou = remember(exploreUiState.albumsForYou, localAlbums, isOnline, isYtConnected) {
+        if (isOnline && isYtConnected && exploreUiState.albumsForYou.isNotEmpty()) {
+            exploreUiState.albumsForYou.distinctBy { it.browseId }.map { album ->
+                FeedAlbum(
+                    title = album.title,
+                    artist = album.artists?.firstOrNull()?.name ?: "Unknown artist",
+                    artworkUrl = album.thumbnail,
+                    browseId = album.browseId
+                )
+            }
         } else {
+            // When remote authenticated albums are unavailable or logged out, always show local albums
             localAlbums.take(15).map { local ->
                 FeedAlbum(
                     title = local.title,
@@ -346,19 +352,21 @@ fun ExploreScreen(
         }
     }
 
-    val regionalSections = remember(rawRegionalSections, isOnline, effectiveQuickPicks, newReleases) {
-        if (!isOnline) {
+    val regionalSections = remember(rawRegionalSections, isOnline, isAdvancedExplore, effectiveQuickPicks, newReleases) {
+        if (!isOnline || !isAdvancedExplore) {
             emptyList()
         } else {
             rawRegionalSections.filter { section ->
                 val title = section.title.lowercase()
-                val isNewReleasesShelf = title.contains("new release") || title.contains("new releases") ||
+                val isNewReleasesShelf = title.contains("new release") ||
                     title.contains("novedades") || title.contains("release radar") || title.contains("new for you") ||
                     title.contains("new album") || title.contains("latest release")
+                val isAlbumShelf = title.contains("album") || title.contains("for you") || title.contains("disc")
 
                 !title.contains("local") &&
                 (!title.contains("quick") || effectiveQuickPicks.isEmpty()) &&
-                (!isNewReleasesShelf || newReleases.isEmpty()) &&
+                !isNewReleasesShelf &&
+                !isAlbumShelf &&
                 section.items.isNotEmpty()
             }
         }
@@ -433,9 +441,7 @@ fun ExploreScreen(
                     isManualRefreshing = true
                     exploreViewModel.loadData(forceRefresh = true)
                     exploreViewModel.loadChartsIfNeeded(forceRefresh = true)
-                    if (selectedCategory != "All") {
-                        quickPicksViewModel.refresh(force = true)
-                    }
+                    quickPicksViewModel.refresh(force = true)
                     if (!isYtConnected) {
                         feedViewModel.refresh()
                     }
@@ -744,27 +750,29 @@ fun ExploreScreen(
                             }
                         }
 
-                        // Albums for You (Fallback if not already present in regionalSections)
-                        if (isYtConnected && albumsForYou.isNotEmpty() && !hasRegionalAlbums) {
-                            item(key = "feed_albums") {
-                                FeedSectionHeader(
-                                    title = stringResource(R.string.explore_section_albums_for_you),
-                                    subtitle = if (state.feedData.recentAlbums.isNotEmpty()) stringResource(R.string.explore_subtitle_verified_records) else stringResource(R.string.explore_subtitle_local_albums)
-                                )
-                                FeedMediaRow {
-                                    itemsIndexed(albumsForYou.distinctBy { it.browseId ?: it.title }, key = { idx, album -> "album_${album.browseId ?: album.title}_$idx" }) { _, album ->
-                                        FeedPlaylistCard(
-                                            title = album.title,
-                                            subtitle = album.artist,
-                                            artworkUrl = album.artworkUrl,
-                                            onClick = {
-                                                val id = album.browseId
-                                                if (!id.isNullOrBlank()) {
-                                                    navController.navigateSafely(Screen.AlbumDetail.createRoute(id))
-                                                }
+                    }
+
+                    // Albums for You (Remote verified records or Local albums fallback - shown even if Advanced Explore is OFF)
+                    if (albumsForYou.isNotEmpty()) {
+                        val isLocal = !isYtConnected || exploreUiState.albumsForYou.isEmpty()
+                        item(key = "feed_albums") {
+                            FeedSectionHeader(
+                                title = stringResource(R.string.explore_section_albums_for_you),
+                                subtitle = if (isLocal) stringResource(R.string.explore_subtitle_local_albums) else stringResource(R.string.explore_subtitle_verified_records)
+                            )
+                            FeedMediaRow {
+                                itemsIndexed(albumsForYou.distinctBy { it.browseId ?: it.title }, key = { idx, album -> "album_${album.browseId ?: album.title}_$idx" }) { _, album ->
+                                    FeedPlaylistCard(
+                                        title = album.title,
+                                        subtitle = album.artist,
+                                        artworkUrl = album.artworkUrl,
+                                        onClick = {
+                                            val id = album.browseId
+                                            if (!id.isNullOrBlank()) {
+                                                navController.navigateSafely(Screen.AlbumDetail.createRoute(id))
                                             }
-                                        )
-                                    }
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -885,7 +893,7 @@ fun ExploreScreen(
                                 }
                             }
                         }
-                    } else if (isYtConnected && exploreUiState.localRecentlyAddedSongs.isNotEmpty()) {
+                    } else if (exploreUiState.localRecentlyAddedSongs.isNotEmpty()) {
                         val recentSongs = exploreUiState.localRecentlyAddedSongs
                         item(key = "feed_recently_added") {
                             FeedSectionHeader(
@@ -922,7 +930,7 @@ fun ExploreScreen(
                     }
 
                     // 15. Advanced Explore / Homepage Sections (Similar Artists, Listen Again, Bento Mixes, Categories)
-                    if (regionalSections.isNotEmpty()) {
+                    if (isAdvancedExplore && regionalSections.isNotEmpty()) {
                         itemsIndexed(regionalSections, key = { idx, s -> "regional_section_${s.title}_$idx" }) { idx, section ->
                             val isSimilar = section.title.startsWith("Similar to", ignoreCase = true) ||
                                 section.title.contains("Fans also like", ignoreCase = true) ||

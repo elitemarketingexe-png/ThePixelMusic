@@ -26,10 +26,19 @@ class MediaStoreSelectionUtilsTest {
                 "audio/x-alac",
                 "audio/caf",
                 "audio/x-caf",
+                "audio/mp4",
+                "audio/m4a",
+                "audio/x-m4a",
+                "audio/aac",
+                "audio/mp4a-latm",
                 "%.mid",
                 "%.midi",
                 "%.alac",
-                "%.caf"
+                "%.caf",
+                "%.m4a",
+                "%.m4b",
+                "%.m4p",
+                "%.aac"
             ),
             selectionArgs
         )

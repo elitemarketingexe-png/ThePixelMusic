@@ -1092,12 +1092,20 @@ constructor(
                         raw.filePath.endsWith(".aiff", true) ||
                         raw.filePath.endsWith(".alac", true) ||
                         raw.filePath.endsWith(".caf", true) ||
+                        raw.filePath.endsWith(".m4a", true) ||
+                        raw.filePath.endsWith(".m4b", true) ||
+                        raw.filePath.endsWith(".m4p", true) ||
+                        raw.filePath.endsWith(".aac", true) ||
                         raw.duration <= 0 ||
                         raw.mimeType?.contains("alac", ignoreCase = true) == true ||
+                        raw.mimeType?.contains("m4a", ignoreCase = true) == true ||
+                        raw.mimeType?.contains("mp4", ignoreCase = true) == true ||
                         // Fallback: if MediaStore returned default/missing metadata,
                         // try TagLib+JAudioTagger to read actual tags from the file.
                         // MediaStore uses "<unknown>" for unreadable fields;
                         // our normalization may produce "Unknown Artist"/"Unknown Album".
+                        raw.title.isBlank() ||
+                        isDefaultMetadata(raw.title) ||
                         isDefaultMetadata(raw.artist) ||
                         isDefaultMetadata(raw.album)
 
@@ -1137,9 +1145,15 @@ constructor(
             }
         }
 
+        val resolvedTitle = if (title.isBlank() || isDefaultMetadata(title)) {
+            java.io.File(raw.filePath).nameWithoutExtension.ifBlank { "Unknown Title" }
+        } else {
+            title
+        }
+
         return SongEntity(
                 id = raw.id,
-                title = title,
+                title = resolvedTitle,
                 artistName = artist,
                 artistId = raw.artistId,
                 albumArtist = albumArtist,
@@ -1162,6 +1176,8 @@ constructor(
                 mimeType = audioMetadata?.mimeType ?: raw.mimeType ?: when (val ext = raw.filePath.substringAfterLast('.', "").lowercase()) {
                     "alac" -> "audio/alac"
                     "caf" -> "audio/x-caf"
+                    "m4a", "m4b", "m4p" -> "audio/mp4"
+                    "aac" -> "audio/aac"
                     else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
                 },
                 sampleRate = sampleRate,
@@ -1265,6 +1281,8 @@ constructor(
                 when (ext) {
                     "alac" -> "audio/alac"
                     "caf" -> "audio/x-caf"
+                    "m4a", "m4b", "m4p" -> "audio/mp4"
+                    "aac" -> "audio/aac"
                     else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "audio/*"
                 }
             }.toTypedArray()

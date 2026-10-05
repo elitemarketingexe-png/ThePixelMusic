@@ -123,12 +123,21 @@ object DownloadHelper {
 
         val maxRetries = 3
         var lastException: Exception? = null
+        var bypassLossless = false
+        var bypassSaavn = false
 
         for (attempt in 1..maxRetries) {
             try {
                 // Invalidate any cached/expired stream URL to guarantee fresh highest-quality URL
                 YoutubeHelper.invalidateStreamCache(song.youtubeId)
-                val url = YoutubeHelper.getSongPlayerUrlWithQuality(context, song, maxBitrateKbps = 0, forDownload = true)
+                val url = YoutubeHelper.getSongPlayerUrlWithQuality(
+                    context = context,
+                    song = song,
+                    maxBitrateKbps = 0,
+                    forDownload = true,
+                    bypassLossless = bypassLossless,
+                    bypassSaavn = bypassSaavn
+                )
                 if (url.isBlank()) {
                     throw IOException("Empty stream URL for song ${song.youtubeId}")
                 }
@@ -294,6 +303,13 @@ object DownloadHelper {
                 lastException = e
                 cleanupTempFile()
                 PixelMusicHelper.printe("Download attempt $attempt/$maxRetries failed for ${song.title}: ${e.message}")
+                if (!bypassLossless) {
+                    bypassLossless = true
+                    PixelMusicHelper.printd("Lossless stream failed for ${song.title}, falling back to JioSaavn/Standard stream")
+                } else if (!bypassSaavn) {
+                    bypassSaavn = true
+                    PixelMusicHelper.printd("High-quality stream failed for ${song.title}, falling back to YouTube audio stream")
+                }
                 if (attempt < maxRetries) {
                     kotlinx.coroutines.delay(attempt * 600L)
                 }

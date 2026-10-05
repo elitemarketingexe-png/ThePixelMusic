@@ -174,16 +174,23 @@ class FileExplorerStateHolder(
         }
             .mapLatest { (rawEntries, allowed, blocked) ->
                 val resolver = DirectoryRuleResolver(allowed, blocked)
-                rawEntries.map { raw ->
-                    DirectoryEntry(
-                        file = raw.file,
-                        directAudioCount = raw.directAudioCount,
-                        totalAudioCount = raw.totalAudioCount,
-                        canonicalPath = raw.canonicalPath,
-                        displayName = raw.displayName,
-                        isBlocked = resolver.isBlocked(raw.canonicalPath)
-                    )
-                }
+                rawEntries
+                    .filter { raw ->
+                        val hasAudio = raw.totalAudioCount > 0 || raw.directAudioCount > 0
+                        val isConfigured = allowed.contains(raw.canonicalPath) || blocked.contains(raw.canonicalPath)
+                        val isRecording = DirectoryRuleResolver.isRecordingDirectory(raw.canonicalPath)
+                        hasAudio || isConfigured || isRecording
+                    }
+                    .map { raw ->
+                        DirectoryEntry(
+                            file = raw.file,
+                            directAudioCount = raw.directAudioCount,
+                            totalAudioCount = raw.totalAudioCount,
+                            canonicalPath = raw.canonicalPath,
+                            displayName = raw.displayName,
+                            isBlocked = resolver.isBlocked(raw.canonicalPath)
+                        )
+                    }
             }
             .flowOn(mapperDispatcher)
             .onEach {
@@ -352,6 +359,8 @@ class FileExplorerStateHolder(
         _isLoading.value = true
         _isCurrentDirectoryResolved.value = false
         _rawCurrentDirectoryChildren.value = emptyList()
+
+        getOrBuildMediaStoreDirectoryIndex(forceRefresh)
 
         val immediateEntries = listImmediateDirectoryEntries(target)
         val resultEntries = if (immediateEntries.isNotEmpty()) {

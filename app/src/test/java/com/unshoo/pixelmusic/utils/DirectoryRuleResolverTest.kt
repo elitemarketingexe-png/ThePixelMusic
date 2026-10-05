@@ -50,4 +50,26 @@ class DirectoryRuleResolverTest {
 
         assertFalse(resolver.isBlocked("/storage/emulated/0/Podcasts"))
     }
+
+    @Test
+    fun recordingsDirectory_isExcludedByDefault() {
+        val resolver = DirectoryRuleResolver(allowed = emptySet(), blocked = emptySet())
+
+        assertTrue(resolver.isBlocked("/storage/emulated/0/Recordings"))
+        assertTrue(resolver.isBlocked("/storage/emulated/0/Recordings/audio.m4a"))
+        assertTrue(resolver.isBlocked("/storage/emulated/0/MIUI/sound_recorder"))
+        assertTrue(resolver.isBlocked("/storage/emulated/0/Voice Recorder/note.m4a"))
+        assertFalse(resolver.isBlocked("/storage/emulated/0/Music"))
+    }
+
+    @Test
+    fun recordingsDirectory_canBeExplicitlyIncluded() {
+        val resolver = DirectoryRuleResolver(
+            allowed = setOf("/storage/emulated/0/Recordings"),
+            blocked = emptySet()
+        )
+
+        assertFalse(resolver.isBlocked("/storage/emulated/0/Recordings"))
+        assertFalse(resolver.isBlocked("/storage/emulated/0/Recordings/audio.m4a"))
+    }
 }

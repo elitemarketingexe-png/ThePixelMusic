@@ -10,13 +10,22 @@ private val SPECIAL_FORMAT_MIME_SELECTION_ARGS = arrayOf(
     "audio/alac",
     "audio/x-alac",
     "audio/caf",
-    "audio/x-caf"
+    "audio/x-caf",
+    "audio/mp4",
+    "audio/m4a",
+    "audio/x-m4a",
+    "audio/aac",
+    "audio/mp4a-latm"
 )
 private val SPECIAL_FORMAT_EXTENSION_SELECTION_ARGS = arrayOf(
     "%.mid",
     "%.midi",
     "%.alac",
-    "%.caf"
+    "%.caf",
+    "%.m4a",
+    "%.m4b",
+    "%.m4p",
+    "%.aac"
 )
 
 /**
@@ -26,7 +35,7 @@ private val SPECIAL_FORMAT_EXTENSION_SELECTION_ARGS = arrayOf(
  * and scanners leave valid songs flagged as non-music, which makes library sync and folder
  * browsing appear to "cap out" below the real file count for specific users.
  *
- * MIDI and ALAC/CAF files may be indexed with incomplete duration metadata by Android's MediaScanner,
+ * MIDI, ALAC/CAF, and M4A/AAC files may be indexed with incomplete duration metadata by Android's MediaScanner,
  * so explicit MIME/path matches bypass the duration floor and are augmented during sync.
  */
 fun buildLocalAudioSelection(minDurationMs: Int): Pair<String, Array<String>> {
@@ -41,7 +50,7 @@ fun buildLocalAudioSelection(minDurationMs: Int): Pair<String, Array<String>> {
         append(" OR LOWER(COALESCE(${MediaStore.Audio.Media.MIME_TYPE}, '')) IN ($mimePlaceholders)")
         append(" OR $extensionSelection")
         append(")")
-        append(" AND COALESCE(${MediaStore.Audio.Media.TITLE}, '') != ''")
+        append(" AND (COALESCE(${MediaStore.Audio.Media.TITLE}, '') != '' OR ${MediaStore.Audio.Media.DATA} IS NOT NULL)")
         append(" AND ${MediaStore.Audio.Media.DATA} IS NOT NULL")
     }
     return selection to arrayOf(clampedMinDurationMs.toString()) +

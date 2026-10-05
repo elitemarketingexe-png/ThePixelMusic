@@ -231,6 +231,10 @@ class MediaStoreSongRepository @Inject constructor(
                         displayTitle = rawTitle
                     }
 
+                    val finalDisplayTitle = displayTitle.ifBlank {
+                        File(path).nameWithoutExtension.ifBlank { "Unknown Title" }
+                    }
+
                     val normalizedArtists = if (allArtistNames.isNotEmpty()) allArtistNames else listOf(rawArtist)
                     val primaryArtistName = normalizedArtists.firstOrNull().orEmpty()
 
@@ -251,12 +255,14 @@ class MediaStoreSongRepository @Inject constructor(
                     val mimeType = rawMimeType ?: when (val ext = path.substringAfterLast('.', "").lowercase()) {
                         "alac" -> "audio/alac"
                         "caf" -> "audio/x-caf"
+                        "m4a", "m4b", "m4p" -> "audio/mp4"
+                        "aac" -> "audio/aac"
                         else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
                     }
 
                     val song = Song(
                         id = id.toString(),
-                        title = displayTitle,
+                        title = finalDisplayTitle,
                         artist = primaryArtistName,
                         artistId = cursor.getLong(artistIdCol),
                         artists = artistRefs,

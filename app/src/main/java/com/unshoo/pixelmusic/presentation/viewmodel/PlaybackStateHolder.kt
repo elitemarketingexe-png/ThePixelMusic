@@ -807,31 +807,44 @@ class PlaybackStateHolder @Inject constructor(
     /*                               Shuffle & Repeat                             */
     /* -------------------------------------------------------------------------- */
 
-    private fun syncPlayerTimelineAroundCurrent(
-        player: Player,
+    private suspend fun applyNewQueueToPlayer(
         newQueue: List<Song>,
-        anchorSongId: String?
+        targetIndex: Int
     ) {
         if (newQueue.isEmpty()) return
-        val currentMediaItem = player.currentMediaItem
-        val currentMediaId = currentMediaItem?.mediaId ?: anchorSongId
-        val targetIndex = newQueue.indexOfFirst { it.id == currentMediaId }.takeIf { it >= 0 } ?: 0
+        val masterPlayer = dualPlayerEngine.masterPlayer
+        val safeTargetIndex = targetIndex.coerceIn(0, (newQueue.size - 1).coerceAtLeast(0))
 
-        val safePos = player.currentPosition.coerceAtLeast(0L)
-        val shouldPlay = player.playWhenReady || player.isPlaying
-        val allItems = newQueue.mapIndexed { index, song ->
-            if (index == targetIndex && currentMediaItem != null && currentMediaItem.mediaId == song.id) {
-                currentMediaItem
-            } else {
-                MediaItemBuilder.build(song)
+        val (currentMediaItem, currentPosition, shouldResumePlayback) = withContext(Dispatchers.Main) {
+            Triple(
+                masterPlayer.currentMediaItem,
+                masterPlayer.currentPosition,
+                masterPlayer.playWhenReady || masterPlayer.isPlaying
+            )
+        }
+
+        // 1. Map new queue to MediaItem instances (reusing current playing item where possible to prevent pops)
+        val preparedMediaItems = withContext(Dispatchers.Default) {
+            newQueue.mapIndexed { index, song ->
+                if (index == safeTargetIndex && currentMediaItem != null && currentMediaItem.mediaId == song.id) {
+                    currentMediaItem
+                } else {
+                    MediaItemBuilder.build(song)
+                }
             }
         }
-        player.setMediaItems(allItems, targetIndex, safePos)
-        if (shouldPlay) {
-            player.playWhenReady = true
-            if (!player.isPlaying) player.play()
+
+        // 2. Atomically update the player's timeline on the Main thread.
+        withContext(Dispatchers.Main) {
+            masterPlayer.setMediaItems(preparedMediaItems, safeTargetIndex, currentPosition)
+            if (shouldResumePlayback) {
+                masterPlayer.playWhenReady = true
+                if (!masterPlayer.isPlaying) {
+                    masterPlayer.play()
+                }
+            }
+            dualPlayerEngine.cancelNext()
         }
-        dualPlayerEngine.cancelNext()
     }
 
     fun toggleShuffle(
@@ -848,7 +861,9 @@ class PlaybackStateHolder @Inject constructor(
         val castSession = castStateHolder.castSession.value
         if (castSession != null && castSession.remoteMediaClient != null) {
             shuffleToggleJob = coroutineScope.launch {
-                _stablePlayerState.update { it.copy(isShuffleTransitionInProgress = true) }
+                val currentShuffle = _stablePlayerState.value.isShuffleEnabled
+                val targetShuffle = !currentShuffle
+                _stablePlayerState.update { it.copy(isShuffleEnabled = targetShuffle, isShuffleTransitionInProgress = true) }
                 try {
                     val remoteMediaClient = castSession.remoteMediaClient
                     val newRepeatMode = if (remoteMediaClient?.mediaStatus?.getQueueRepeatMode() == MediaStatus.REPEAT_MODE_REPEAT_ALL_AND_SHUFFLE) {
@@ -859,6 +874,7 @@ class PlaybackStateHolder @Inject constructor(
                     castStateHolder.castPlayer?.setRepeatMode(newRepeatMode)
                 } catch (e: Exception) {
                     Timber.tag(TAG).e(e, "Error toggling cast shuffle")
+                    _stablePlayerState.update { it.copy(isShuffleEnabled = currentShuffle) }
                 } finally {
                     lastShuffleToggleFinishedAtMs = SystemClock.elapsedRealtime()
                     _stablePlayerState.update { it.copy(isShuffleTransitionInProgress = false) }
@@ -867,7 +883,9 @@ class PlaybackStateHolder @Inject constructor(
             }
         } else {
             shuffleToggleJob = coroutineScope.launch {
-                _stablePlayerState.update { it.copy(isShuffleTransitionInProgress = true) }
+                val isCurrentlyShuffled = _stablePlayerState.value.isShuffleEnabled
+                val targetShuffle = !isCurrentlyShuffled
+                _stablePlayerState.update { it.copy(isShuffleEnabled = targetShuffle, isShuffleTransitionInProgress = true) }
                 try {
                     val player = dualPlayerEngine.masterPlayer
                     val effectiveSongs = if (currentSongs.isNotEmpty()) {
@@ -878,27 +896,19 @@ class PlaybackStateHolder @Inject constructor(
                         emptyList()
                     }
 
-                    val isCurrentlyShuffled = _stablePlayerState.value.isShuffleEnabled
+                    if (effectiveSongs.isEmpty()) {
+                        _stablePlayerState.update { it.copy(isShuffleEnabled = isCurrentlyShuffled) }
+                        return@launch
+                    }
 
-                    if (!isCurrentlyShuffled) {
-                        // Enable Shuffle
-                        // Enable Shuffle: always save the current unshuffled order
-                        if (effectiveSongs.isNotEmpty()) {
+                    if (targetShuffle) {
+                        // Enable Shuffle: save original order before modifying
+                        if (!queueStateHolder.hasOriginalQueue()) {
                             queueStateHolder.setOriginalQueueOrder(effectiveSongs)
                         }
 
-                        if (effectiveSongs.size <= 1) {
-                            _stablePlayerState.update { it.copy(isShuffleEnabled = true) }
-                            scope?.launch {
-                                if (userPreferencesRepository.persistentShuffleEnabledFlow.first()) {
-                                    userPreferencesRepository.setShuffleOn(true)
-                                }
-                            }
-                            return@launch
-                        }
-
-                        val currentMediaId = player.currentMediaItem?.mediaId ?: currentSong?.id
-                        val playerCurrentIndex = player.currentMediaItemIndex
+                        val currentMediaId = withContext(Dispatchers.Main) { player.currentMediaItem?.mediaId } ?: currentSong?.id
+                        val playerCurrentIndex = withContext(Dispatchers.Main) { player.currentMediaItemIndex }
                             .takeIf { it in effectiveSongs.indices }
                         val currentIndex = when {
                             playerCurrentIndex != null && currentMediaId != null &&
@@ -909,16 +919,24 @@ class PlaybackStateHolder @Inject constructor(
                             else -> null
                         } ?: 0
 
+                        val (cappedSongs, safeCurrentIndex) = capQueueAroundCurrent(effectiveSongs, currentIndex, shuffleOthers = true)
+
                         val shuffledQueue = withContext(Dispatchers.Default) {
-                            QueueUtils.buildAnchoredShuffleQueueSuspending(effectiveSongs, currentIndex)
+                            QueueUtils.buildAnchoredShuffleQueueSuspending(cappedSongs, safeCurrentIndex, startAtZero = true)
                         }
 
-                        withContext(Dispatchers.Main.immediate) {
-                            syncPlayerTimelineAroundCurrent(player, shuffledQueue, currentMediaId)
-                        }
+                        // Apply shuffled queue atomically and smoothly with current song at 0 and all other songs following
+                        applyNewQueueToPlayer(shuffledQueue, targetIndex = 0)
 
                         updateQueueCallback(shuffledQueue)
                         _stablePlayerState.update { it.copy(isShuffleEnabled = true) }
+
+                        withContext(Dispatchers.Main) {
+                            player.shuffleModeEnabled = true
+                            (player as? androidx.media3.exoplayer.ExoPlayer)?.setShuffleOrder(
+                                androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(IntArray(shuffledQueue.size) { it }, System.currentTimeMillis())
+                            )
+                        }
 
                         scope?.launch {
                             if (userPreferencesRepository.persistentShuffleEnabledFlow.first()) {
@@ -933,29 +951,36 @@ class PlaybackStateHolder @Inject constructor(
                             }
                         }
 
-                        val originalQueue = if (queueStateHolder.hasOriginalQueue()) {
-                            queueStateHolder.originalQueueOrder
-                        } else {
-                            effectiveSongs
-                        }
-                        queueStateHolder.clearOriginalQueue()
-                        if (originalQueue.size <= 1) {
+                        if (!queueStateHolder.hasOriginalQueue()) {
                             _stablePlayerState.update { it.copy(isShuffleEnabled = false) }
                             return@launch
                         }
 
-                        val currentSongId = currentSong?.id ?: player.currentMediaItem?.mediaId
-                        val originalIndex = originalQueue.indexOfFirst { it.id == currentSongId }.takeIf { it >= 0 } ?: 0
+                        val originalQueue = queueStateHolder.originalQueueOrder
+                        val currentSongId = currentSong?.id ?: withContext(Dispatchers.Main) { player.currentMediaItem?.mediaId }
+                        val originalIndex = originalQueue.indexOfFirst { it.id == currentSongId }.takeIf { it >= 0 }
 
-                        withContext(Dispatchers.Main.immediate) {
-                            syncPlayerTimelineAroundCurrent(player, originalQueue, currentSongId)
+                        if (originalIndex == null) {
+                            _stablePlayerState.update { it.copy(isShuffleEnabled = false) }
+                            return@launch
                         }
 
-                        updateQueueCallback(originalQueue)
+                        val (cappedOriginalQueue, safeOriginalIndex) = capQueueAroundCurrent(originalQueue, originalIndex, shuffleOthers = false)
+
+                        // Apply original queue atomically and smoothly
+                        applyNewQueueToPlayer(cappedOriginalQueue, safeOriginalIndex)
+
+                        updateQueueCallback(cappedOriginalQueue)
                         _stablePlayerState.update { it.copy(isShuffleEnabled = false) }
+                        queueStateHolder.clearOriginalQueue()
+
+                        withContext(Dispatchers.Main) {
+                            player.shuffleModeEnabled = false
+                        }
                     }
                 } catch (e: Exception) {
                     Timber.tag(TAG).e(e, "Error toggling local shuffle")
+                    _stablePlayerState.update { it.copy(isShuffleEnabled = isCurrentlyShuffled) }
                 } finally {
                     lastShuffleToggleFinishedAtMs = SystemClock.elapsedRealtime()
                     _stablePlayerState.update { it.copy(isShuffleTransitionInProgress = false) }
@@ -963,6 +988,19 @@ class PlaybackStateHolder @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun capQueueAroundCurrent(
+        queue: List<Song>,
+        currentIndex: Int,
+        shuffleOthers: Boolean
+    ): Pair<List<Song>, Int> {
+        if (queue.size <= 500) return queue to currentIndex
+        val currentItem = queue.getOrNull(currentIndex)
+            ?: return queue.take(500) to currentIndex.coerceAtMost(499)
+        val others = queue.filterIndexed { index, _ -> index != currentIndex }
+        val chosenOthers = if (shuffleOthers) others.shuffled().take(499) else others.take(499)
+        return (listOf(currentItem) + chosenOthers) to 0
     }
 
     fun onCleared() {

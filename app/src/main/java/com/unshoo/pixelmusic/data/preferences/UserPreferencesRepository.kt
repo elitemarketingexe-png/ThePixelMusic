@@ -1940,7 +1940,7 @@ constructor(
 
     val advancedExplorePageFlow: Flow<Boolean> = dataStore.data
         .map { preferences ->
-            preferences[PreferencesKeys.ADVANCED_EXPLORE_PAGE] ?: false
+            preferences[PreferencesKeys.ADVANCED_EXPLORE_PAGE] ?: true
         }.distinctUntilChanged()
 
     suspend fun setAdvancedExplorePage(enabled: Boolean) {
