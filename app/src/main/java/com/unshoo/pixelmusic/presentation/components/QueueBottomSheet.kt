@@ -2020,17 +2020,17 @@ fun QueuePlaylistSongItem(
     } else 0f
 
     val dismissBackgroundColor by animateColorAsState(
-        targetValue = if (isSwipeTargeted) colors.errorContainer else colors.errorContainer.copy(alpha = 0.82f),
+        targetValue = if (dismissEnabled && isSwipeTargeted) colors.errorContainer else colors.errorContainer.copy(alpha = 0.82f),
         animationSpec = tween(durationMillis = 150),
         label = "dismissBackgroundColor"
     )
     val dismissIconAlpha by animateFloatAsState(
-        targetValue = revealProgress * if (isSwipeTargeted) 1f else 0.88f,
+        targetValue = if (dismissEnabled) revealProgress * if (isSwipeTargeted) 1f else 0.88f else 0f,
         animationSpec = tween(durationMillis = 120),
         label = "dismissIconAlpha"
     )
     val dismissIconScale by animateFloatAsState(
-        targetValue = if (isSwipeTargeted) 1.08f else 0.95f,
+        targetValue = if (dismissEnabled) (if (isSwipeTargeted) 1.08f else 0.95f) else 1f,
         animationSpec = tween(durationMillis = 120),
         label = "dismissIconScale"
     )
@@ -2040,12 +2040,16 @@ fun QueuePlaylistSongItem(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .onGloballyPositioned { coordinates ->
-                val measuredWidth = coordinates.size.width.toFloat()
-                if (measuredWidth != itemWidthPx) itemWidthPx = measuredWidth
-            }
+            .then(
+                if (dismissEnabled) {
+                    Modifier.onGloballyPositioned { coordinates ->
+                        val measuredWidth = coordinates.size.width.toFloat()
+                        if (measuredWidth != itemWidthPx) itemWidthPx = measuredWidth
+                    }
+                } else Modifier
+            )
     ) {
-        if (revealWidthPx > 0f && surfaceHeightPx > 0f) {
+        if (dismissEnabled && revealWidthPx > 0f && surfaceHeightPx > 0f) {
             val revealWidthDp = with(density) { revealWidthPx.toDp() }
             val surfaceHeightDp = with(density) { surfaceHeightPx.toDp() }
             Box(
@@ -2075,11 +2079,16 @@ fun QueuePlaylistSongItem(
 
         Surface(
             modifier = Modifier
-                .graphicsLayer { translationX = currentOffsetPx }
-                .onGloballyPositioned { coordinates ->
-                    val h = coordinates.size.height.toFloat()
-                    if (h != surfaceHeightPx) surfaceHeightPx = h
-                }
+                .then(
+                    if (dismissEnabled) {
+                        Modifier
+                            .graphicsLayer { translationX = currentOffsetPx }
+                            .onGloballyPositioned { coordinates ->
+                                val h = coordinates.size.height.toFloat()
+                                if (h != surfaceHeightPx) surfaceHeightPx = h
+                            }
+                    } else Modifier
+                )
                 .padding(horizontal = 12.dp)
                 .clip(itemShape)
                 .clickable(
@@ -2120,10 +2129,7 @@ fun QueuePlaylistSongItem(
                         .then(dismissGestureModifier),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val albumArtPadding by animateDpAsState(
-                        targetValue = if (isDragHandleVisible) 6.dp else 12.dp,
-                        label = "albumArtPadding"
-                    )
+                    val albumArtPadding = if (isDragHandleVisible) 6.dp else 12.dp
                     Spacer(Modifier.width(albumArtPadding))
 
                     SmartImage(

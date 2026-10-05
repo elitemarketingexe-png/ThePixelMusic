@@ -425,7 +425,7 @@ object AppModule {
             // cookies, tokens, or third-party API payloads. Headers are still useful
             // for debugging request paths and status codes.
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.HEADERS
+                HttpLoggingInterceptor.Level.BASIC
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }

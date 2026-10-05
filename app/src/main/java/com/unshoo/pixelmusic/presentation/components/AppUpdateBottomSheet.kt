@@ -61,11 +61,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.unshoo.pixelmusic.R
 import com.unshoo.pixelmusic.data.model.update.AppReleaseAsset
 import com.unshoo.pixelmusic.data.model.update.AppReleaseInfo
 import com.unshoo.pixelmusic.data.update.AppUpdateDownloadManager
@@ -391,7 +398,7 @@ fun AppUpdateBottomSheet(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "What's New",
+                            text = stringResource(R.string.presentation_batch_g_changelog_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -413,44 +420,51 @@ fun AppUpdateBottomSheet(
                             .verticalScroll(scrollState),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val cleanedBody = remember(release.body) {
-                            release.body
+                        val parsedLines = remember(release.body) {
+                            val cleaned = release.body
                                 .replace(Regex("^#+\\s*", RegexOption.MULTILINE), "")
                                 .trim()
+                            cleaned.lineSequence()
+                                .map { it.trim() }
+                                .filter { it.isNotEmpty() && !it.startsWith("|") && !it.startsWith("---") && !isRedundantChangelogHeader(it) }
+                                .toList()
                         }
 
-                        if (cleanedBody.isNotBlank()) {
-                            cleanedBody.lineSequence().forEach { line ->
-                                val trimmed = line.trim()
-                                if (trimmed.isNotEmpty()) {
-                                    if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
-                                        val itemText = trimmed.removePrefix("-").removePrefix("*").trim()
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.Top
-                                        ) {
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier
-                                                    .padding(top = 6.dp)
-                                                    .size(6.dp)
-                                            ) {}
-                                            Text(
-                                                text = itemText,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    } else if (!trimmed.startsWith("|") && !trimmed.startsWith("---")) {
+                        if (parsedLines.isNotEmpty()) {
+                            parsedLines.forEach { line ->
+                                val isBullet = line.startsWith("- ") || line.startsWith("* ") || line.startsWith("•")
+                                if (isBullet) {
+                                    val itemText = line.removePrefix("- ").removePrefix("* ").removePrefix("• ").removePrefix("•").trim()
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier
+                                                .padding(top = 6.dp)
+                                                .size(6.dp)
+                                        ) {}
                                         Text(
-                                            text = trimmed,
+                                            text = parseMarkdownBold(itemText, boldColor = MaterialTheme.colorScheme.onSurface),
                                             style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (trimmed.endsWith(":")) FontWeight.Bold else FontWeight.Normal,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
+                                } else {
+                                    val isHeader = line.endsWith(":") ||
+                                            line.startsWith("⚡") ||
+                                            line.startsWith("✨") ||
+                                            line.startsWith("🚀")
+                                    Text(
+                                        text = parseMarkdownBold(line, boldColor = MaterialTheme.colorScheme.onSurface),
+                                        style = if (isHeader) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isHeader) FontWeight.Bold else FontWeight.Normal,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = if (isHeader) Modifier.padding(top = 4.dp) else Modifier
+                                    )
                                 }
                             }
                         } else {
@@ -823,6 +837,47 @@ fun AppUpdateBottomSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+private val EMOJI_PREFIX_REGEX = Regex("""^[✨🎉🚀*#\s]+""")
+private val REDUNDANT_HEADER_REGEX = Regex("""(?i)^what'?s\s*new(?:\s+in\s+v?[\d.]+)?[:\s]*$""")
+private val MARKDOWN_BOLD_REGEX = Regex("""(\*\*|__)(.+?)\1""")
+
+private fun isRedundantChangelogHeader(line: String): Boolean {
+    val clean = line.replace(EMOJI_PREFIX_REGEX, "").trim()
+    return clean.matches(REDUNDANT_HEADER_REGEX)
+}
+
+private fun parseMarkdownBold(
+    text: String,
+    boldColor: Color? = null
+): AnnotatedString {
+    val matches = MARKDOWN_BOLD_REGEX.findAll(text).toList()
+    if (matches.isEmpty()) {
+        return AnnotatedString(text)
+    }
+    return buildAnnotatedString {
+        var currentIndex = 0
+        for (match in matches) {
+            if (match.range.first > currentIndex) {
+                append(text.substring(currentIndex, match.range.first))
+            }
+            val boldContent = match.groupValues[2]
+            if (boldColor != null) {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = boldColor)) {
+                    append(boldContent)
+                }
+            } else {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(boldContent)
+                }
+            }
+            currentIndex = match.range.last + 1
+        }
+        if (currentIndex < text.length) {
+            append(text.substring(currentIndex))
         }
     }
 }

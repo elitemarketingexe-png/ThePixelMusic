@@ -1490,7 +1490,11 @@ class DualPlayerEngine @Inject constructor(
 
             val youtubeId = uriString.substringAfter("youtube://")
             val matchingItem = queueSnapshot.firstOrNull { it.mediaId == youtubeId || it.requestMetadata.mediaUri?.toString() == uriString }
-                ?: if (::playerA.isInitialized && (playerA.currentMediaItem?.mediaId == youtubeId || playerA.currentMediaItem?.requestMetadata?.mediaUri?.toString() == uriString)) playerA.currentMediaItem else null
+                ?: withContext(Dispatchers.Main.immediate) {
+                    if (::playerA.isInitialized && (playerA.currentMediaItem?.mediaId == youtubeId || playerA.currentMediaItem?.requestMetadata?.mediaUri?.toString() == uriString)) {
+                        playerA.currentMediaItem
+                    } else null
+                }
 
             val youtubeSong = com.unshoo.pixelmusic.data.model.youtube.Song(
                 youtubeId = youtubeId,

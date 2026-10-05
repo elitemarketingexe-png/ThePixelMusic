@@ -40,3 +40,5 @@ device_log_2min.txt
 pixelmusic_*.txt
 .scratch/
 scratch/
+profiling_logs/
+run_profiler.ps1

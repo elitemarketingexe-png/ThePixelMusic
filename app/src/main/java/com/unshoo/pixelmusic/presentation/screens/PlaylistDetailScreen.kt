@@ -265,12 +265,8 @@ fun PlaylistDetailScreen(
     }.collectAsStateWithLifecycle(initialValue = PlayerViewModel.PlaylistDownloadStatus())
     val isPlaylistDownloading = playlistDownloadStatus.isActive
 
-    var transitionCompleted by remember { mutableStateOf(false) }
     LaunchedEffect(playlistId) {
-        // Wait 350ms for transition to complete to prevent heavy db loading from lagging the transition
-        kotlinx.coroutines.delay(350)
         playlistViewModel.loadPlaylistDetails(playlistId)
-        transitionCompleted = true
     }
 
     var showAddSongsSheet by remember { mutableStateOf(false) }
@@ -330,26 +326,24 @@ fun PlaylistDetailScreen(
     val bottomBarHeightDp = resolveNavBarOccupiedHeight(systemNavBarInset, navBarCompactMode)
     var showPlaylistBottomSheet by remember { mutableStateOf(false) }
     var playlistSheetSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
-    var localReorderableSongs by remember(songsInPlaylist) {
-        mutableStateOf(
-            if (isYoutubePlaylist && songsInPlaylist.size > 15) {
-                songsInPlaylist.take(15)
-            } else {
-                songsInPlaylist
-            }
-        )
-    }
 
-    var itemKeys by remember(songsInPlaylist) {
-        mutableStateOf(songsInPlaylist.indices.map { "${songsInPlaylist[it].id}_$it" })
-    }
+    var reorderedSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var reorderedKeys by remember { mutableStateOf<List<String>?>(null) }
 
-    LaunchedEffect(songsInPlaylist) {
-        if (isYoutubePlaylist && songsInPlaylist.size > 15) {
-            kotlinx.coroutines.delay(120)
-            localReorderableSongs = songsInPlaylist
-            itemKeys = songsInPlaylist.indices.map { "${songsInPlaylist[it].id}_$it" }
+    LaunchedEffect(isReorderModeEnabled) {
+        if (isReorderModeEnabled) {
+            reorderedSongs = songsInPlaylist
+            reorderedKeys = songsInPlaylist.indices.map { "${songsInPlaylist[it].id}_$it" }
+        } else {
+            reorderedSongs = null
+            reorderedKeys = null
         }
+    }
+
+    val displayedSongs = if (isReorderModeEnabled && reorderedSongs != null) {
+        reorderedSongs!!
+    } else {
+        songsInPlaylist
     }
 
     val listState = rememberLazyListState()
@@ -362,14 +356,16 @@ fun PlaylistDetailScreen(
     val reorderableState = rememberReorderableLazyListState(
         lazyListState = listState,
         onMove = { from, to ->
-            val fromPos = itemKeys.indexOf(from.key).takeIf { it >= 0 } ?: from.index
-            val toPos = itemKeys.indexOf(to.key).takeIf { it >= 0 } ?: to.index
+            val keys = reorderedKeys ?: return@rememberReorderableLazyListState
+            val songs = reorderedSongs ?: return@rememberReorderableLazyListState
+            val fromPos = keys.indexOf(from.key).takeIf { it >= 0 } ?: from.index
+            val toPos = keys.indexOf(to.key).takeIf { it >= 0 } ?: to.index
 
-            if (fromPos != toPos && fromPos in localReorderableSongs.indices && toPos in localReorderableSongs.indices) {
-                localReorderableSongs = localReorderableSongs.toMutableList().apply {
+            if (fromPos != toPos && fromPos in songs.indices && toPos in songs.indices) {
+                reorderedSongs = songs.toMutableList().apply {
                     add(toPos, removeAt(fromPos))
                 }
-                itemKeys = itemKeys.toMutableList().apply {
+                reorderedKeys = keys.toMutableList().apply {
                     add(toPos, removeAt(fromPos))
                 }
                 if (lastMovedFrom == null) {
@@ -397,7 +393,14 @@ fun PlaylistDetailScreen(
     val baseColorScheme = MaterialTheme.colorScheme
 
     val fallbackSongs = remember(songsInPlaylist) {
-        songsInPlaylist.filter { !it.albumArtUriString.isNullOrBlank() }.take(4)
+        val result = ArrayList<Song>(4)
+        for (s in songsInPlaylist) {
+            if (!s.albumArtUriString.isNullOrBlank()) {
+                result.add(s)
+                if (result.size == 4) break
+            }
+        }
+        result
     }
     val playlistArtUri = remember(currentPlaylist?.coverImageUri, fallbackSongs) {
         currentPlaylist?.coverImageUri?.takeIf { it.isNotBlank() }
@@ -422,7 +425,7 @@ fun PlaylistDetailScreen(
         }
     }
 
-    val showLoading = currentPlaylist == null || !transitionCompleted
+    val showLoading = currentPlaylist == null
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.playlistNotFound) {
@@ -456,6 +459,7 @@ fun PlaylistDetailScreen(
                 }
             }
 
+            var topBarSnapJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
             val nestedScrollConnection = remember {
                 object : NestedScrollConnection {
                     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -471,7 +475,8 @@ fun PlaylistDetailScreen(
                         val consumed = newHeight - previousHeight
 
                         if (consumed.roundToInt() != 0) {
-                            coroutineScope.launch {
+                            topBarSnapJob?.cancel()
+                            topBarSnapJob = coroutineScope.launch {
                                 topBarHeight.snapTo(newHeight)
                             }
                         }
@@ -490,7 +495,8 @@ fun PlaylistDetailScreen(
                     val targetValue = if (shouldExpand && canExpand) maxTopBarHeightPx else minTopBarHeightPx
 
                     if (topBarHeight.value != targetValue) {
-                        coroutineScope.launch {
+                        topBarSnapJob?.cancel()
+                        topBarSnapJob = coroutineScope.launch {
                             topBarHeight.animateTo(targetValue, spring(stiffness = Spring.StiffnessMedium))
                         }
                     }
@@ -512,7 +518,7 @@ fun PlaylistDetailScreen(
 
                 CollapsingPlaylistTopBar(
                     playlist = currentPlaylist,
-                    songs = localReorderableSongs,
+                    songs = displayedSongs,
                     collapseFraction = collapseFraction,
                     headerHeight = currentTopBarHeightDp,
                     headerImageRequestSize = headerImageRequestSize,
@@ -572,10 +578,10 @@ fun PlaylistDetailScreen(
 
                         Button(
                             onClick = {
-                                if (localReorderableSongs.isNotEmpty()) {
+                                if (displayedSongs.isNotEmpty()) {
                                     playerViewModel.playSongs(
-                                        localReorderableSongs,
-                                        localReorderableSongs.first(),
+                                        displayedSongs,
+                                        displayedSongs.first(),
                                         currentPlaylist.name,
                                         currentPlaylist.id
                                     )
@@ -590,7 +596,7 @@ fun PlaylistDetailScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(76.dp),
-                            enabled = isYoutubePlaylist || localReorderableSongs.isNotEmpty(),
+                            enabled = isYoutubePlaylist || displayedSongs.isNotEmpty(),
                             shape = playButtonShape
                         ) {
                             Icon(
@@ -603,9 +609,9 @@ fun PlaylistDetailScreen(
                         }
                         FilledTonalButton(
                             onClick = {
-                                if (localReorderableSongs.isNotEmpty()) {
+                                if (displayedSongs.isNotEmpty()) {
                                     playerViewModel.playSongsShuffled(
-                                        songsToPlay = localReorderableSongs,
+                                        songsToPlay = displayedSongs,
                                         queueName = currentPlaylist.name,
                                         playlistId = currentPlaylist.id,
                                         startAtZero = true
@@ -615,7 +621,7 @@ fun PlaylistDetailScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(76.dp),
-                            enabled = localReorderableSongs.isNotEmpty(),
+                            enabled = displayedSongs.isNotEmpty(),
                             shape = shuffleButtonShape
                         ) {
                             Icon(
@@ -833,7 +839,7 @@ fun PlaylistDetailScreen(
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                    if (localReorderableSongs.isEmpty()) {
+                    if (displayedSongs.isEmpty()) {
                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 if (isYoutubePlaylistHydrating) {
@@ -859,7 +865,7 @@ fun PlaylistDetailScreen(
                             }
                         }
                     } else {
-                        val showScrollBar = lazyListState.canScrollForward || lazyListState.canScrollBackward
+                        val showScrollBar by remember { derivedStateOf { lazyListState.canScrollForward || lazyListState.canScrollBackward } }
                         LazyColumn(
                             state = lazyListState,
                             modifier = Modifier
@@ -873,29 +879,33 @@ fun PlaylistDetailScreen(
                             )
                         ) {
                             itemsIndexed(
-                                localReorderableSongs,
-                                key = { index, _ -> itemKeys.getOrNull(index) ?: "$index" },
+                                displayedSongs,
+                                key = { index, song -> reorderedKeys?.getOrNull(index) ?: "${song.id}_$index" },
                                 contentType = { _, _ -> "playlist_song" }
                             ) { index, song ->
                                 ReorderableItem(
                                     state = reorderableState,
-                                    key = itemKeys.getOrNull(index) ?: "$index",
+                                    key = reorderedKeys?.getOrNull(index) ?: "${song.id}_$index",
                                 ) { isDragging ->
                                     val scale by animateFloatAsState(
-                                        if (isDragging) 1.05f else 1f,
+                                        targetValue = if (isReorderModeEnabled && isDragging) 1.05f else 1f,
                                         label = "scale"
                                     )
 
                                     QueuePlaylistSongItem(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .graphicsLayer {
-                                                scaleX = scale
-                                                scaleY = scale
-                                            },
+                                        modifier = if (scale != 1f) {
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .graphicsLayer {
+                                                    scaleX = scale
+                                                    scaleY = scale
+                                                }
+                                        } else {
+                                            Modifier.fillMaxWidth()
+                                        },
                                         onClick = {
                                             playerViewModel.playSongs(
-                                                localReorderableSongs,
+                                                displayedSongs,
                                                 song,
                                                 currentPlaylist.name,
                                                 currentPlaylist.id
@@ -1025,7 +1035,7 @@ fun PlaylistDetailScreen(
                     label = stringResource(R.string.cd_add_all_to_queue),
                     onClick = {
                         showPlaylistOptionsSheet = false
-                        playerViewModel.addSongsToQueue(localReorderableSongs)
+                        playerViewModel.addSongsToQueue(displayedSongs)
                     }
                 )
                 currentPlaylist?.let { playlist ->
@@ -1609,6 +1619,7 @@ private fun CollapsingPlaylistTopBar(
     playerViewModel: PlayerViewModel
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
+    val context = LocalContext.current
     val statusBarColor =
         if (LocalPixelMusicDarkTheme.current) Color.Black.copy(alpha = 0.6f)
         else Color.White.copy(alpha = 0.4f)
@@ -1616,7 +1627,7 @@ private fun CollapsingPlaylistTopBar(
     val expandedContentAlpha = 1f - solidAlpha
 
     val fallbackSongs = remember(songs) {
-        songs.filter { !it.albumArtUriString.isNullOrBlank() }.take(4)
+        songs.asSequence().filter { !it.albumArtUriString.isNullOrBlank() }.take(4).toList()
     }
     val playlistArtUri = remember(playlist.coverImageUri, fallbackSongs) {
         playlist.coverImageUri?.takeIf { it.isNotBlank() }
@@ -1689,11 +1700,13 @@ private fun CollapsingPlaylistTopBar(
         )
 
         val playlistDisplaySongCount = playlist.displaySongCount ?: songs.size
-        val songCountLabel = stringResource(
-            R.string.presentation_batch_f_status_bullet_step,
-            formatSongCount(playlistDisplaySongCount),
-            formatTotalDuration(songs)
-        )
+        val songCountLabel = remember(songs, playlistDisplaySongCount) {
+            context.getString(
+                R.string.presentation_batch_f_status_bullet_step,
+                formatSongCount(playlistDisplaySongCount),
+                formatTotalDuration(songs)
+            )
+        }
 
         CollapsibleCommonTopBar(
             title = playlist.name,

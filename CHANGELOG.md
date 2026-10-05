@@ -5,22 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.7.10] - 2026-10-05
 
-### Features & Enhancements
-- **Lossless streaming via the ArchiveTune Source Pool.** Songs are now resolved through
-  Tidal → Qobuz → Deezer → Apple Music (user-configurable order) before the JioSaavn and
-  YouTube paths, using shared subscriber accounts from an ArchivePool deployment
-  (`https://archivepool.vercel.app` by default) and/or the user's own provider accounts.
-  Includes the full ArchiveTune resolver chain: pool feed fetch + local AES-256-GCM
-  decryption, account cooldowns and dead-account reports, Tidal OAuth/PKCE + web-capture
-  login with token refresh and 401 retry, Tidal public-instance discovery + health ranking,
-  Qobuz token/instance resolution, Deezer ARL login with on-the-fly Blowfish decryption,
-  Apple Music web login with HLS flattening and Widevine-L3 licensing, title/artist/duration
-  match gate, 6-hourly background refresh worker, and a new **Settings → Lossless Sources**
-  category (pool API key/URL runtime override, per-source toggles, quality pickers,
-- **Download Audio Quality selection.** In Settings → Music Management (Library), users can now choose their preferred download quality (Max, High, Medium, Low). Max (Lossless FLAC/ALAC) is automatically exposed whenever lossless sources or accounts are signed in/configured.
-- **Smooth Audio Format Upgrade Transition.** The audio format badge in the full player now animates seamlessly using easing tween crossfades without any spring bounce or layout snapping.
+### ✨ What's New
+- **Lossless Audio & Downloads:** Support for Hi-Fi Lossless streaming & downloading with format badges and audio chain info (requires bringing your own API or logging into paid streaming accounts).
+- **Quick Playlist Import:** Import Spotify and YouTube playlists directly by pasting a link.
+- **Material 3 Expressive UI:** Floating navigation pill bar, home header pill, and customizable home collage.
+- **Redesigned Explore Tab:** Horizontal Daily Discover carousel, mood filter chips, and personalized New Releases.
+- **Enhanced Audio Sharing:** Share stylized song cards and lyric stories directly to Snapchat and social media.
+- **Color Themes & Presets:** Added new Material 3 palettes (Purple Pink, Dark & Grey, Pure Monochrome, and Dynamic Pastel).
+- **Expanded Local Audio Support:** Native playback and indexing for Apple Lossless (ALAC) and `.caf` audio files.
+- **Smart Auto-Queue & Radios:** Start an instant radio mix from any song with seamless crossfade transitions.
+- **In-App Update Checker:** Automatically check for new releases and install updates directly within the app.
+- **Full Localization:** 100% complete translation coverage across 11 languages (including Portuguese).
+
+### ⚡ Fixes & Improvements
+- **Shuffle & Queue Controls:** Rewrote player and queue shuffle to reorder tracks in-place seamlessly without dropping or resetting playback.
+- **Personalized Feed & Explore:** Connected user account authentication to load real YouTube Music home shelves with unified single-pass refreshing.
+- **Predictive Back Stability:** Safeguarded against system gesture dispatcher races during sheet dismissal.
+- **Changelog & Update Popup:** Formatted markdown bold text and deduplicated repeated titles in update bottom sheet.
+- **Playback & Cold Start:** Discarding the player cleanly clears playback without unexpected auto-play on restart.
+- **Smoother Queueing:** Tapping songs in search results plays only the selected track instead of replacing the entire queue.
+- **Mobile Data & Offline Sync:** Fast track loading and reliable background playlist caching on cellular networks.
+- **Faster Startup:** Instant tab switching and reduced memory footprint across all screens.
 
 ## [1.6.09] - 2026-08-28
 

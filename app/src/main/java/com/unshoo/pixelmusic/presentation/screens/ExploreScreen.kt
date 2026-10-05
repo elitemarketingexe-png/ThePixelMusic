@@ -10,6 +10,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -50,6 +51,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
@@ -62,7 +64,12 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
@@ -95,6 +102,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -193,16 +201,24 @@ fun ExploreScreen(
     val exploreUiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
     val quickPicksRaw by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
     val ytHomeQuickPicks = remember(exploreUiState.homePageSections) {
-        exploreUiState.homePageSections
-            .firstOrNull { it.title.contains("quick", ignoreCase = true) }
-            ?.items
+        val quickShelf = exploreUiState.homePageSections
+            .firstOrNull { 
+                val t = it.title.lowercase()
+                t.contains("quick") || t.contains("listen again") || t.contains("start radio")
+            } ?: exploreUiState.homePageSections.firstOrNull { section ->
+                section.items.any { it is SongItem }
+            }
+        quickShelf?.items
             ?.filterIsInstance<SongItem>()
             ?.filterVideo(true)
             ?.map { it.toNativeSong() }
             .orEmpty()
     }
-    val effectiveQuickPicks = remember(quickPicksRaw, ytHomeQuickPicks) {
-        if (quickPicksRaw.isNotEmpty()) quickPicksRaw else ytHomeQuickPicks
+    val isYtConnected = state.feedData.isYtConnected
+    val effectiveQuickPicks = remember(quickPicksRaw, ytHomeQuickPicks, isYtConnected) {
+        if (isYtConnected && ytHomeQuickPicks.isNotEmpty()) ytHomeQuickPicks
+        else if (quickPicksRaw.isNotEmpty()) quickPicksRaw
+        else ytHomeQuickPicks
     }
     val quickPicks = remember(effectiveQuickPicks, isOnline) {
         if (!isOnline) {
@@ -212,6 +228,13 @@ fun ExploreScreen(
         }
     }
     val categories by quickPicksViewModel.categories.collectAsStateWithLifecycle()
+    val effectiveCategories = remember(categories, exploreUiState.moodChips) {
+        if (exploreUiState.moodChips.isNotEmpty()) {
+            (listOf("All", "Local") + exploreUiState.moodChips.map { it.title }).distinct()
+        } else {
+            categories
+        }
+    }
     val selectedCategory by quickPicksViewModel.selectedCategory.collectAsStateWithLifecycle()
     val quickPicksDisplayMode by playerViewModel.quickPicksDisplayMode.collectAsStateWithLifecycle()
     val localAlbums by playerViewModel.albumsFlow.collectAsStateWithLifecycle()
@@ -229,10 +252,9 @@ fun ExploreScreen(
     val playlistViewModel: PlaylistViewModel = hiltViewModel()
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, feedViewModel, exploreViewModel) {
+    DisposableEffect(lifecycleOwner, exploreViewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
-                feedViewModel.onVisible()
                 exploreViewModel.loadData()
             }
         }
@@ -254,13 +276,8 @@ fun ExploreScreen(
 
     val bottomPadding = if (currentSongId != null) MiniPlayerHeight + 16.dp else 16.dp
 
-    val isYtConnected = state.feedData.isYtConnected
     val isAdvancedExplore = exploreUiState.isAdvancedExploreEnabled
-    val rawRegionalSections = if (!isAdvancedExplore && exploreUiState.homePageSections.isNotEmpty()) {
-        exploreUiState.homePageSections.take(8)
-    } else {
-        exploreUiState.homePageSections
-    }
+    val rawRegionalSections = exploreUiState.homePageSections
     val shouldLoadMore = remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
@@ -329,7 +346,7 @@ fun ExploreScreen(
         }
     }
 
-    val regionalSections = remember(rawRegionalSections, isOnline, effectiveQuickPicks, newReleases, albumsForYou) {
+    val regionalSections = remember(rawRegionalSections, isOnline, effectiveQuickPicks, newReleases) {
         if (!isOnline) {
             emptyList()
         } else {
@@ -338,15 +355,26 @@ fun ExploreScreen(
                 val isNewReleasesShelf = title.contains("new release") || title.contains("new releases") ||
                     title.contains("novedades") || title.contains("release radar") || title.contains("new for you") ||
                     title.contains("new album") || title.contains("latest release")
-                val isAlbumsShelf = title.contains("albums for you") || title.contains("recommended albums") ||
-                    title.contains("featured albums")
 
                 !title.contains("local") &&
                 (!title.contains("quick") || effectiveQuickPicks.isEmpty()) &&
                 (!isNewReleasesShelf || newReleases.isEmpty()) &&
-                (!isAlbumsShelf || albumsForYou.isEmpty()) &&
                 section.items.isNotEmpty()
             }
+        }
+    }
+
+    val hasRegionalFavorites = remember(rawRegionalSections) {
+        rawRegionalSections.any {
+            val t = it.title.lowercase()
+            (t.contains("revisit") || t.contains("favorites") || t.contains("listen again")) && it.items.isNotEmpty()
+        }
+    }
+
+    val hasRegionalAlbums = remember(rawRegionalSections) {
+        rawRegionalSections.any { 
+            val t = it.title.lowercase()
+            (t.contains("album") || t.contains("for you")) && it.items.any { item -> item is AlbumItem }
         }
     }
 
@@ -403,11 +431,15 @@ fun ExploreScreen(
             onRefresh = {
                 scope.launch {
                     isManualRefreshing = true
-                    feedViewModel.refresh()
-                    quickPicksViewModel.refresh(force = true)
                     exploreViewModel.loadData(forceRefresh = true)
                     exploreViewModel.loadChartsIfNeeded(forceRefresh = true)
-                    kotlinx.coroutines.delay(1000)
+                    if (selectedCategory != "All") {
+                        quickPicksViewModel.refresh(force = true)
+                    }
+                    if (!isYtConnected) {
+                        feedViewModel.refresh()
+                    }
+                    kotlinx.coroutines.delay(800)
                     isManualRefreshing = false
                 }
             },
@@ -451,10 +483,10 @@ fun ExploreScreen(
                     verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
                     // 0. Material 3 Expressive Category / Mood Chips
-                    if (categories.size > 1) {
+                    if (effectiveCategories.size > 1) {
                         item(key = "quick_picks_categories") {
                             ExploreCategoryChipsRow(
-                                categories = categories,
+                                categories = effectiveCategories,
                                 selectedCategory = selectedCategory,
                                 onCategorySelect = { category ->
                                     quickPicksViewModel.setCategory(category)
@@ -680,8 +712,8 @@ fun ExploreScreen(
                             }
                         }
 
-                        // Heavy Rotation Section
-                        if (isYtConnected && state.feedData.heavyRotation.isNotEmpty()) {
+                        // Heavy Rotation Section (fallback if not in regionalSections)
+                        if (isYtConnected && state.feedData.heavyRotation.isNotEmpty() && !hasRegionalFavorites) {
                             item(key = "feed_heavy_rotation") {
                                 FeedSectionHeader(
                                     title = stringResource(R.string.explore_section_favorites_to_revisit),
@@ -712,8 +744,8 @@ fun ExploreScreen(
                             }
                         }
 
-                        // Albums for You (Real verified records & local album collection)
-                        if (isYtConnected && albumsForYou.isNotEmpty()) {
+                        // Albums for You (Fallback if not already present in regionalSections)
+                        if (isYtConnected && albumsForYou.isNotEmpty() && !hasRegionalAlbums) {
                             item(key = "feed_albums") {
                                 FeedSectionHeader(
                                     title = stringResource(R.string.explore_section_albums_for_you),
@@ -904,7 +936,9 @@ fun ExploreScreen(
                                         section = section,
                                         navController = navController,
                                         playerViewModel = playerViewModel,
-                                        feedViewModel = feedViewModel
+                                        feedViewModel = feedViewModel,
+                                        currentSongId = currentSongId,
+                                        isPlaying = isPlaying
                                     )
                                 }
                                 isSimilar -> {
@@ -2517,7 +2551,9 @@ private fun LibrarySwipeableCarousel(
     section: HomePage.Section,
     navController: NavController,
     playerViewModel: PlayerViewModel,
-    feedViewModel: FeedViewModel
+    feedViewModel: FeedViewModel,
+    currentSongId: String? = null,
+    isPlaying: Boolean = false
 ) {
     val items = remember(section.items) { section.items.take(6) }
     if (items.isEmpty()) return
@@ -2533,6 +2569,31 @@ private fun LibrarySwipeableCarousel(
                 album = s.album?.name,
                 artworkUrl = s.thumbnail
             )
+        }
+    }
+
+    val playItemAction = remember(songTracks, section.title) {
+        { item: YTItem ->
+            when (item) {
+                is SongItem -> {
+                    val track = songTracks.firstOrNull { it.videoId == item.id } ?: YouTubeMusicTrack(
+                        videoId = item.id,
+                        title = item.title,
+                        artist = item.artists.firstOrNull()?.name ?: "Unknown artist",
+                        album = item.album?.name,
+                        artworkUrl = item.thumbnail
+                    )
+                    val idx = songTracks.indexOfFirst { it.videoId == item.id }
+                    if (idx >= 0) {
+                        feedViewModel.playTracksQueue(songTracks, idx, playerViewModel, section.title)
+                    } else {
+                        playerViewModel.showAndPlaySong(track.toSong(), listOf(track.toSong()), section.title)
+                    }
+                }
+                is AlbumItem -> navController.navigateSafely(Screen.AlbumDetail.createRoute(item.browseId))
+                is ArtistItem -> navController.navigateSafely(Screen.ArtistDetail.createRoute(item.id))
+                is PlaylistItem -> navController.navigateSafely(Screen.PlaylistDetail.createRoute(item.id))
+            }
         }
     }
 
@@ -2558,50 +2619,53 @@ private fun LibrarySwipeableCarousel(
             beyondViewportPageCount = 1
         ) { page ->
             val item = items[page]
+            val isItemPlaying = remember(item, currentSongId, isPlaying) {
+                isPlaying && when (item) {
+                    is SongItem -> currentSongId == item.id || currentSongId == "youtube_${item.id}"
+                    else -> false
+                }
+            }
             LibraryCarouselCard(
                 item = item,
-                onClick = {
-                    when (item) {
-                        is SongItem -> {
-                            val track = songTracks.firstOrNull { it.videoId == item.id } ?: YouTubeMusicTrack(
-                                videoId = item.id,
-                                title = item.title,
-                                artist = item.artists.firstOrNull()?.name ?: "Unknown artist",
-                                album = item.album?.name,
-                                artworkUrl = item.thumbnail
-                            )
-                            val idx = songTracks.indexOfFirst { it.videoId == item.id }
-                            if (idx >= 0) {
-                                feedViewModel.playTracksQueue(songTracks, idx, playerViewModel, section.title)
-                            } else {
-                                playerViewModel.showAndPlaySong(track.toSong(), listOf(track.toSong()), section.title)
-                            }
-                        }
-                        is AlbumItem -> navController.navigateSafely(Screen.AlbumDetail.createRoute(item.browseId))
-                        is ArtistItem -> navController.navigateSafely(Screen.ArtistDetail.createRoute(item.id))
-                        is PlaylistItem -> navController.navigateSafely(Screen.PlaylistDetail.createRoute(item.id))
+                isCurrentPlaying = isItemPlaying,
+                onClick = { playItemAction(item) },
+                onActionClick = {
+                    if (isItemPlaying) {
+                        playerViewModel.playPause()
+                    } else {
+                        playItemAction(item)
                     }
                 }
             )
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(items.size) { page ->
                 val isSelected = pagerState.currentPage == page
+                val animatedWidth by animateDpAsState(
+                    targetValue = if (isSelected) 22.dp else 6.dp,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    label = "carousel_dot_w"
+                )
+                val animatedColor by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    label = "carousel_dot_c"
+                )
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 3.dp)
                         .height(6.dp)
-                        .width(if (isSelected) 20.dp else 6.dp)
+                        .width(animatedWidth)
                         .clip(CircleShape)
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant
-                        )
+                        .background(animatedColor)
                         .clickable { scope.launch { pagerState.animateScrollToPage(page) } }
                 )
             }
@@ -2612,7 +2676,9 @@ private fun LibrarySwipeableCarousel(
 @Composable
 private fun LibraryCarouselCard(
     item: YTItem,
-    onClick: () -> Unit
+    isCurrentPlaying: Boolean,
+    onClick: () -> Unit,
+    onActionClick: () -> Unit
 ) {
     val title = when (item) {
         is SongItem -> item.title
@@ -2622,9 +2688,9 @@ private fun LibraryCarouselCard(
     }
     val subtitle = when (item) {
         is SongItem -> item.artists.joinToString { it.name }
-        is AlbumItem -> item.artists?.joinToString { it.name } ?: ""
+        is AlbumItem -> item.artists?.joinToString { it.name } ?: "Album"
         is ArtistItem -> "Artist"
-        is PlaylistItem -> item.songCountText ?: ""
+        is PlaylistItem -> item.songCountText ?: "Mix"
     }
     val thumbnail: String? = when (item) {
         is SongItem -> item.thumbnail
@@ -2632,105 +2698,185 @@ private fun LibraryCarouselCard(
         is ArtistItem -> item.thumbnail
         is PlaylistItem -> item.thumbnail
     }
-    val badgeLabel = when (item) {
-        is PlaylistItem -> if (item.shuffleEndpoint != null) "MIX" else null
-        is AlbumItem -> "ALBUM"
-        else -> null
+    val (badgeText, badgeIcon) = when {
+        isCurrentPlaying -> "PLAYING" to Icons.Rounded.GraphicEq
+        item is PlaylistItem -> {
+            if (item.shuffleEndpoint != null) "MIX" to Icons.AutoMirrored.Rounded.QueueMusic
+            else "PLAYLIST" to Icons.AutoMirrored.Rounded.QueueMusic
+        }
+        item is AlbumItem -> "ALBUM" to Icons.Rounded.Album
+        item is ArtistItem -> "ARTIST" to Icons.Rounded.Person
+        else -> "FOR YOU" to Icons.Rounded.AutoAwesome
     }
 
-    val colorScheme = MaterialTheme.colorScheme
-    val isDarkTheme = isSystemInDarkTheme()
-    val animatedBgColor = rememberDominantCardColor(
-        imageUrl = thumbnail,
-        baseColor = colorScheme.surfaceContainer,
-        isDarkTheme = isDarkTheme,
-        darkBlendFraction = 0.35f,
-        lightBlendFraction = 0.52f
-    )
+    val actionLabel = when {
+        isCurrentPlaying -> "Playing"
+        item is SongItem -> "Play"
+        item is AlbumItem -> "Album"
+        item is ArtistItem -> "Artist"
+        else -> "Listen"
+    }
+    val actionIcon = if (isCurrentPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow
+
+    val artShape = if (item is ArtistItem) CircleShape else ShapeCache.smooth16
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(196.dp)
+            .height(168.dp)
             .clickable(onClick = onClick),
-        shape = ShapeCache.smooth28,
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = ShapeCache.smooth24,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = animatedBgColor
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            if (!thumbnail.isNullOrBlank()) {
-                SmartImage(
-                    model = thumbnail,
-                    contentDescription = title,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .fillMaxWidth(0.55f),
-                    contentScale = ContentScale.Crop
-                )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (isCurrentPlaying) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = badgeIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = if (isCurrentPlaying) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = badgeText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.8.sp,
+                                fontSize = 10.5.sp
+                            ),
+                            color = if (isCurrentPlaying) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = GoogleSansRounded,
+                            letterSpacing = (-0.2).sp,
+                            lineHeight = 21.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (subtitle.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.5.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = if (isCurrentPlaying) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.primary,
+                    onClick = onActionClick,
+                    modifier = Modifier.height(34.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = actionIcon,
+                            contentDescription = actionLabel,
+                            modifier = Modifier.size(15.dp),
+                            tint = if (isCurrentPlaying) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onPrimary
+                        )
+                        Text(
+                            text = actionLabel,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = if (isCurrentPlaying) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
             }
 
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                animatedBgColor,
-                                animatedBgColor,
-                                animatedBgColor.copy(alpha = 0.85f),
-                                Color.Transparent
-                            )
-                        )
+                    .size(132.dp)
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = artShape,
+                        spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+                        ambientColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                     )
-            )
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .fillMaxHeight()
-                    .fillMaxWidth(0.68f)
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.Center
+                    .clip(artShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             ) {
-                if (badgeLabel != null) {
-                    Surface(
-                        shape = ShapeCache.smooth10,
-                        color = colorScheme.primaryContainer.copy(alpha = 0.88f)
+                if (!thumbnail.isNullOrBlank()) {
+                    SmartImage(
+                        model = thumbnail,
+                        contentDescription = title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = badgeLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.8.sp,
-                            color = colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        Icon(
+                            imageVector = if (item is ArtistItem) Icons.Rounded.Person else Icons.AutoMirrored.Rounded.QueueMusic,
+                            contentDescription = null,
+                            modifier = Modifier.size(36.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                         )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
                 }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontFamily = GoogleSansRounded,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (subtitle.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+
+                if (isCurrentPlaying) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.42f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PlayingWaveBars(waveColor = Color.White, containerColor = Color.Transparent)
+                    }
                 }
             }
         }

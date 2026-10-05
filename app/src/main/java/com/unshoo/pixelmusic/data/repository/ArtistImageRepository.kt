@@ -136,8 +136,6 @@ class ArtistImageRepository @Inject constructor(
                             prefetchSemaphore.withPermit {
                                 getArtistImageUrl(artistName, artistId)
                             }
-                        } else {
-                            Timber.tag(TAG).d("Skipping prefetch for $artistName") //check
                         }
                     } catch (e: CancellationException) {
                         throw e

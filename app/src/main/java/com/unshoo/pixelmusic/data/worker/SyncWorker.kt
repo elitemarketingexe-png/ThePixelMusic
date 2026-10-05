@@ -2164,6 +2164,7 @@ constructor(
             // Upsert actual YouTube playlists
             youtubePlaylists.forEach { playlist ->
                 val playlistSongIds = playlist.songs.map { "youtube_${it.youtubeId}" }
+                val targetCoverUri = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(playlist.info.coverPath ?: playlist.info.coverHref)
 
                 // Check if already exists in main database to avoid overwriting user edits or custom playlist attributes
                 val existing = allPlaylists.find { it.id == playlist.info.id }
@@ -2171,18 +2172,23 @@ constructor(
                     playlistPreferencesRepository.createPlaylist(
                         name = playlist.info.title,
                         songIds = playlistSongIds,
-                        coverImageUri = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(playlist.info.coverPath ?: playlist.info.coverHref),
+                        coverImageUri = targetCoverUri,
                         customId = playlist.info.id,
                         source = "YOUTUBE"
                     )
                 } else {
-                    playlistPreferencesRepository.updatePlaylist(
-                        existing.copy(
-                            name = playlist.info.title,
-                            songIds = playlistSongIds,
-                            coverImageUri = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(playlist.info.coverPath ?: playlist.info.coverHref)
+                    val isUnchanged = existing.name == playlist.info.title &&
+                        existing.songIds == playlistSongIds &&
+                        (existing.coverImageUri == targetCoverUri || targetCoverUri.isNullOrBlank())
+                    if (!isUnchanged) {
+                        playlistPreferencesRepository.updatePlaylist(
+                            existing.copy(
+                                name = playlist.info.title,
+                                songIds = playlistSongIds,
+                                coverImageUri = targetCoverUri ?: existing.coverImageUri
+                            )
                         )
-                    )
+                    }
                 }
             }
 

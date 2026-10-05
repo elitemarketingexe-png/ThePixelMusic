@@ -9,7 +9,7 @@ Required env vars:
   TELEGRAM_API_ID       - from my.telegram.org (integer)
   TELEGRAM_API_HASH     - from my.telegram.org (string)
   TELEGRAM_BOT_TOKEN    - BotFather token
-  TELEGRAM_CHAT_ID      - e.g. "@indiaflacmusic"
+  TELEGRAM_CHAT_ID      - e.g. "@PixelMusicApp"
   TELEGRAM_THREAD_ID    - (optional) message thread id for topics
   VERSION_NAME          - app version string
   COMMIT_SHA            - full commit SHA
@@ -102,7 +102,6 @@ async def publish():
     commit_author, commit_message = get_commit_info()
 
     apks = [
-        ("wear/build/outputs/apk/release/wear-release.apk",           "app-wearos-release.apk",          f"🤖 <b>Wear OS — v{version}</b>"),
         ("app/build/outputs/apk/release/app-arm64-v8a-release.apk",   "app-mobile-arm64-release.apk",    f"📱 <b>ARM64-v8a — v{version}</b>"),
         ("app/build/outputs/apk/release/app-armeabi-v7a-release.apk", "app-mobile-armeabi-release.apk",  f"📱 <b>ARMeabi-v7a — v{version}</b>"),
         ("app/build/outputs/apk/release/app-x86_64-release.apk",      "app-mobile-x86_64-release.apk",   f"💻 <b>x86_64 — v{version}</b>"),
@@ -173,20 +172,17 @@ async def publish():
                 f"<blockquote>• <b>arm64-v8a:</b> Modern phones (recommended)\n"
                 f"• <b>universal:</b> Works on all phones (larger size)\n"
                 f"• <b>armeabi-v7a:</b> Older / budget phones\n"
-                f"• <b>x86_64:</b> Emulators & Chromebooks\n"
-                f"• <b>wear:</b> Wear OS smartwatches only</blockquote>\n"
+                f"• <b>x86_64:</b> Emulators & Chromebooks</blockquote>\n"
                 f"------------------------------------\n"
                 f"📦 <b>APKs Included:</b>\n"
-                f"• <a href=\"https://github.com/ianshulyadav/PixelMusic/releases/download/v{html.escape(version)}/app-universal-release.apk\">app-universal-release.apk</a>\n"
+                f"• <a href=\"https://github.com/ianshulyadav/PixelMusicApp/releases/download/v{html.escape(version)}/app-universal-release.apk\">app-universal-release.apk</a>\n"
                 f"(Works on all mobile devices)\n"
-                f"• <a href=\"https://github.com/ianshulyadav/PixelMusic/releases/download/v{html.escape(version)}/app-arm64-v8a-release.apk\">app-arm64-v8a-release.apk</a>\n"
+                f"• <a href=\"https://github.com/ianshulyadav/PixelMusicApp/releases/download/v{html.escape(version)}/app-arm64-v8a-release.apk\">app-arm64-v8a-release.apk</a>\n"
                 f"(Modern 64-bit phones)\n"
-                f"• <a href=\"https://github.com/ianshulyadav/PixelMusic/releases/download/v{html.escape(version)}/app-armeabi-v7a-release.apk\">app-armeabi-v7a-release.apk</a>\n"
+                f"• <a href=\"https://github.com/ianshulyadav/PixelMusicApp/releases/download/v{html.escape(version)}/app-armeabi-v7a-release.apk\">app-armeabi-v7a-release.apk</a>\n"
                 f"(Older/budget phones)\n"
-                f"• <a href=\"https://github.com/ianshulyadav/PixelMusic/releases/download/v{html.escape(version)}/app-x86_64-release.apk\">app-x86_64-release.apk</a>\n"
+                f"• <a href=\"https://github.com/ianshulyadav/PixelMusicApp/releases/download/v{html.escape(version)}/app-x86_64-release.apk\">app-x86_64-release.apk</a>\n"
                 f"(Emulators, Chromebooks)\n"
-                f"• <a href=\"https://github.com/ianshulyadav/PixelMusic/releases/download/v{html.escape(version)}/wear-release.apk\">wear-release.apk</a>\n"
-                f"(Wear OS smartwatch app)"
             )
 
             print("Sending changelog text message...", flush=True)
@@ -271,8 +267,7 @@ async def publish():
                 f"<blockquote>• <b>arm64-v8a:</b> Modern phones (recommended)\n"
                 f"• <b>universal:</b> Works on all phones (larger size)\n"
                 f"• <b>armeabi-v7a:</b> Older / budget phones\n"
-                f"• <b>x86_64:</b> Emulators & Chromebooks\n"
-                f"• <b>wear:</b> Wear OS smartwatches only</blockquote>"
+                f"• <b>x86_64:</b> Emulators & Chromebooks</blockquote>"
             )
 
             print("Sending nightly build text message...", flush=True)

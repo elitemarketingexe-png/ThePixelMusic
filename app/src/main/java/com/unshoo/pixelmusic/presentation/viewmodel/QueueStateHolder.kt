@@ -32,6 +32,13 @@ class QueueStateHolder @Inject constructor() {
     fun hasOriginalQueue(): Boolean = _originalQueueOrder.isNotEmpty()
 
     /**
+     * Clear original queue order.
+     */
+    fun clearOriginalQueue() {
+        _originalQueueOrder = emptyList()
+    }
+
+    /**
      * Prepares a list for shuffled playback.
      * 1. Saves original queue.
      * 2. Picks a random start song.

@@ -4707,6 +4707,11 @@ class PlayerViewModel @Inject constructor(
         lastQueueUpdateJob = viewModelScope.launch {
             // Debounce slightly to handle rapid-fire timeline events
             delay(100)
+
+            // Do not overwrite the queue while shuffle/unshuffle transition is mutating the timeline
+            if (playbackStateHolder.stablePlayerState.value.isShuffleTransitionInProgress) {
+                return@launch
+            }
             
             val timeline = currentMediaController.currentTimeline
             val count = timeline.windowCount
@@ -6329,6 +6334,16 @@ class PlayerViewModel @Inject constructor(
     private fun loadAndPlaySong(song: Song) {
         cancelPendingFullQueuePlayback()
         beginPreparingSong(song)
+        _playerUiState.update { state ->
+            if (state.currentPlaybackQueue.none { it.id == song.id }) {
+                state.copy(currentPlaybackQueue = persistentListOf(song))
+            } else {
+                state
+            }
+        }
+        if (!queueStateHolder.hasOriginalQueue()) {
+            queueStateHolder.setOriginalQueueOrder(listOf(song))
+        }
         playbackStateHolder.updateStablePlayerState {
             it.copy(
                 currentSong = song,
@@ -8373,17 +8388,9 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun playSong(song: Song) {
-        viewModelScope.launch {
-            val controller = mediaController ?: return@launch
-            val mediaItem = buildResolvedPlaybackMediaItem(song)
-
-            controller.setMediaItem(mediaItem)
-            controller.prepare()
-            controller.play()
-
-            _isSheetVisible.value = true
-            _sheetState.value = PlayerSheetState.EXPANDED
-        }
+        playSongs(listOf(song), song)
+        _isSheetVisible.value = true
+        _sheetState.value = PlayerSheetState.EXPANDED
     }
 
     fun prepareBenchmarkPlayerFromLibrary() {

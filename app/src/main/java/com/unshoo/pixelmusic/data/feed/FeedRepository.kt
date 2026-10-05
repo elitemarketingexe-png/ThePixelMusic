@@ -453,81 +453,91 @@ class FeedRepository @Inject constructor(
             "${top.artist.trim().lowercase()}_${top.name.trim().lowercase()}" to top.artworkUrl
         }
 
-        val ytRealAlbums = topArtists
-            .filter { !it.browseId.isNullOrBlank() }
-            .take(6)
-            .map { artist ->
-                async(Dispatchers.IO) {
-                    artistPageRequests.withPermit {
-                        val browseId = artist.browseId?.takeIf(String::isNotBlank)
-                            ?: return@withPermit emptyList<FeedAlbum>()
-                        val page = runCatching { innerTube.fetchArtistPage(browseId, artist.name) }.getOrNull()
-                        page?.albums.orEmpty()
-                            .filter { item ->
-                                item.browseId.isNotBlank() &&
-                                    item.browseId.startsWith("MPRE") &&
-                                    item.title.isNotBlank() &&
-                                    (item.type == null || item.type.equals("Album", ignoreCase = true))
-                            }
-                            .take(3)
-                            .map { item ->
-                                val lastFmArt = lastFmArtByKey[
-                                    "${artist.name.trim().lowercase()}_${item.title.trim().lowercase()}",
-                                ]?.takeIf(ArtworkNormalizer::isRealImage)
-                                FeedAlbum(
-                                    title = item.title,
-                                    artist = artist.name,
-                                    artworkUrl = item.artworkUrl?.takeIf(ArtworkNormalizer::isRealImage)
-                                        ?: lastFmArt,
-                                    browseId = item.browseId,
-                                )
-                            }
-                    }
-                }
-            }.awaitAll().flatten()
-
-        val lastFmRealAlbums = lastFmTopAlbums
-            .filter { it.name.isNotBlank() && it.artist.isNotBlank() }
-            .distinctBy { "${it.artist.trim().lowercase()}_${it.name.trim().lowercase()}" }
-            .take(20)
-            .map { topAlbum ->
-                async(Dispatchers.IO) {
-                    albumArtworkRequests.withPermit {
-                        val candidates = runCatching {
-                            innerTube.searchAlbums("${topAlbum.name} ${topAlbum.artist}", limit = 5)
-                        }.getOrNull().orEmpty()
-                        val match = candidates.firstOrNull {
-                            isStrictAlbumMatch(
-                                candidateName = it.title,
-                                candidateArtist = it.artist,
-                                wantTitle = topAlbum.name,
-                                wantArtist = topAlbum.artist,
-                            )
-                        } ?: return@withPermit null
-                        FeedAlbum(
-                            title = match.title,
-                            artist = topAlbum.artist,
-                            artworkUrl = match.artworkUrl?.takeIf(ArtworkNormalizer::isRealImage)
-                                ?: topAlbum.artworkUrl?.takeIf(ArtworkNormalizer::isRealImage),
-                            browseId = match.browseId,
-                        )
-                    }
-                }
-            }.awaitAll().filterNotNull()
-
         val filteredHomeAlbums = homeAlbums
-            .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }
+            .filter { !it.browseId.isNullOrBlank() && ArtworkNormalizer.isRealImage(it.artworkUrl) }
             .distinctBy { it.browseId }
+
+        val ytRealAlbums = if (isYtConnected && filteredHomeAlbums.isNotEmpty()) {
+            emptyList()
+        } else {
+            topArtists
+                .filter { !it.browseId.isNullOrBlank() }
+                .take(6)
+                .map { artist ->
+                    async(Dispatchers.IO) {
+                        artistPageRequests.withPermit {
+                            val browseId = artist.browseId?.takeIf(String::isNotBlank)
+                                ?: return@withPermit emptyList<FeedAlbum>()
+                            val page = runCatching { innerTube.fetchArtistPage(browseId, artist.name) }.getOrNull()
+                            page?.albums.orEmpty()
+                                .filter { item ->
+                                    item.browseId.isNotBlank() &&
+                                        item.browseId.startsWith("MPRE") &&
+                                        item.title.isNotBlank() &&
+                                        (item.type == null || item.type.equals("Album", ignoreCase = true))
+                                }
+                                .take(3)
+                                .map { item ->
+                                    val lastFmArt = lastFmArtByKey[
+                                        "${artist.name.trim().lowercase()}_${item.title.trim().lowercase()}",
+                                    ]?.takeIf(ArtworkNormalizer::isRealImage)
+                                    FeedAlbum(
+                                        title = item.title,
+                                        artist = artist.name,
+                                        artworkUrl = item.artworkUrl?.takeIf(ArtworkNormalizer::isRealImage)
+                                            ?: lastFmArt,
+                                        browseId = item.browseId,
+                                    )
+                                }
+                        }
+                    }
+                }.awaitAll().flatten()
+        }
+
+        val lastFmRealAlbums = if (isYtConnected && filteredHomeAlbums.isNotEmpty()) {
+            emptyList()
+        } else {
+            lastFmTopAlbums
+                .filter { it.name.isNotBlank() && it.artist.isNotBlank() }
+                .distinctBy { "${it.artist.trim().lowercase()}_${it.name.trim().lowercase()}" }
+                .take(20)
+                .map { topAlbum ->
+                    async(Dispatchers.IO) {
+                        albumArtworkRequests.withPermit {
+                            val candidates = runCatching {
+                                innerTube.searchAlbums("${topAlbum.name} ${topAlbum.artist}", limit = 5)
+                            }.getOrNull().orEmpty()
+                            val match = candidates.firstOrNull {
+                                isStrictAlbumMatch(
+                                    candidateName = it.title,
+                                    candidateArtist = it.artist,
+                                    wantTitle = topAlbum.name,
+                                    wantArtist = topAlbum.artist,
+                                )
+                            } ?: return@withPermit null
+                            FeedAlbum(
+                                title = match.title,
+                                artist = topAlbum.artist,
+                                artworkUrl = match.artworkUrl?.takeIf(ArtworkNormalizer::isRealImage)
+                                    ?: topAlbum.artworkUrl?.takeIf(ArtworkNormalizer::isRealImage),
+                                browseId = match.browseId,
+                            )
+                        }
+                    }
+                }.awaitAll().filterNotNull()
+        }
 
         // browseId is what the feed row keys by, so it must be the last dedupe key:
         // the same record reaches us from the YT artist page and the Last.fm match with
         // different artist/title spellings, which artist_title dedupe lets through.
         val personalAlbums = blend(ytRealAlbums, lastFmRealAlbums)
             .distinctBy { "${it.artist.trim().lowercase()}_${it.title.trim().lowercase()}" }
-            .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") }
+            .filter { !it.browseId.isNullOrBlank() }
             .distinctBy { it.browseId }
 
-        val recentAlbums = if (personalAlbums.isNotEmpty()) {
+        val recentAlbums = if (filteredHomeAlbums.isNotEmpty()) {
+            filteredHomeAlbums.take(15)
+        } else if (personalAlbums.isNotEmpty()) {
             personalAlbums.take(20).map { album ->
                 async(Dispatchers.IO) {
                     if (ArtworkNormalizer.isRealImage(album.artworkUrl)) {
@@ -543,11 +553,9 @@ class FeedRepository @Inject constructor(
             .filter { ArtworkNormalizer.isRealImage(it.artworkUrl) }
             .distinctBy { it.browseId }
             .take(12)
-        } else if (filteredHomeAlbums.isNotEmpty()) {
-            filteredHomeAlbums.take(12)
         } else {
             previous?.recentAlbums.orEmpty()
-                .filter { !it.browseId.isNullOrBlank() && it.browseId.startsWith("MPRE") && ArtworkNormalizer.isRealImage(it.artworkUrl) }
+                .filter { !it.browseId.isNullOrBlank() && ArtworkNormalizer.isRealImage(it.artworkUrl) }
                 .distinctBy { it.browseId }
                 .take(12)
         }

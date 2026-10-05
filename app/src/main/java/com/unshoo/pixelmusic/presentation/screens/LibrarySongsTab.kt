@@ -175,7 +175,9 @@ fun LibrarySongsTab(
     val isCurrentSongVisible by remember(listState, currentSongId) {
         derivedStateOf {
             if (currentSongId == null) false
-            else listState.layoutInfo.visibleItemsInfo.any { it.key == currentSongId }
+            else listState.layoutInfo.visibleItemsInfo.any {
+                it.key == currentSongId || (it.key as? String)?.startsWith("song_${currentSongId}_") == true
+            }
         }
     }
 

@@ -80,9 +80,50 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         appContext = context.applicationContext
         defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler(this)
+
+        // Protect Main Looper from framework-level predictive back dispatcher race crashes
+        // (e.g. NavigationEventInput / BackProgressAnimator race when a popup or bottom sheet detaches)
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            while (true) {
+                try {
+                    android.os.Looper.loop()
+                } catch (t: Throwable) {
+                    if (isIgnorablePredictiveBackCrash(t)) {
+                        timber.log.Timber.w(t, "Safely caught and ignored system predictive back dispatcher race crash")
+                    } else {
+                        uncaughtException(android.os.Looper.getMainLooper().thread, t)
+                        throw t
+                    }
+                }
+            }
+        }
+    }
+
+    private fun isIgnorablePredictiveBackCrash(throwable: Throwable?): Boolean {
+        var t = throwable
+        while (t != null) {
+            val msg = t.message.orEmpty()
+            if (t is IllegalStateException && msg.contains("This input is not added to any dispatcher")) {
+                return true
+            }
+            val hasBackProgressFrame = t.stackTrace.any { frame ->
+                (frame.className.contains("navigationevent") || frame.className.contains("BackProgressAnimator") || frame.className.contains("OnBackInvoked"))
+                    && (frame.methodName == "onBackProgressed" || frame.methodName == "onProgressUpdate" || frame.methodName == "dispatchOnBackProgressed")
+            }
+            if (t is IllegalStateException && hasBackProgressFrame) {
+                return true
+            }
+            t = t.cause
+        }
+        return false
     }
 
     override fun uncaughtException(thread: Thread, throwable: Throwable) {
+        if (isIgnorablePredictiveBackCrash(throwable)) {
+            timber.log.Timber.w(throwable, "Safely ignored system predictive back dispatcher race crash in uncaughtException")
+            return
+        }
+
         try {
             saveCrashLog(throwable)
         } catch (e: Exception) {

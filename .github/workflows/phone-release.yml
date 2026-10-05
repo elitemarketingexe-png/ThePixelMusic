@@ -77,8 +77,14 @@ jobs:
           fi
           
           if [ "$EXISTS_REMOTE" = "true" ] || git tag --list "$TAG" | grep -q "^$TAG$"; then
-            echo "is_new_version=false" >> "$GITHUB_OUTPUT"
-            echo "Tag $TAG already exists on release repository or locally — NOT a new release. Posting as Nightly build."
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            if echo "$COMMIT_MSG" | grep -qi "^release:"; then
+              echo "is_new_version=true" >> "$GITHUB_OUTPUT"
+              echo "Tag $TAG exists, but commit message starts with 'release:' — publishing/updating GitHub Release."
+            else
+              echo "is_new_version=false" >> "$GITHUB_OUTPUT"
+              echo "Tag $TAG already exists on release repository or locally — NOT a new release. Posting as Nightly build."
+            fi
           else
             echo "is_new_version=true" >> "$GITHUB_OUTPUT"
             echo "Tag $TAG does not exist — this IS a new version. GitHub Release will be created."
@@ -160,7 +166,7 @@ jobs:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: "@indiaflacmusic"
+          TELEGRAM_CHAT_ID: "@PixelMusicApp"
           TELEGRAM_THREAD_ID: ${{ steps.version_check.outputs.is_new_version == 'true' && '2457' || '2' }}
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           COMMIT_SHA: ${{ github.sha }}

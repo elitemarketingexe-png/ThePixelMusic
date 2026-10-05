@@ -428,7 +428,7 @@ private fun AboutHeroCard(
 
                 val context = LocalContext.current
                 val commitHash = com.unshoo.pixelmusic.BuildConfig.GIT_COMMIT_HASH
-                val displayVersion = if (commitHash.isNotEmpty()) "v$versionName #$commitHash" else "v$versionName"
+                val displayVersion = if (com.unshoo.pixelmusic.BuildConfig.DEBUG && commitHash.isNotEmpty()) "v$versionName #$commitHash" else "v$versionName"
 
                 Box(
                     modifier = Modifier

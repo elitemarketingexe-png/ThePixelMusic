@@ -315,20 +315,30 @@ class PlaylistPreferencesRepository @Inject constructor(
             val playlistRepository = AppDatabase.getInstance(context).playlistRepository()
             val ytPlaylist = playlistRepository.getPlaylistById(normalizedId) ?: playlistRepository.getPlaylistById(playlist.id)
             if (ytPlaylist != null) {
-                val updatedInfo = ytPlaylist.info.copy(title = playlist.name)
-                playlistRepository.insertPlaylist(updatedInfo)
-                playlistRepository.deleteCrossRefsByPlaylistId(ytPlaylist.info.id)
-                val refs = playlist.songIds.mapIndexed { index, songIdStr ->
-                    val rawYtId = songIdStr.removePrefix("youtube_")
-                    com.unshoo.pixelmusic.data.model.youtube.PlaylistSongCrossRef(ytPlaylist.info.id, rawYtId, index)
+                if (ytPlaylist.info.title != playlist.name) {
+                    val updatedInfo = ytPlaylist.info.copy(title = playlist.name)
+                    playlistRepository.insertPlaylist(updatedInfo)
                 }
-                playlistRepository.insertCrossRefs(refs)
+                val currentSongIds = ytPlaylist.songs.map { "youtube_${it.youtubeId}" }
+                if (currentSongIds != playlist.songIds) {
+                    playlistRepository.deleteCrossRefsByPlaylistId(ytPlaylist.info.id)
+                    val refs = playlist.songIds.mapIndexed { index, songIdStr ->
+                        val rawYtId = songIdStr.removePrefix("youtube_")
+                        com.unshoo.pixelmusic.data.model.youtube.PlaylistSongCrossRef(ytPlaylist.info.id, rawYtId, index)
+                    }
+                    playlistRepository.insertCrossRefs(refs)
+                }
             }
             
             val existingLocal = localPlaylistDao.getPlaylistById(normalizedId) ?: localPlaylistDao.getPlaylistById(playlist.id)
             if (existingLocal != null) {
-                localPlaylistDao.upsertPlaylist(playlist.toEntity().copy(id = existingLocal.id))
-                localPlaylistDao.replacePlaylistSongs(existingLocal.id, playlist.songIds)
+                if (existingLocal.name != playlist.name) {
+                    localPlaylistDao.upsertPlaylist(playlist.toEntity().copy(id = existingLocal.id))
+                }
+                val currentLocalSongIds = localPlaylistDao.getSongIdsForPlaylist(existingLocal.id)
+                if (currentLocalSongIds != playlist.songIds) {
+                    localPlaylistDao.replacePlaylistSongs(existingLocal.id, playlist.songIds)
+                }
             }
 
             coverPrefs.edit().apply {
@@ -382,7 +392,10 @@ class PlaylistPreferencesRepository @Inject constructor(
         } else {
             val updated = playlist.copy(lastModified = System.currentTimeMillis())
             localPlaylistDao.upsertPlaylist(updated.toEntity())
-            localPlaylistDao.replacePlaylistSongs(updated.id, updated.songIds)
+            val currentLocalSongIds = localPlaylistDao.getSongIdsForPlaylist(updated.id)
+            if (currentLocalSongIds != updated.songIds) {
+                localPlaylistDao.replacePlaylistSongs(updated.id, updated.songIds)
+            }
         }
     }
 
