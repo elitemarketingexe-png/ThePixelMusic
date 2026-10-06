@@ -406,15 +406,6 @@ class ExploreViewModel @Inject constructor(
                 }.flatMap { it.items }.mapNotNull { item ->
                     when (item) {
                         is AlbumItem -> item
-                        is PlaylistItem -> AlbumItem(
-                            browseId = item.id,
-                            playlistId = item.id,
-                            title = item.title,
-                            artists = listOfNotNull(item.author),
-                            year = null,
-                            thumbnail = item.thumbnail ?: "",
-                            explicit = false
-                        )
                         is SongItem -> AlbumItem(
                             browseId = item.id,
                             playlistId = "",

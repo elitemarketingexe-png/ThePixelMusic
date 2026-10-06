@@ -96,12 +96,6 @@ class FeedRepository @Inject constructor(
                     author = item.artists?.firstOrNull()?.name ?: "Album",
                     artworkUrl = item.thumbnail
                 )
-                is unshoo.ianshulyadav.pixelmusic.innertube.models.PlaylistItem -> YouTubePlaylistSummary(
-                    id = item.id,
-                    title = item.title,
-                    author = item.author?.name ?: "Release",
-                    artworkUrl = item.thumbnail
-                )
                 is unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem -> YouTubePlaylistSummary(
                     id = item.id,
                     title = item.title,
