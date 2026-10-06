@@ -6,13 +6,10 @@ import android.media.AudioManager
 import android.media.MediaCodecList
 import android.os.Build
 import android.widget.Toast
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +35,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -49,9 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,7 +88,6 @@ fun AudioFormatInfoDialog(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0 = Info, 1 = Audio Chain
 
     val resolvedFormatTag = remember(mimeType, bitrate, sampleRate, bitDepth, formatTag, filePath) {
         formatTag ?: AudioMetaUtils.formatAudioMetaLabel(
@@ -237,19 +232,30 @@ fun AudioFormatInfoDialog(
     }
 
     val trackSizeText = remember(song, filePath, bitrate) {
-        if (!filePath.isNullOrBlank()) {
-            val f = File(filePath)
+        val path = filePath ?: song?.path
+        if (!path.isNullOrBlank()) {
+            val f = File(path)
             if (f.exists() && f.length() > 0L) {
-                String.format(Locale.US, "%.1f MB", f.length() / (1024.0 * 1024.0))
-            } else null
-        } else if (bitrate != null && bitrate > 0 && (song?.duration ?: 0L) > 0L) {
-            val bytes = (bitrate / 8L) * song!!.duration
+                return@remember String.format(Locale.US, "%.1f MB", f.length() / (1024.0 * 1024.0))
+            }
+        }
+        val durSec = when {
+            (song?.duration ?: 0L) > 1000L -> song!!.duration / 1000.0
+            (song?.duration ?: 0L) > 0L -> song!!.duration.toDouble()
+            else -> 0.0
+        }
+        if (bitrate != null && bitrate > 0 && durSec > 0.0) {
+            val bytes = (bitrate / 8.0) * durSec
             String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
         } else null
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .padding(vertical = 16.dp),
         confirmButton = {
             FilledTonalButton(
                 onClick = onDismiss,
@@ -319,105 +325,16 @@ fun AudioFormatInfoDialog(
                         )
                     }
                 }
-
-                Spacer(Modifier.height(14.dp))
-
-                // Material 3 Expressive Segmented Tab Control: [ info ] [ chain ]
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // Info Tab
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(
-                                    if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Transparent
-                                )
-                                .clickable { selectedTab = 0 }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Info,
-                                    contentDescription = null,
-                                    tint = if (selectedTab == 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = "Info",
-                                    fontFamily = GoogleSansRounded,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = if (selectedTab == 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        // Chain Tab
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(
-                                    if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Transparent
-                                )
-                                .clickable { selectedTab = 1 }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Tune,
-                                    contentDescription = null,
-                                    tint = if (selectedTab == 1) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = "Audio Chain",
-                                    fontFamily = GoogleSansRounded,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = if (selectedTab == 1) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
             }
         },
         text = {
-            AnimatedContent(
-                targetState = selectedTab,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "AudioFormatDialogTab"
-            ) { tab ->
-                if (tab == 0) {
-                    // TAB 0: DETAILED FORMAT INFO
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(scrollState)
-                            .padding(vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                         // Song summary header card
                         if (song != null) {
                             Surface(
@@ -572,6 +489,14 @@ fun AudioFormatInfoDialog(
                                     value = resolvedProvider
                                 )
 
+                                if (!trackSizeText.isNullOrBlank()) {
+                                    FormatSpecRow(
+                                        icon = Icons.Rounded.Storage,
+                                        label = "File Size",
+                                        value = trackSizeText
+                                    )
+                                }
+
                                 val displayPath = filePath ?: song?.contentUriString
                                 if (!displayPath.isNullOrBlank() && !displayPath.startsWith("http")) {
                                     Row(
@@ -613,218 +538,11 @@ fun AudioFormatInfoDialog(
                                 }
                             }
                         }
-                    }
-                } else {
-                    // TAB 1: AUDIO CHAIN PIPELINE (Track -> Decoder -> DSP -> Output -> Device)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(scrollState)
-                            .padding(vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // 1. TRACK
-                        val trackProps = mutableListOf(
-                            Triple("fmt", codecName.lowercase(Locale.ROOT), false),
-                            Triple("bit", bitDepthText.substringBefore("-"), false),
-                            Triple("rate", sampleRateText.lowercase(Locale.ROOT).replace(" ", ""), false),
-                            Triple("ch", "st", false),
-                            Triple("kbps", (bitrate?.div(1000) ?: 128).toString(), true)
-                        )
-                        if (trackSizeText != null) {
-                            trackProps.add(Triple("size", trackSizeText.lowercase(Locale.ROOT), false))
-                        }
-
-                        AudioChainStageCard(
-                            stageTag = "source",
-                            stageTitle = "track",
-                            accentColor = Color(0xFFFF9800), // Amber / Warm Orange
-                            properties = trackProps
-                        )
-
-                        AudioChainConnector()
-
-                        // 2. DECODER
-                        val (isHw, isPlatform, maxInst) = decoderDetails
-                        val decoderProps = listOf(
-                            Triple("dec", resolvedDecoderName, false),
-                            Triple("hw", if (isHw) "yes" else "no", isHw),
-                            Triple("impl", if (isHw) "hardware" else if (isPlatform) "platform" else "software", false),
-                            Triple("inst", maxInst.toString(), false)
-                        )
-                        AudioChainStageCard(
-                            stageTag = "decode",
-                            stageTitle = "decoder",
-                            accentColor = Color(0xFF4CAF50), // Green / Emerald
-                            properties = decoderProps
-                        )
-
-                        AudioChainConnector()
-
-                        // 3. DSP
-                        val dspProps = listOf(
-                            Triple("speed", "1.00x", false),
-                            Triple("effects", "downmix • cap", false)
-                        )
-                        AudioChainStageCard(
-                            stageTag = "process",
-                            stageTitle = "dsp",
-                            accentColor = Color(0xFFB0BEC5), // Light Slate
-                            properties = dspProps
-                        )
-
-                        AudioChainConnector()
-
-                        // 4. OUTPUT
-                        val sampleRateInt = sampleRate ?: 44100
-                        val rateTransform = if (sampleRateInt != nativeSampleRate && !activeAudioOutput.isUsbDac) {
-                            "${String.format(Locale.US, "%.1f", sampleRateInt / 1000.0)}k -> ${String.format(Locale.US, "%.1f", nativeSampleRate / 1000.0)}k"
-                        } else {
-                            "${String.format(Locale.US, "%.1f", sampleRateInt / 1000.0)}k"
-                        }
-                        val isResampled = sampleRateInt != nativeSampleRate && !activeAudioOutput.isUsbDac
-
-                        val outputProps = listOf(
-                            Triple("api", "audiotrack", false),
-                            Triple("bit", if (isFloatActive) "32 (float)" else "16", isFloatActive),
-                            Triple("rate", rateTransform, isResampled),
-                            Triple("buf", "$framesPerBuffer frames / ${bufferLatencyMs}ms", false),
-                            Triple("flags", if (isFloatActive) "low-latency • hi-fi" else "low-latency", false)
-                        )
-                        AudioChainStageCard(
-                            stageTag = "sink",
-                            stageTitle = "output",
-                            accentColor = Color(0xFFE57373), // Coral / Terracotta
-                            properties = outputProps
-                        )
-
-                        AudioChainConnector()
-
-                        // 5. DEVICE
-                        val deviceProps = listOf(
-                            Triple("via", activeAudioOutput.categoryTag, false),
-                            Triple("name", activeAudioOutput.cleanName, false),
-                            Triple("rates", "${nativeSampleRate / 1000}k", false),
-                            Triple("enc", if (isFloatActive) "pcm_float" else "pcm16", isFloatActive),
-                            Triple("ch", "2", false)
-                        )
-                        AudioChainStageCard(
-                            stageTag = "endpoint",
-                            stageTitle = "device",
-                            accentColor = Color(0xFF64B5F6), // Cyan / Sky Blue
-                            properties = deviceProps
-                        )
-                    }
-                }
             }
         },
         shape = RoundedCornerShape(26.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer
     )
-}
-
-@Composable
-private fun AudioChainConnector() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.KeyboardArrowDown,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.outlineVariant,
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-@Composable
-private fun AudioChainStageCard(
-    stageTag: String,
-    stageTitle: String,
-    accentColor: Color,
-    properties: List<Triple<String, String, Boolean>>,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // Header Row: colored marker + stageTitle + stageTag
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(accentColor)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stageTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = accentColor.copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = stageTag,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.Bold,
-                        color = accentColor,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Properties list: key-value pairs formatted cleanly
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                properties.forEach { (key, value, isHighlighted) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = key,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(0.35f)
-                        )
-                        Text(
-                            text = value,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = GoogleSansRounded,
-                            fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isHighlighted) accentColor else MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.End,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(0.65f)
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
