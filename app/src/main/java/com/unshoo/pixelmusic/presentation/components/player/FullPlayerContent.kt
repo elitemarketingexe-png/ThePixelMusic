@@ -301,6 +301,7 @@ fun FullPlayerContent(
     val albumArtQuality = fullPlayerSlice.albumArtQuality
     val playbackAudioMetadata = fullPlayerSlice.audioMetadata
     val activeDecoderInfo by playerViewModel.activeDecoderInfo.collectAsStateWithLifecycle()
+    val isHiFiEnabled by playerViewModel.hiFiModeEnabled.collectAsStateWithLifecycle()
     val showPlayerFileInfo = fullPlayerSlice.showPlayerFileInfo
     val immersiveLyricsEnabled = fullPlayerSlice.immersiveLyricsEnabled
     val immersiveLyricsTimeout = fullPlayerSlice.immersiveLyricsTimeout
@@ -1067,6 +1068,7 @@ fun FullPlayerContent(
             provider = if (isMetadataForCurrentSong) playbackAudioMetadata.sourceName else null,
             filePath = if (song.isLocal) song.contentUriString else null,
             activeDecoderInfo = activeDecoderInfo,
+            hiFiModeEnabled = isHiFiEnabled,
             onDismiss = { showAudioFormatInfoDialog = false }
         )
     }

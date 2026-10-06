@@ -1768,6 +1768,7 @@ class PlayerViewModel @Inject constructor(
     private val _playbackAudioMetadata = MutableStateFlow(PlaybackAudioMetadata())
     val playbackAudioMetadata: StateFlow<PlaybackAudioMetadata> = _playbackAudioMetadata.asStateFlow()
     val activeDecoderInfo: StateFlow<ActiveDecoderInfo?> = dualPlayerEngine.activeDecoderInfo
+    val hiFiModeEnabled: StateFlow<Boolean> = dualPlayerEngine.hiFiModeEnabledState
 
     init {
         // The resolver publishes (and later back-fills the measured bitrate of) streams it OFFERS.

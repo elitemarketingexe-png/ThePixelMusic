@@ -165,6 +165,9 @@ class DualPlayerEngine @Inject constructor(
     private val _activeDecoderInfo = MutableStateFlow<ActiveDecoderInfo?>(null)
     val activeDecoderInfo: StateFlow<ActiveDecoderInfo?> = _activeDecoderInfo.asStateFlow()
 
+    private val _hiFiModeEnabledState = MutableStateFlow(false)
+    val hiFiModeEnabledState: StateFlow<Boolean> = _hiFiModeEnabledState.asStateFlow()
+
     // Audio Focus Management
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -971,17 +974,14 @@ class DualPlayerEngine @Inject constructor(
 
             AudioDecoderPolicy.selectPlatformDecoders(mimeType, decoderInfos)
         }
-        val isFloatSupported = HiFiCapabilityChecker.isSupported()
-        val floatEnabled = hiFiModeEnabled || isFloatSupported
+        val floatEnabled = hiFiModeEnabled && HiFiCapabilityChecker.isSupported()
         val renderersFactory = object : DefaultRenderersFactory(context) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioOutputPlaybackParams: Boolean
             ): AudioSink {
-                val caps = androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context)
                 return DefaultAudioSink.Builder(context)
-                    .setAudioCapabilities(caps)
                     .setEnableFloatOutput(floatEnabled)
                     .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                     .setAudioProcessorChain(
@@ -1350,6 +1350,7 @@ class DualPlayerEngine @Inject constructor(
             return
         }
         hiFiModeEnabled = enabled
+        _hiFiModeEnabledState.value = enabled
         rebuildPlayersPreservingMasterState("Hi-Fi mode set to $enabled")
     }
 

@@ -86,6 +86,7 @@ fun AudioFormatInfoDialog(
     provider: String? = null,
     filePath: String? = null,
     activeDecoderInfo: ActiveDecoderInfo? = null,
+    hiFiModeEnabled: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -169,7 +170,7 @@ fun AudioFormatInfoDialog(
     val isFloatSupported = remember {
         HiFiCapabilityChecker.isSupported()
     }
-    val isFloatActive = isFloatSupported
+    val isFloatActive = hiFiModeEnabled && isFloatSupported
 
     val audioManager = remember(context) { context.getSystemService(AudioManager::class.java) }
     val nativeSampleRate = remember(audioManager) {
