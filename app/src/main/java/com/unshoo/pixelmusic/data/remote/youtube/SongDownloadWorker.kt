@@ -17,6 +17,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import timber.log.Timber
@@ -34,15 +35,18 @@ class SongDownloadWorker(
     @InstallIn(SingletonComponent::class)
     interface WorkerEntryPoint {
         fun musicDao(): com.unshoo.pixelmusic.data.database.MusicDao
+        fun userPreferencesRepository(): com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
     }
 
     private val playlistRepository = AppDatabase.getInstance(appContext).playlistRepository()
     private val localSongRepository = AppDatabase.getInstance(appContext).songRepository()
     private val songRepository = SongRepository()
-    private val musicDao = EntryPointAccessors.fromApplication(
+    private val entryPoint = EntryPointAccessors.fromApplication(
         appContext,
         WorkerEntryPoint::class.java
-    ).musicDao()
+    )
+    private val musicDao = entryPoint.musicDao()
+    private val userPreferencesRepository = entryPoint.userPreferencesRepository()
 
     @OptIn(UnstableApi::class)
     override suspend fun doWork(): Result {
@@ -104,9 +108,13 @@ class SongDownloadWorker(
                         }
                     }
 
+                val downloadQuality = userPreferencesRepository.downloadAudioQualityFlow.first()
+                val allowLossless = (downloadQuality == com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX)
+                val localSongs = musicDao.getSongsBySourceType(0)
                 val localMatching = com.unshoo.pixelmusic.utils.LocalAudioDuplicateMatcher.findMatchingLocalSong(
-                    localSongs = musicDao.getSongsBySourceType(0),
-                    song = song
+                    localSongs = localSongs,
+                    song = song,
+                    allowLossless = allowLossless
                 )
 
                 val isExistingLocal = localMatching != null
@@ -132,7 +140,9 @@ class SongDownloadWorker(
                 )
                 localSongRepository.create(updatedSong)
 
-                if (audioPath != null && !isExistingLocal) {
+                val isMatchedToLocal = isExistingLocal || (audioPath != null && localSongs.any { it.filePath == audioPath })
+
+                if (audioPath != null && !isMatchedToLocal) {
                     embedAudioMetadata(
                         audioPath = audioPath,
                         title = updatedSong.title,
@@ -146,9 +156,11 @@ class SongDownloadWorker(
 
                 if (audioPath != null) {
                     val mainId = toUnifiedYoutubeSongId(song.youtubeId)
-                    // Adopted from PixelMusic: safely handle MediaStore URIs so the
-                    // database doesn't crash when the download lands in content:// space.
-                    val parentDir = if (audioPath.startsWith("content://")) {
+                    // If matched to an existing local song in storage, keep parent directory
+                    // as /Cloud/YouTube so the song does not duplicate inside the physical folder!
+                    val parentDir = if (isMatchedToLocal) {
+                        "/Cloud/YouTube"
+                    } else if (audioPath.startsWith("content://")) {
                         "Music/PixelMusic"
                     } else {
                         File(audioPath).parentFile?.absolutePath ?: ""

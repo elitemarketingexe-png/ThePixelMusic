@@ -769,8 +769,8 @@ fun SettingsCategoryScreen(
                                 SliderSettingsItem(
                                     label = stringResource(R.string.setcat_music_storage_limit_desc),
                                     value = storageLimitDraft,
-                                    valueRange = 0f..10240f,
-                                    steps = 20,
+                                    valueRange = 0f..20480f,
+                                    steps = 39,
                                     onValueChange = { storageLimitDraft = it },
                                     onValueChangeFinished = {
                                         val selectedLimit = storageLimitDraft.toInt()
@@ -780,7 +780,10 @@ fun SettingsCategoryScreen(
                                     },
                                     valueText = { value ->
                                         if (value.toInt() == 0) "Unlimited"
-                                        else if (value >= 1024) "${(value / 1024).toInt()} GB"
+                                        else if (value >= 1024) {
+                                            val gb = value / 1024f
+                                            if (gb % 1f == 0f) "${gb.toInt()} GB" else "%.1f GB".format(gb)
+                                        }
                                         else "${value.toInt()} MB"
                                     }
                                 )

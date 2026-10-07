@@ -2026,6 +2026,9 @@ constructor(
             val libraryMembershipKeys = engagementDao.getAllLibraryMembershipKeys().toSet()
             val likedAlbumIds = userPreferencesRepository.likedAlbumIdsFlow.first()
             val songsWithValidAlbums = musicDao.getSongsWithValidAlbumIds().toSet()
+            val localSongFilePaths = musicDao.getSongsBySourceType(SourceType.LOCAL)
+                .mapNotNull { it.filePath.takeIf(String::isNotBlank) }
+                .toSet()
 
             val songsToInsert = ArrayList<SongEntity>(allUniqueSongs.size)
             val artistsToInsert = LinkedHashMap<Long, ArtistEntity>()
@@ -2118,12 +2121,14 @@ constructor(
                         duration = durationMs,
                         genre = ySong.genre?.takeIf { it.isNotBlank() } ?: existingSong?.genre?.takeIf { it.isNotBlank() } ?: YOUTUBE_GENRE,
                         filePath = ySong.audioFilePath ?: existingSong?.filePath ?: "",
-                        parentDirectoryPath = if (!ySong.audioFilePath.isNullOrBlank()) {
-                            java.io.File(ySong.audioFilePath).parent ?: YOUTUBE_PARENT_DIRECTORY
-                        } else if (!existingSong?.filePath.isNullOrBlank()) {
-                            existingSong.filePath.let { java.io.File(it).parent } ?: YOUTUBE_PARENT_DIRECTORY
-                        } else {
-                            YOUTUBE_PARENT_DIRECTORY
+                        parentDirectoryPath = run {
+                            val effPath = ySong.audioFilePath ?: existingSong?.filePath.orEmpty()
+                            when {
+                                effPath.isNotBlank() && effPath in localSongFilePaths -> YOUTUBE_PARENT_DIRECTORY
+                                !ySong.audioFilePath.isNullOrBlank() -> java.io.File(ySong.audioFilePath).parent ?: YOUTUBE_PARENT_DIRECTORY
+                                !existingSong?.filePath.isNullOrBlank() -> existingSong.filePath.let { java.io.File(it).parent } ?: YOUTUBE_PARENT_DIRECTORY
+                                else -> YOUTUBE_PARENT_DIRECTORY
+                            }
                         },
                         isFavorite = songId in localFavorites || existingSong?.isFavorite == true,
                         lyrics = existingSong?.lyrics,
@@ -2338,6 +2343,11 @@ constructor(
             }
 
             Log.i(TAG, "Synced ${songsToInsert.size} YouTube songs and ${youtubePlaylists.size} playlists.")
+            try {
+                musicDao.cleanupDuplicateYoutubeFolderEntries()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to cleanup duplicate YouTube folder entries: ${e.message}")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync YouTube data", e)
         }

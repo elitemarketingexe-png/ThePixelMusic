@@ -191,8 +191,8 @@ jobs:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: "@PixelMusicApp"
-          TELEGRAM_THREAD_ID: "2"
+          TELEGRAM_CHAT_ID: "@indiaflacmusic"
+          TELEGRAM_THREAD_ID: ""
           COMMIT_SHA: ${{ needs.changes.outputs.current-sha }}
           VERSION_NAME: ${{ steps.get-version.outputs.version_name }}
         run: |

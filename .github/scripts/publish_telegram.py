@@ -94,7 +94,7 @@ async def publish():
     api_hash   = os.environ["TELEGRAM_API_HASH"]
     bot_token  = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id    = os.environ["TELEGRAM_CHAT_ID"]
-    thread_id  = os.environ.get("TELEGRAM_THREAD_ID", "")
+    thread_id  = os.environ.get("TELEGRAM_THREAD_ID", "").strip()
     version    = os.environ["VERSION_NAME"]
     commit_sha = os.environ["COMMIT_SHA"]
     is_release = os.environ.get("IS_RELEASE", "false").strip().lower() == "true"
@@ -124,7 +124,10 @@ async def publish():
 
     apks = existing_apks
 
-    reply_to = int(thread_id) if thread_id else None
+    try:
+        reply_to = int(thread_id) if thread_id else None
+    except (ValueError, TypeError):
+        reply_to = None
 
     async with Client(
         name="pixelmusic_publisher",

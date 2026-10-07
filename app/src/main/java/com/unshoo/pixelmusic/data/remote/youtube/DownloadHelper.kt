@@ -21,7 +21,20 @@ import java.io.IOException
 import java.net.URL
 import kotlin.coroutines.cancellation.CancellationException
 
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality
+import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+
 object DownloadHelper {
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface DownloadHelperEntryPoint {
+        fun userPreferencesRepository(): UserPreferencesRepository
+    }
+
     private val client = YoutubeHelper.client.newBuilder()
         .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -66,8 +79,24 @@ object DownloadHelper {
         connections: Int = 8
     ): String? = withContext(Dispatchers.IO) {
 
+        val userPreferencesRepository = try {
+            EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                DownloadHelperEntryPoint::class.java
+            ).userPreferencesRepository()
+        } catch (_: Exception) {
+            null
+        }
+        val downloadQuality = userPreferencesRepository?.downloadAudioQualityFlow?.first()
+            ?: DownloadAudioQuality.HIGH
+        val allowLossless = (downloadQuality == DownloadAudioQuality.MAX)
+
         // ── Check if audio file already exists locally with >= 80% data similarity and matching artist ──
-        val existingLocalFile = com.unshoo.pixelmusic.utils.LocalAudioDuplicateMatcher.findMatchingLocalFilePath(context, song)
+        val existingLocalFile = com.unshoo.pixelmusic.utils.LocalAudioDuplicateMatcher.findMatchingLocalFilePath(
+            context,
+            song,
+            allowLossless = allowLossless
+        )
         if (existingLocalFile != null) {
             PixelMusicHelper.printd("Download skipped: '${song.title}' already exists locally at $existingLocalFile (>=80% match)")
             return@withContext existingLocalFile
@@ -82,9 +111,11 @@ object DownloadHelper {
             try {
                 val treeUri = Uri.parse(customPath)
                 val documentDir = DocumentFile.fromTreeUri(context, treeUri)
-                val existingFlac = documentDir?.findFile("$safeTitle - $safeArtist.flac")
-                if (existingFlac != null && existingFlac.exists()) {
-                    return@withContext existingFlac.uri.toString()
+                if (allowLossless) {
+                    val existingFlac = documentDir?.findFile("$safeTitle - $safeArtist.flac")
+                    if (existingFlac != null && existingFlac.exists()) {
+                        return@withContext existingFlac.uri.toString()
+                    }
                 }
                 val existingM4a = documentDir?.findFile("$safeTitle - $safeArtist.m4a")
                 if (existingM4a != null && existingM4a.exists()) {
@@ -105,7 +136,7 @@ object DownloadHelper {
         val m4aFile = File(audioDir, "${song.youtubeId}.m4a")
         val webmFile = File(audioDir, "${song.youtubeId}.webm")
 
-        if (flacFile.exists() && flacFile.length() > 0) {
+        if (allowLossless && flacFile.exists() && flacFile.length() > 0) {
             return@withContext flacFile.absolutePath
         }
         if (m4aFile.exists() && m4aFile.length() > 0) {
@@ -123,8 +154,8 @@ object DownloadHelper {
 
         val maxRetries = 3
         var lastException: Exception? = null
-        var bypassLossless = false
-        var bypassSaavn = false
+        var bypassLossless = !allowLossless
+        var bypassSaavn = (downloadQuality == DownloadAudioQuality.LOW)
 
         for (attempt in 1..maxRetries) {
             try {
@@ -145,6 +176,13 @@ object DownloadHelper {
                 val isLossless = url.contains(".flac", ignoreCase = true) ||
                     url.contains("flac", ignoreCase = true) ||
                     com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.isLosslessUri(url)
+
+                if (!allowLossless && isLossless) {
+                    PixelMusicHelper.printd("Stream URL for ${song.youtubeId} resolved to lossless but download quality is $downloadQuality. Bypassing lossless and retrying...")
+                    bypassLossless = true
+                    throw IOException("Bypassing unwanted lossless stream for quality $downloadQuality")
+                }
+
                 val isSaavn = url.contains("saavncdn.com") || url.contains("jiosaavn.com")
                 val isM4a = isSaavn || url.contains(".mp4") || url.contains(".m4a")
                 val ext = when {

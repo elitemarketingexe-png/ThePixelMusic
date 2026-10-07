@@ -116,6 +116,19 @@ class FolderTreeBuilder @Inject constructor() {
 
             // Get or create the folder for this song
             val folder = getOrCreateTempFolder(parentPath, folderMap, getNameFromPath(parentPath))
+
+            val normalizedFilePath = song.filePath.trim().lowercase(java.util.Locale.ROOT)
+            val normalizedTitle = song.title.trim().lowercase(java.util.Locale.ROOT)
+
+            if (song.sourceType != 0) {
+                if ((normalizedFilePath.isNotBlank() && normalizedFilePath in folder.seenFilePaths) ||
+                    normalizedTitle in folder.seenLocalTitles
+                ) continue
+            } else if (normalizedFilePath.isNotBlank() && !folder.seenFilePaths.add(normalizedFilePath)) {
+                continue
+            }
+            folder.seenLocalTitles.add(normalizedTitle)
+            if (normalizedFilePath.isNotBlank()) folder.seenFilePaths.add(normalizedFilePath)
             folder.songs.add(song.toFolderStubSong())
             
             // Ensure hierarchy
@@ -244,7 +257,7 @@ class FolderTreeBuilder @Inject constructor() {
 
     private fun FolderSongRow.toFolderStubSong(): Song {
         val parentPath = normalizePath(parentDirectoryPath)
-        val syntheticPath = if (parentPath.isBlank()) title else "$parentPath/$title"
+        val syntheticPath = if (filePath.isNotBlank()) filePath else if (parentPath.isBlank()) title else "$parentPath/$title"
         val resolvedAlbumArtUri = when {
             LocalArtworkUri.isLocalArtworkUri(albumArtUriString) -> albumArtUriString
             id > 0L && LocalArtworkUri.looksLikeVolatileArtworkUri(albumArtUriString) ->
@@ -276,6 +289,8 @@ class FolderTreeBuilder @Inject constructor() {
         val path: String,
         val name: String,
         val songs: MutableList<Song> = ArrayList(), 
-        val subFolderPaths: MutableSet<String> = HashSet() 
+        val subFolderPaths: MutableSet<String> = HashSet(),
+        val seenFilePaths: MutableSet<String> = HashSet(),
+        val seenLocalTitles: MutableSet<String> = HashSet()
     )
 }

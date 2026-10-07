@@ -669,7 +669,7 @@ interface MusicDao {
     ): Flow<List<SongEntity>>
 
     @Query("""
-        SELECT id, parent_directory_path, title, album_art_uri_string, date_added FROM songs
+        SELECT id, parent_directory_path, title, album_art_uri_string, date_added, file_path, source_type FROM songs
         WHERE (:applyDirectoryFilter = 0 OR id < 0 OR parent_directory_path IN (:allowedParentDirs))
         AND (
             :filterMode = 0
@@ -686,13 +686,29 @@ interface MusicDao {
                 AND source_type = 7
             )
         )
-        ORDER BY parent_directory_path ASC, title ASC
+        ORDER BY parent_directory_path ASC, source_type ASC, title ASC
     """)
     fun getFolderSongs(
         allowedParentDirs: List<String> = emptyList(),
         applyDirectoryFilter: Boolean = false,
         filterMode: Int
     ): Flow<List<FolderSongRow>>
+
+    @Query("""
+        UPDATE songs 
+        SET parent_directory_path = '/Cloud/YouTube' 
+        WHERE source_type = 1 
+        AND (
+            file_path IN (SELECT file_path FROM songs WHERE source_type = 0 AND file_path != '')
+            OR EXISTS (
+                SELECT 1 FROM songs s0 
+                WHERE s0.source_type = 0 
+                AND s0.parent_directory_path = songs.parent_directory_path 
+                AND LOWER(s0.title) = LOWER(songs.title)
+            )
+        )
+    """)
+    suspend fun cleanupDuplicateYoutubeFolderEntries(): Int
 
     @Query("""
         SELECT id FROM songs

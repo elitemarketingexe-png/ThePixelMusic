@@ -157,6 +157,21 @@ class MusicRepositoryImpl @Inject constructor(
             }
         }
     }
+
+    @Volatile private var hasCleanedDuplicateYoutubeFolders = false
+
+    private fun cleanupDuplicateYoutubeFoldersOnce() {
+        if (hasCleanedDuplicateYoutubeFolders) return
+        hasCleanedDuplicateYoutubeFolders = true
+        repositoryScope.launch(Dispatchers.IO) {
+            try {
+                musicDao.cleanupDuplicateYoutubeFolderEntries()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to cleanup duplicate YouTube folder entries")
+            }
+        }
+    }
+
     private val telegramCacheManager: com.unshoo.pixelmusic.data.telegram.TelegramCacheManager
         get() = telegramCacheManagerProvider.get()
     override val telegramRepository: com.unshoo.pixelmusic.data.telegram.TelegramRepository
@@ -1661,6 +1676,7 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override fun getMusicFolders(storageFilter: StorageFilter): Flow<List<MusicFolder>> {
+        cleanupDuplicateYoutubeFoldersOnce()
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
             userPreferencesRepository.blockedDirectoriesFlow,

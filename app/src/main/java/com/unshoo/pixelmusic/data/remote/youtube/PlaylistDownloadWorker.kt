@@ -16,6 +16,7 @@ import com.unshoo.pixelmusic.data.model.youtube.PlaylistSongCrossRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -39,15 +40,18 @@ class PlaylistDownloadWorker(
     @InstallIn(SingletonComponent::class)
     interface WorkerEntryPoint {
         fun musicDao(): com.unshoo.pixelmusic.data.database.MusicDao
+        fun userPreferencesRepository(): com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
     }
 
     private val playlistRepository = AppDatabase.getInstance(appContext).playlistRepository()
     private val localSongRepository = AppDatabase.getInstance(appContext).songRepository()
     private val songRepository = SongRepository()
-    private val musicDao = EntryPointAccessors.fromApplication(
+    private val entryPoint = EntryPointAccessors.fromApplication(
         appContext,
         WorkerEntryPoint::class.java
-    ).musicDao()
+    )
+    private val musicDao = entryPoint.musicDao()
+    private val userPreferencesRepository = entryPoint.userPreferencesRepository()
 
     @OptIn(UnstableApi::class)
     override suspend fun doWork(): Result {
@@ -88,6 +92,8 @@ class PlaylistDownloadWorker(
 
                 val currentDownloadedSize = playlistRepository.getPlaylistById(Constants.Downloads.DOWNLOADED_PLAYLIST_ID)?.songs?.size ?: 0
                 val localSongs = musicDao.getSongsBySourceType(0).filter { it.filePath.isNotBlank() && File(it.filePath).length() > 0L }
+                val downloadQuality = userPreferencesRepository.downloadAudioQualityFlow.first()
+                val allowLossless = (downloadQuality == com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX)
 
                 playlist.songs.mapIndexed { index, song ->
                     async {
@@ -106,7 +112,8 @@ class PlaylistDownloadWorker(
 
                                 val localMatching = com.unshoo.pixelmusic.utils.LocalAudioDuplicateMatcher.findMatchingLocalSong(
                                     localSongs = localSongs,
-                                    song = song
+                                    song = song,
+                                    allowLossless = allowLossless
                                 )
 
                                 val isExistingLocal = localMatching != null
@@ -133,7 +140,9 @@ class PlaylistDownloadWorker(
 
                                 localSongRepository.create(updatedSong)
 
-                                if (audioPath != null && !isExistingLocal) {
+                                val isMatchedToLocal = isExistingLocal || (audioPath != null && localSongs.any { it.filePath == audioPath })
+
+                                if (audioPath != null && !isMatchedToLocal) {
                                     embedAudioMetadata(
                                         audioPath = audioPath,
                                         title = updatedSong.title,
@@ -147,7 +156,13 @@ class PlaylistDownloadWorker(
 
                                 if (audioPath != null) {
                                     val mainId = toUnifiedYoutubeSongId(song.youtubeId)
-                                    val parentDir = File(audioPath).parentFile?.absolutePath ?: ""
+                                    val parentDir = if (isMatchedToLocal) {
+                                        "/Cloud/YouTube"
+                                    } else if (audioPath.startsWith("content://")) {
+                                        "Music/PixelMusic"
+                                    } else {
+                                        File(audioPath).parentFile?.absolutePath ?: ""
+                                    }
                                     musicDao.updateSongFilePathAndParent(mainId, audioPath, parentDir)
                                     
                                     playlistRepository.insertCrossRef(

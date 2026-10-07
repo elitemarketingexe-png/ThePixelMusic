@@ -1225,12 +1225,12 @@ constructor(
      */
     val storageLimitMbFlow: Flow<Int> =
         dataStore.data.map { preferences ->
-            (preferences[PreferencesKeys.STORAGE_LIMIT_MB] ?: 1536).coerceIn(0, 10240)
+            (preferences[PreferencesKeys.STORAGE_LIMIT_MB] ?: 1536).coerceIn(0, 20480)
         }
 
     suspend fun setStorageLimitMb(limitMb: Int) {
         dataStore.edit { preferences ->
-            preferences[PreferencesKeys.STORAGE_LIMIT_MB] = limitMb.coerceIn(0, 10240)
+            preferences[PreferencesKeys.STORAGE_LIMIT_MB] = limitMb.coerceIn(0, 20480)
         }
     }
 

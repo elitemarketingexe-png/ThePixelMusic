@@ -205,14 +205,16 @@ object LocalAudioDuplicateMatcher {
      */
     fun findMatchingLocalSong(
         localSongs: List<SongEntity>,
-        song: Song
+        song: Song,
+        allowLossless: Boolean = true
     ): SongEntity? {
         val targetDurationSec = parseDurationToSeconds(song.duration)
         return findMatchingLocalSong(
             localSongs = localSongs,
             title = song.title,
             artist = song.artist,
-            durationSeconds = targetDurationSec
+            durationSeconds = targetDurationSec,
+            allowLossless = allowLossless
         )
     }
 
@@ -223,12 +225,14 @@ object LocalAudioDuplicateMatcher {
         localSongs: List<SongEntity>,
         title: String,
         artist: String,
-        durationSeconds: Int? = null
+        durationSeconds: Int? = null,
+        allowLossless: Boolean = true
     ): SongEntity? {
         if (title.isBlank()) return null
         return localSongs.firstOrNull { localSong ->
             val path = localSong.filePath
             if (path.isBlank()) return@firstOrNull false
+            if (!allowLossless && isLosslessPath(path)) return@firstOrNull false
             val file = File(path)
             if (!file.exists() || file.length() <= 0L) return@firstOrNull false
 
@@ -250,7 +254,8 @@ object LocalAudioDuplicateMatcher {
      */
     suspend fun findMatchingLocalFilePath(
         context: Context,
-        song: Song
+        song: Song,
+        allowLossless: Boolean = true
     ): String? {
         return try {
             val musicDao = EntryPointAccessors.fromApplication(
@@ -266,13 +271,19 @@ object LocalAudioDuplicateMatcher {
                 localSongs = localSongs,
                 title = song.title,
                 artist = song.artist,
-                durationSeconds = targetDurationSec
+                durationSeconds = targetDurationSec,
+                allowLossless = allowLossless
             )
             matched?.filePath
         } catch (e: Exception) {
             Timber.tag(TAG).w(e, "Error checking local duplicate songs")
             null
         }
+    }
+
+    private fun isLosslessPath(path: String): Boolean {
+        val lower = path.lowercase(Locale.ROOT)
+        return lower.endsWith(".flac") || lower.endsWith(".wav") || lower.endsWith(".alac")
     }
 
     private fun parseDurationToSeconds(durationStr: String?): Int? {

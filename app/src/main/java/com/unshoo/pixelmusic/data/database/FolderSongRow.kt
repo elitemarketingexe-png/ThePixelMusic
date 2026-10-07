@@ -10,5 +10,7 @@ data class FolderSongRow(
     @ColumnInfo(name = "parent_directory_path") val parentDirectoryPath: String,
     @ColumnInfo(name = "title") val title: String,
     @ColumnInfo(name = "album_art_uri_string") val albumArtUriString: String?,
-    @ColumnInfo(name = "date_added") val dateAdded: Long = 0L
+    @ColumnInfo(name = "date_added") val dateAdded: Long = 0L,
+    @ColumnInfo(name = "file_path") val filePath: String = "",
+    @ColumnInfo(name = "source_type") val sourceType: Int = 0
 )
