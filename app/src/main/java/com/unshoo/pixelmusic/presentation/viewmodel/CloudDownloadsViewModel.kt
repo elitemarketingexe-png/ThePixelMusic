@@ -19,6 +19,7 @@ import com.unshoo.pixelmusic.data.remote.youtube.PixelMusicHelper
 import com.unshoo.pixelmusic.data.remote.youtube.PixelMusicNotificationManager
 import com.unshoo.pixelmusic.data.remote.youtube.PlaylistDownloadWorker
 import com.unshoo.pixelmusic.data.remote.youtube.SongDownloadWorker
+import com.unshoo.pixelmusic.utils.LocalAudioDuplicateMatcher
 import com.unshoo.pixelmusic.utils.YouTubeIdUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -281,11 +282,29 @@ class CloudDownloadsViewModel @Inject constructor(
 
             // 5. Process local device storage songs if in ALL_OFFLINE mode
             if (filterMode == DownloadFilterMode.ALL_OFFLINE) {
+                val existingPaths = HashSet<String>(completedItems.size * 2)
+                val existingUris = HashSet<String>(completedItems.size)
+                for (item in completedItems) {
+                    val p = item.song.path.takeIf(String::isNotBlank) ?: item.download.localPath
+                    if (!p.isNullOrBlank()) {
+                        existingPaths.add(p.trim().lowercase())
+                        runCatching { File(p).canonicalPath.lowercase() }.getOrNull()?.let(existingPaths::add)
+                    }
+                    item.song.contentUriString.takeIf(String::isNotBlank)?.let(existingUris::add)
+                    item.download.sourceUri.takeIf(String::isNotBlank)?.let(existingUris::add)
+                }
+
                 val localEntities = musicDao.getSongsBySourceType(0) // SourceType.LOCAL
                 for (localEntity in localEntities) {
                     val path = localEntity.filePath
-                    val file = if (path.isNotBlank()) File(path) else null
-                    if (file != null && file.isFile && file.length() > 0L) {
+                    if (path.isBlank()) continue
+                    val normPath = path.trim().lowercase()
+                    val canonical = runCatching { File(path).canonicalPath.lowercase() }.getOrNull()
+                    if (normPath in existingPaths || (canonical != null && canonical in existingPaths)) continue
+                    if (localEntity.contentUriString in existingUris) continue
+
+                    val file = File(path)
+                    if (file.isFile && file.length() > 0L) {
                         val fileSize = file.length()
                         val nativeSong = localEntity.toSong()
                         completedItems.add(
@@ -309,10 +328,39 @@ class CloudDownloadsViewModel @Inject constructor(
                 }
             }
 
-            // Deduplicate completed items by song id or path
-            val uniqueCompleted = completedItems
-                .distinctBy { it.song.id }
-                .sortedByDescending { it.song.dateAdded }
+            // Deduplicate completed items across path, ID, content URI, and track identity
+            val seenPaths = HashSet<String>(completedItems.size * 2)
+            val seenIds = HashSet<String>(completedItems.size)
+            val seenUris = HashSet<String>(completedItems.size)
+            val seenTrackKeys = HashSet<String>(completedItems.size)
+            val uniqueCompleted = ArrayList<CloudDownloadedSongItem>(completedItems.size)
+
+            for (item in completedItems) {
+                val rawPath = item.song.path.takeIf(String::isNotBlank) ?: item.download.localPath
+                val normPath = rawPath?.trim()?.lowercase()
+                val canonicalPath = rawPath?.let { runCatching { File(it).canonicalPath.lowercase() }.getOrNull() }
+                val id = item.song.id.trim()
+                val uri = item.song.contentUriString.takeIf(String::isNotBlank) ?: item.download.sourceUri.takeIf(String::isNotBlank)
+                val trackKey = if (item.song.title.isNotBlank()) {
+                    "${LocalAudioDuplicateMatcher.cleanMetadataText(item.song.title)}|${LocalAudioDuplicateMatcher.cleanMetadataText(item.song.artist)}"
+                } else null
+
+                val isDuplicate = (normPath != null && normPath in seenPaths) ||
+                    (canonicalPath != null && canonicalPath in seenPaths) ||
+                    (id.isNotBlank() && id in seenIds) ||
+                    (uri != null && uri in seenUris) ||
+                    (trackKey != null && trackKey in seenTrackKeys && item.download.provider == "local")
+
+                if (!isDuplicate) {
+                    if (normPath != null) seenPaths.add(normPath)
+                    if (canonicalPath != null) seenPaths.add(canonicalPath)
+                    if (id.isNotBlank()) seenIds.add(id)
+                    if (uri != null) seenUris.add(uri)
+                    if (trackKey != null) seenTrackKeys.add(trackKey)
+                    uniqueCompleted.add(item)
+                }
+            }
+            uniqueCompleted.sortByDescending { it.song.dateAdded }
 
             val totalUsedBytes = calculateStorageUsed(context, uniqueCompleted, filterMode == DownloadFilterMode.ALL_OFFLINE)
 
