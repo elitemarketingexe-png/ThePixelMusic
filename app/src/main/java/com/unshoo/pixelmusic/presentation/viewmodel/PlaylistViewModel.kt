@@ -788,26 +788,9 @@ class PlaylistViewModel @Inject constructor(
                                 }
                             }
 
-                            // Cache full playlist info and songs without automatically adding to user library
-                            try {
-                                val highQualityCover = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(
-                                    ytPlaylist.thumbnail
-                                ) ?: ytPlaylist.thumbnail ?: ""
-                                val info = PlaylistInfo(
-                                    id = playlistId,
-                                    title = ytPlaylist.title,
-                                    coverHref = highQualityCover,
-                                    lastSyncSongCount = allYtSongs.size,
-                                    lastSyncTimestamp = System.currentTimeMillis()
-                                )
-                                persistenceManager.persistPlaylist(
-                                    info = info,
-                                    songs = allYtSongs.map { it.toYoutubeSong() },
-                                    saveToLibrary = false
-                                )
-                            } catch (e: Exception) {
-                                Log.w("PlaylistVM", "Failed to cache online playlist $playlistId", e)
-                            }
+                            // Songs are already inserted to MusicRepository above (line 688/749).
+                            // Do NOT persist to Room's PlaylistInfo table here — that table feeds
+                            // userPlaylistsFlow and would cause the playlist to appear "liked".
                         } else {
                             if (initialDisplaySongs.isEmpty()) {
                                 _uiState.update { it.copy(isLoading = false, playlistNotFound = true) }
