@@ -13,6 +13,7 @@ import com.unshoo.pixelmusic.data.remote.youtube.YouTubeItemFilter
 import com.unshoo.pixelmusic.data.remote.youtube.toNativeSong
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
@@ -38,11 +39,12 @@ class YouTubeLibraryPersistenceManager @Inject constructor(
      * 3. Writes YouTube songs into AppDatabase.
      * 4. Writes ordered PlaylistSongCrossRefs (handles duplicate tracks via (playlistId, position)).
      * 5. Inserts converted native songs into unified MusicRepository (musicDao).
-     * 6. Updates PlaylistPreferencesRepository.
+     * 6. Updates PlaylistPreferencesRepository (only when saveToLibrary is true or if already in library).
      */
     suspend fun persistPlaylist(
         info: PlaylistInfo,
-        songs: List<YouTubeSong>
+        songs: List<YouTubeSong>,
+        saveToLibrary: Boolean = true
     ): Boolean = withContext(Dispatchers.IO) {
         if (YouTubeItemFilter.isPodcastOrEpisode(info.title, info.id)) {
             Timber.d("YouTubeLibraryPersistenceManager: Skipping podcast playlist '%s' (%s)", info.title, info.id)
@@ -77,30 +79,36 @@ class YouTubeLibraryPersistenceManager @Inject constructor(
                 musicRepository.insertYoutubeSongs(nativeSongs)
             }
 
-            // 3. Update PlaylistPreferences
+            // 3. Update PlaylistPreferences only if requested or if already in library
             val pId = info.id.removePrefix("VL")
-            val (cTime, mTime) = playlistPreferencesRepository.getOrCreatePlaylistTimestamps(
-                pId,
-                updatedInfo.lastSyncTimestamp,
-                updatedInfo.title,
-                nativeSongs.map { it.id }
-            )
+            val shouldSave = saveToLibrary || playlistPreferencesRepository.userPlaylistsFlow.first().any {
+                it.id.removePrefix("VL") == pId
+            }
 
-            val prefPlaylist = com.unshoo.pixelmusic.data.model.Playlist(
-                id = pId,
-                name = updatedInfo.title,
-                songIds = nativeSongs.map { it.id },
-                createdAt = cTime,
-                lastModified = mTime,
-                isAiGenerated = false,
-                isQueueGenerated = false,
-                coverImageUri = updatedInfo.coverHref,
-                source = "YOUTUBE",
-                displaySongCount = songs.size
-            )
-            playlistPreferencesRepository.updatePlaylist(prefPlaylist)
+            if (shouldSave) {
+                val (cTime, mTime) = playlistPreferencesRepository.getOrCreatePlaylistTimestamps(
+                    pId,
+                    updatedInfo.lastSyncTimestamp,
+                    updatedInfo.title,
+                    nativeSongs.map { it.id }
+                )
 
-            Timber.i("YouTubeLibraryPersistenceManager: Successfully persisted playlist '%s' with %d songs", info.title, songs.size)
+                val prefPlaylist = com.unshoo.pixelmusic.data.model.Playlist(
+                    id = pId,
+                    name = updatedInfo.title,
+                    songIds = nativeSongs.map { it.id },
+                    createdAt = cTime,
+                    lastModified = mTime,
+                    isAiGenerated = false,
+                    isQueueGenerated = false,
+                    coverImageUri = updatedInfo.coverHref,
+                    source = "YOUTUBE",
+                    displaySongCount = songs.size
+                )
+                playlistPreferencesRepository.updatePlaylist(prefPlaylist)
+            }
+
+            Timber.i("YouTubeLibraryPersistenceManager: Successfully persisted playlist '%s' with %d songs (saveToLibrary=%b, shouldSave=%b)", info.title, songs.size, saveToLibrary, shouldSave)
             true
         } catch (e: Exception) {
             Timber.e(e, "YouTubeLibraryPersistenceManager: Failed to persist playlist '%s'", info.title)

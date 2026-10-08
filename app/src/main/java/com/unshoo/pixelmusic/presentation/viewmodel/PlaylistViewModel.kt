@@ -687,7 +687,9 @@ class PlaylistViewModel @Inject constructor(
                             // Cache first page online playlist songs in Room DB
                             musicRepository.insertYoutubeSongs(firstPageSongs)
 
-                            val existing = playlistPreferencesRepository.userPlaylistsFlow.first().find { it.id == playlistId }
+                            val existing = playlistPreferencesRepository.userPlaylistsFlow.first().find {
+                                it.id.removePrefix("VL") == cleanId
+                            }
                             if (existing != null) {
                                 val updatedSongIds = if (existing.songIds.size > firstPageSongs.size) {
                                     existing.songIds
@@ -752,7 +754,9 @@ class PlaylistViewModel @Inject constructor(
                                     currentPlaylistSetVideoIds = allYtSongs.mapNotNull { it.setVideoId }
 
                                     // Only update preferences if the playlist exists locally
-                                    val currentExisting = playlistPreferencesRepository.userPlaylistsFlow.first().find { it.id == playlistId }
+                                    val currentExisting = playlistPreferencesRepository.userPlaylistsFlow.first().find {
+                                        it.id.removePrefix("VL") == cleanId
+                                    }
                                     if (currentExisting != null) {
                                         playlistPreferencesRepository.updatePlaylist(
                                             currentExisting.copy(
@@ -784,7 +788,7 @@ class PlaylistViewModel @Inject constructor(
                                 }
                             }
 
-                            // Persist full playlist info and songs to persistenceManager for instant local opens next time
+                            // Cache full playlist info and songs without automatically adding to user library
                             try {
                                 val highQualityCover = com.unshoo.pixelmusic.data.remote.youtube.upgradeThumbnailUrlToHighQuality(
                                     ytPlaylist.thumbnail
@@ -796,7 +800,11 @@ class PlaylistViewModel @Inject constructor(
                                     lastSyncSongCount = allYtSongs.size,
                                     lastSyncTimestamp = System.currentTimeMillis()
                                 )
-                                persistenceManager.persistPlaylist(info, allYtSongs.map { it.toYoutubeSong() })
+                                persistenceManager.persistPlaylist(
+                                    info = info,
+                                    songs = allYtSongs.map { it.toYoutubeSong() },
+                                    saveToLibrary = false
+                                )
                             } catch (e: Exception) {
                                 Log.w("PlaylistVM", "Failed to cache online playlist $playlistId", e)
                             }
