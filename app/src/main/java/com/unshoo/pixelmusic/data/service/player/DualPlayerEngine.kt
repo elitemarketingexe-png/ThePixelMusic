@@ -42,6 +42,8 @@ import androidx.media3.extractor.mp4.Mp4Extractor
 import unshoo.ianshulyadav.pixelmusic.innertube.utils.StreamClientUtils
 import com.unshoo.pixelmusic.data.model.TransitionSettings
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
+import com.unshoo.pixelmusic.data.remote.youtube.Constants
+import com.unshoo.pixelmusic.data.remote.youtube.PixelMusicHelper
 import com.unshoo.pixelmusic.data.telegram.TelegramRepository
 import com.unshoo.pixelmusic.utils.envelope
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -643,14 +645,19 @@ class DualPlayerEngine @Inject constructor(
         if (uriString.startsWith("youtube://")) {
             val videoId = uriString.removePrefix("youtube://")
             if (videoId.isNotBlank()) {
-                val audioDir = java.io.File(context.filesDir, "audio_files")
-                val extensions = listOf(".webm", ".m4a", ".opus", ".mp3", ".flac", ".ogg", ".aac")
-                for (ext in extensions) {
-                    val diskFile = java.io.File(audioDir, "$videoId$ext")
-                    if (diskFile.isFile && diskFile.length() > 0L) {
-                        val path = diskFile.absolutePath
-                        localFilePathCache[uriString] = path
-                        return Uri.fromFile(diskFile)
+                val candidateDirs = listOf(
+                    PixelMusicHelper.getDownloadDirectory(context, Constants.Downloads.AUDIO_FILES_FOLDER),
+                    File(context.filesDir, "audio_files")
+                )
+                val extensions = listOf(".flac", ".webm", ".m4a", ".opus", ".mp3", ".ogg", ".aac")
+                for (audioDir in candidateDirs) {
+                    for (ext in extensions) {
+                        val diskFile = java.io.File(audioDir, "$videoId$ext")
+                        if (diskFile.isFile && diskFile.length() > 0L) {
+                            val path = diskFile.absolutePath
+                            localFilePathCache[uriString] = path
+                            return Uri.fromFile(diskFile)
+                        }
                     }
                 }
             }
@@ -965,6 +972,7 @@ class DualPlayerEngine @Inject constructor(
     }
 
     private fun buildPlayer(): ExoPlayer {
+        val floatEnabled = hiFiModeEnabled && HiFiCapabilityChecker.isSupported()
         val mediaCodecSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
             val decoderInfos = MediaCodecSelector.DEFAULT.getDecoderInfos(
                 mimeType,
@@ -972,9 +980,8 @@ class DualPlayerEngine @Inject constructor(
                 requiresTunnelingDecoder
             )
 
-            AudioDecoderPolicy.selectPlatformDecoders(mimeType, decoderInfos)
+            AudioDecoderPolicy.selectPlatformDecoders(mimeType, decoderInfos, floatEnabled)
         }
-        val floatEnabled = hiFiModeEnabled && HiFiCapabilityChecker.isSupported()
         val renderersFactory = object : DefaultRenderersFactory(context) {
             override fun buildAudioSink(
                 context: Context,
@@ -1068,7 +1075,6 @@ class DualPlayerEngine @Inject constructor(
                     if (diskUri != null && (scheme != "youtube" || servesLossless || !LosslessStreamResolver.isEnabledBlocking(context) || !connectivityStateHolder.isOnline.value)) {
                         return dataSpec.buildUpon()
                             .setUri(diskUri)
-                            .apply { if (cleanId != null) setKey(cleanId) }
                             .build()
                     }
 
@@ -1181,7 +1187,7 @@ class DualPlayerEngine @Inject constructor(
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp4ExtractorFlags(Mp4Extractor.FLAG_WORKAROUND_IGNORE_EDIT_LISTS)
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
-            .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
+            .setConstantBitrateSeekingEnabled(true)
 
         // BUGFIX (adaptive buffering): previously just metered-vs-unmetered, which treats a fast
         // 5G connection the same as a barely-there one just because both are "mobile data". Now
@@ -1581,7 +1587,9 @@ class DualPlayerEngine @Inject constructor(
         if (resolvedUri == uri) return mediaItem
         
         val builder = mediaItem.buildUpon().setUri(resolvedUri)
-        if (scheme == "youtube") {
+        if (resolvedUri.path?.endsWith(".flac", true) == true) {
+            builder.setMimeType("audio/flac")
+        } else if (scheme == "youtube") {
             val videoId = uri.toString().removePrefix("youtube://")
             val cachedMime = com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.streamMimeTypeLruCache.let { cache ->
                 cache.get("${videoId}_high")

@@ -34,6 +34,28 @@ class AudioDecoderPolicyTest {
     }
 
     @Test
+    fun selectPlatformDecoders_routesFlacToExtensionRendererForFloatOutput() {
+        val decoders = listOf("c2.qti.flac.decoder", "c2.android.flac.decoder")
+
+        val selected = AudioDecoderPolicy.selectPlatformDecoders(
+            MimeTypes.AUDIO_FLAC, decoders, usesFloatOutput = true
+        )
+
+        assertThat(selected).isEmpty()
+    }
+
+    @Test
+    fun selectPlatformDecoders_preservesFlacDecodersForIntegerOutput() {
+        val decoders = listOf("c2.qti.flac.decoder", "c2.android.flac.decoder")
+
+        val selected = AudioDecoderPolicy.selectPlatformDecoders(
+            MimeTypes.AUDIO_FLAC, decoders, usesFloatOutput = false
+        )
+
+        assertThat(selected).containsExactlyElementsIn(decoders).inOrder()
+    }
+
+    @Test
     fun isLikelyHardwareDecoder_marksSoftwareRenderersAsSoftware() {
         assertThat(AudioDecoderPolicy.isLikelyHardwareDecoder("OMX.google.aac.decoder")).isFalse()
         assertThat(AudioDecoderPolicy.isLikelyHardwareDecoder("c2.android.aac.decoder")).isFalse()

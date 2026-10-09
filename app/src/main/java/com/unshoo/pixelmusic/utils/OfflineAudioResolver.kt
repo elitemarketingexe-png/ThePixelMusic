@@ -44,15 +44,7 @@ object OfflineAudioResolver {
         // 3. Downloaded YouTube audio check
         val ytId = song.youtubeId ?: if (song.id.startsWith("youtube_")) song.id.removePrefix("youtube_") else null
         if (ytId != null) {
-            val audioDir = PixelMusicHelper.getDownloadDirectory(context, Constants.Downloads.AUDIO_FILES_FOLDER)
-            val webmFile = File(audioDir, "$ytId.webm")
-            if (webmFile.exists() && webmFile.length() > 0L) return true
-
-            val possibleExtensions = listOf("m4a", "opus", "mp3")
-            for (ext in possibleExtensions) {
-                val f = File(audioDir, "$ytId.$ext")
-                if (f.exists() && f.length() > 0L) return true
-            }
+            return getOfflineAudioFile(context, song) != null
         }
 
         return false
@@ -84,12 +76,14 @@ object OfflineAudioResolver {
         val ytId = song.youtubeId ?: if (song.id.startsWith("youtube_")) song.id.removePrefix("youtube_") else null
         if (ytId != null) {
             val audioDir = PixelMusicHelper.getDownloadDirectory(context, Constants.Downloads.AUDIO_FILES_FOLDER)
-            val webmFile = File(audioDir, "$ytId.webm")
-            if (webmFile.exists() && webmFile.length() > 0L) return webmFile
-            val possibleExtensions = listOf("m4a", "opus", "mp3")
-            for (ext in possibleExtensions) {
-                val f = File(audioDir, "$ytId.$ext")
-                if (f.exists() && f.length() > 0L) return f
+            val fallbackAudioDir = File(context.filesDir, "audio_files")
+            val candidateDirs = listOf(audioDir, fallbackAudioDir)
+            val possibleExtensions = listOf("flac", "webm", "m4a", "opus", "mp3", "ogg", "aac", "wav")
+            for (dir in candidateDirs) {
+                for (ext in possibleExtensions) {
+                    val f = File(dir, "$ytId.$ext")
+                    if (f.exists() && f.length() > 0L) return f
+                }
             }
         }
         return null

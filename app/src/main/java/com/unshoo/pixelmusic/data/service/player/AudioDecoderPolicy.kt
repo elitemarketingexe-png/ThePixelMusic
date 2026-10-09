@@ -13,17 +13,20 @@ internal object AudioDecoderPolicy {
         AUDIO_MIDI
     )
 
-    fun shouldUseExtensionRenderer(mimeType: String): Boolean {
-        return extensionOnlyMimeTypes.any { it.equals(mimeType, ignoreCase = true) }
+    fun shouldUseExtensionRenderer(mimeType: String, usesFloatOutput: Boolean = false): Boolean {
+        // Some platform FLAC decoders produce corrupt audio or seek lockups when Media3 requests PCM_FLOAT
+        // (reported on the Galaxy S25 Ultra, issue #122). FFmpeg can decode FLAC directly to
+        // float PCM without that platform negotiation. Keep the normal decoder order in the
+        // integer output modes.
+        return (usesFloatOutput && MimeTypes.AUDIO_FLAC.equals(mimeType, ignoreCase = true)) ||
+            extensionOnlyMimeTypes.any { it.equals(mimeType, ignoreCase = true) }
     }
 
-    fun <T> selectPlatformDecoders(mimeType: String, decoderInfos: List<T>): List<T> {
-        return if (shouldUseExtensionRenderer(mimeType)) {
-            emptyList()
-        } else {
-            decoderInfos
-        }
-    }
+    fun <T> selectPlatformDecoders(
+        mimeType: String,
+        decoderInfos: List<T>,
+        usesFloatOutput: Boolean = false
+    ): List<T> = if (shouldUseExtensionRenderer(mimeType, usesFloatOutput)) emptyList() else decoderInfos
 
     fun isLikelyHardwareDecoder(decoderName: String): Boolean {
         val normalized = decoderName.lowercase(Locale.US)
