@@ -109,6 +109,7 @@ class ExploreViewModel @Inject constructor(
     private var stage2Job: Job? = null
     @Volatile
     private var hasFetchedFromNetwork = false
+    private var initialHomeContinuation: String? = null
 
     private val gson by lazy {
         com.google.gson.GsonBuilder()
@@ -469,6 +470,7 @@ class ExploreViewModel @Inject constructor(
                     )
                 }
 
+                initialHomeContinuation = currentContinuation
                 prefetchThumbnails(rawSections)
                 persistToCache(rawSections)
                 hasFetchedFromNetwork = true
@@ -564,56 +566,161 @@ class ExploreViewModel @Inject constructor(
     }
 
     fun setSelectedFilter(filter: String) {
-        _uiState.update { it.copy(selectedFilter = filter, activeMoodChip = null) }
-        _activeChipState.value = null
-        if (filter == "All") {
-            loadData(forceRefresh = false)
+        if (filter.equals("All", ignoreCase = true)) {
+            selectMoodChip(null)
+        } else if (filter.equals("Local", ignoreCase = true)) {
+            _activeChipState.value = null
+            _uiState.update {
+                it.copy(
+                    selectedFilter = "Local",
+                    activeMoodChip = null,
+                    explorePageSections = emptyList(),
+                    isLoading = false,
+                    error = null
+                )
+            }
+        } else {
+            _uiState.update { it.copy(selectedFilter = filter) }
+            val matchingChip = _uiState.value.moodChips.firstOrNull {
+                it.title.equals(filter, ignoreCase = true) ||
+                it.title.replace(" ", "").equals(filter.replace(" ", ""), ignoreCase = true)
+            }
+            selectMoodChipByName(filter, matchingChip)
         }
     }
 
     fun selectMoodChip(chip: HomePage.Chip?) {
+        if (chip == null) {
+            _activeChipState.value = null
+            _uiState.update {
+                it.copy(
+                    activeMoodChip = null,
+                    explorePageSections = emptyList(),
+                    selectedFilter = "All",
+                    isLoading = false,
+                    error = null,
+                    homePageContinuation = initialHomeContinuation
+                )
+            }
+            _sectionsState.value = _uiState.value.homePageSections.map { it.toUiModel() }
+            if (_uiState.value.homePageSections.isEmpty()) {
+                loadData(false)
+            }
+        } else {
+            selectMoodChipByName(chip.title, chip)
+        }
+    }
+
+    fun selectMoodChipByName(name: String, chip: HomePage.Chip? = null) {
         viewModelScope.launch {
-            _activeChipState.value = chip?.let { ExploreChipUiModel(it.title, it.endpoint?.browseId, it.endpoint?.params) }
-            _uiState.update { it.copy(activeMoodChip = chip, isLoading = true, error = null) }
+            val effectiveChip = chip ?: _uiState.value.moodChips.firstOrNull {
+                it.title.equals(name, ignoreCase = true) ||
+                it.title.replace(" ", "").equals(name.replace(" ", ""), ignoreCase = true)
+            } ?: HomePage.Chip(
+                title = name,
+                endpoint = null,
+                deselectEndPoint = null
+            )
+            _activeChipState.value = ExploreChipUiModel(effectiveChip.title, effectiveChip.endpoint?.browseId, effectiveChip.endpoint?.params)
+            _uiState.update { it.copy(activeMoodChip = effectiveChip, selectedFilter = effectiveChip.title, isLoading = true, error = null) }
             _isLoadingState.value = true
 
-            if (chip == null) {
-                loadDataInternal(false)
-            } else {
-                withContext(Dispatchers.IO) {
-                    val endpoint = chip.endpoint
-                    if (endpoint != null) {
-                        YouTube.explore(browseId = endpoint.browseId, params = endpoint.params).onSuccess { exp ->
-                            val rawSections = exp.sections
-                            val uiSections = rawSections.map { it.toUiModel() }
-                            _sectionsState.value = uiSections
-                            _isLoadingState.value = false
-
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    explorePageSections = rawSections
-                                )
-                            }
-                            prefetchThumbnails(rawSections)
-                        }.onFailure { e ->
-                            val msg = "Failed to fetch mood feed: ${e.message}"
-                            _errorState.value = msg
-                            _isLoadingState.value = false
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    error = msg
-                                )
-                            }
-                        }
-                    } else {
+            withContext(Dispatchers.IO) {
+                val params = effectiveChip.endpoint?.params
+                if (params != null) {
+                    val result = runCatching {
+                        YouTube.home(params = params).getOrThrow()
+                    }
+                    if (result.isSuccess && result.getOrNull()?.sections?.isNotEmpty() == true) {
+                        val homeResult = result.getOrThrow()
+                        val rawSections = homeResult.sections
+                        val uiSections = rawSections.map { it.toUiModel() }
+                        _sectionsState.value = uiSections
                         _isLoadingState.value = false
-                        _uiState.update { it.copy(isLoading = false) }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                explorePageSections = rawSections,
+                                homePageContinuation = homeResult.continuation
+                            )
+                        }
+                        prefetchThumbnails(rawSections)
+                        return@withContext
                     }
                 }
+                val endpoint = effectiveChip.endpoint
+                if (endpoint != null && endpoint.browseId.isNotBlank()) {
+                    val result = runCatching {
+                        YouTube.explore(browseId = endpoint.browseId, params = endpoint.params).getOrThrow()
+                    }
+                    if (result.isSuccess && result.getOrNull()?.sections?.isNotEmpty() == true) {
+                        val exp = result.getOrThrow()
+                        val rawSections = exp.sections
+                        val uiSections = rawSections.map { it.toUiModel() }
+                        _sectionsState.value = uiSections
+                        _isLoadingState.value = false
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                explorePageSections = rawSections,
+                                homePageContinuation = null
+                            )
+                        }
+                        prefetchThumbnails(rawSections)
+                        return@withContext
+                    }
+                }
+                fetchMoodFallbackSections(name)
             }
         }
+    }
+
+    private suspend fun fetchMoodFallbackSections(moodName: String) {
+        val playlistsResult = runCatching {
+            YouTube.search(moodName, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
+                ?: YouTube.search(moodName, YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST).getOrNull()
+        }.getOrNull()
+
+        val songsResult = runCatching {
+            YouTube.search(moodName, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+        }.getOrNull()
+
+        val sections = mutableListOf<HomePage.Section>()
+        val playlistItems = playlistsResult?.items?.filterIsInstance<PlaylistItem>().orEmpty()
+        if (playlistItems.isNotEmpty()) {
+            sections.add(
+                HomePage.Section(
+                    title = "$moodName Mixes & Playlists",
+                    label = "Playlists",
+                    thumbnail = playlistItems.firstOrNull()?.thumbnail,
+                    endpoint = null,
+                    items = playlistItems.take(20)
+                )
+            )
+        }
+        val songItems = songsResult?.items?.filterIsInstance<SongItem>()?.filterVideo(true).orEmpty()
+        if (songItems.isNotEmpty()) {
+            sections.add(
+                HomePage.Section(
+                    title = "Popular in $moodName",
+                    label = "Songs",
+                    thumbnail = songItems.firstOrNull()?.thumbnail,
+                    endpoint = null,
+                    items = songItems.take(20)
+                )
+            )
+        }
+
+        val uiSections = sections.map { it.toUiModel() }
+        _sectionsState.value = uiSections
+        _isLoadingState.value = false
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                explorePageSections = sections
+            )
+        }
+        prefetchThumbnails(sections)
     }
 
     private suspend fun loadOfflineExploreData() = withContext(Dispatchers.IO) {

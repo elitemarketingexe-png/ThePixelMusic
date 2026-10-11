@@ -1650,7 +1650,14 @@ class PlayerViewModel @Inject constructor(
     // Library State - delegated to LibraryStateHolder
     val allSongsFlow: StateFlow<ImmutableList<Song>> = libraryStateHolder.allSongs
 
-    fun findSongById(id: String): Song? = libraryStateHolder.allSongsById.value[id]
+    fun findSongById(id: String): Song? {
+        val map = libraryStateHolder.allSongsById.value
+        map[id]?.let { return it }
+        val cleanId = id.removePrefix("youtube_")
+        map[cleanId]?.let { return it }
+        map["youtube_$id"]?.let { return it }
+        return null
+    }
 
     // Genres StateFlow - delegated to LibraryStateHolder
     val genres: StateFlow<ImmutableList<Genre>> = libraryStateHolder.genres
@@ -6722,15 +6729,24 @@ class PlayerViewModel @Inject constructor(
                 saveYoutubeSongsToDb(listOf(song))
             }
         }
-        runOnMainImmediate {
-            val player = mediaController ?: dualPlayerEngine.masterPlayer
-            val mediaItem = buildPlaybackMediaItem(song)
-            player.addMediaItem(mediaItem)
-            if (player.mediaItemCount == 1) {
-                player.prepare()
-                player.play()
+        viewModelScope.launch {
+            var mediaItem = buildPlaybackMediaItem(song)
+            val scheme = mediaItem.localConfiguration?.uri?.scheme
+            if (scheme == "youtube" || scheme == "telegram" || scheme == "gdrive") {
+                mediaItem = withContext(Dispatchers.IO) {
+                    runCatching { dualPlayerEngine.preResolveForPlayback(mediaItem) }
+                        .getOrDefault(mediaItem)
+                }
             }
-            sendToast("Added to queue")
+            withContext(Dispatchers.Main.immediate) {
+                val player = mediaController ?: dualPlayerEngine.masterPlayer
+                player.addMediaItem(mediaItem)
+                if (player.mediaItemCount == 1) {
+                    player.prepare()
+                    player.play()
+                }
+                sendToast("Added to queue")
+            }
         }
     }
 

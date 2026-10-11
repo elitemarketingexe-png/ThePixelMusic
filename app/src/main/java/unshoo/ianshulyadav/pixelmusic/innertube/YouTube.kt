@@ -757,15 +757,17 @@ object YouTube {
             setLogin = setLogin,
             forceAnonymous = forceAnon
         ).body<BrowseResponse>()
-        val continuation = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-            ?.tabRenderer?.content?.sectionListRenderer?.continuations?.getContinuation()
         val sectionListRender = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer
-        val sections = sectionListRender?.contents!!
-            .mapNotNull {
-                HomePage.Section.fromSectionListContent(it)
-            }.toMutableList()
-        val chips = sectionListRender.header?.chipCloudRenderer?.chips?.mapNotNull { HomePage.Chip.fromChipCloudChipRenderer(it) }
+            ?: response.contents?.sectionListRenderer
+        val continuation = sectionListRender?.continuations?.getContinuation()
+            ?: response.continuationContents?.sectionListContinuation?.continuations?.getContinuation()
+        val sections = (sectionListRender?.contents?.mapNotNull {
+            HomePage.Section.fromSectionListContent(it)
+        } ?: response.continuationContents?.sectionListContinuation?.contents?.mapNotNull {
+            HomePage.Section.fromSectionListContent(it)
+        }.orEmpty()).toMutableList()
+        val chips = sectionListRender?.header?.chipCloudRenderer?.chips?.mapNotNull { HomePage.Chip.fromChipCloudChipRenderer(it) }
         HomePage(chips, sections, continuation)
     }
 

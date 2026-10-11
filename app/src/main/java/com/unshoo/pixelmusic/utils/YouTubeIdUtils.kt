@@ -27,11 +27,16 @@ object YouTubeIdUtils {
      * Extracts a pure YouTube video ID by stripping common prefixes ('youtube://', 'youtube_').
      */
     fun extractVideoId(rawId: String): String {
-        return when {
+        val clean = when {
             rawId.startsWith("youtube://") -> rawId.removePrefix("youtube://")
             rawId.startsWith("youtube_") -> rawId.removePrefix("youtube_")
             else -> rawId
         }
+        if (clean.length == 11 && clean.all { it.isLetterOrDigit() || it == '-' || it == '_' }) {
+            return clean
+        }
+        val match = Regex("(?:v=|/vi/|/watch\\?v=|youtu\\.be/)([a-zA-Z0-9_-]{11})").find(rawId)
+        return match?.groupValues?.getOrNull(1) ?: clean
     }
 
     /**

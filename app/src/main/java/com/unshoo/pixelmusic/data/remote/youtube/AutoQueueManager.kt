@@ -409,23 +409,35 @@ object AutoQueueManager {
                 }
             }
 
-            val (existingIds, existingVideoIds, currentTrackSignature) = withContext(Dispatchers.Main) {
-                val p = livePlayer() ?: return@withContext Triple(emptySet<String>(), emptySet<String>(), null)
-                val ids = HashSet<String>(p.mediaItemCount)
-                val vIds = HashSet<String>(p.mediaItemCount)
+            val (existingIds, existingVideoIds, currentTrackSignature, currentVideoId, existingSignatures) = withContext(Dispatchers.Main) {
+                val p = livePlayer() ?: return@withContext QueueFilterSnapshot(emptySet(), emptySet(), null, null, emptySet())
+                val ids = HashSet<String>(p.mediaItemCount * 2)
+                val vIds = HashSet<String>(p.mediaItemCount * 2)
+                val sigs = HashSet<String>(p.mediaItemCount)
                 for (i in 0 until p.mediaItemCount) {
                     val mi = p.getMediaItemAt(i)
                     ids.add(mi.mediaId)
+                    ids.add(mi.mediaId.removePrefix("youtube_"))
                     val extracted = YouTubeIdUtils.extractVideoId(mi.mediaId)
                     if (extracted.isNotBlank()) vIds.add(extracted)
                     val uriId = mi.localConfiguration?.uri?.toString()?.let(YouTubeIdUtils::extractVideoId).orEmpty()
                     if (uriId.isNotBlank()) vIds.add(uriId)
+                    val t = mi.mediaMetadata.title?.toString()?.trim()?.lowercase().orEmpty()
+                    val a = mi.mediaMetadata.artist?.toString()?.trim()?.lowercase().orEmpty()
+                    if (t.isNotBlank() && a.isNotBlank()) {
+                        sigs.add("$t|$a")
+                    }
                 }
                 val cur = p.currentMediaItem
                 val curTitle = cur?.mediaMetadata?.title?.toString()?.trim()?.lowercase()
                 val curArtist = cur?.mediaMetadata?.artist?.toString()?.trim()?.lowercase()
                 val sig = if (!curTitle.isNullOrBlank() && !curArtist.isNullOrBlank()) "$curTitle|$curArtist" else null
-                Triple(ids, vIds, sig)
+                val curVid = cur?.let {
+                    val idFromMedia = YouTubeIdUtils.extractVideoId(it.mediaId)
+                    val idFromUri = it.localConfiguration?.uri?.toString()?.let(YouTubeIdUtils::extractVideoId).orEmpty()
+                    if (idFromMedia.length == 11) idFromMedia else if (idFromUri.length == 11) idFromUri else null
+                }
+                QueueFilterSnapshot(ids, vIds, sig, curVid, sigs)
             }
 
             val fetched = try {
@@ -450,8 +462,9 @@ object AutoQueueManager {
                 val itemSig = if (!itemTitle.isNullOrBlank() && !itemArtist.isNullOrBlank()) "$itemTitle|$itemArtist" else null
 
                 item.mediaId in existingIds ||
-                (ytId.isNotBlank() && ytId in existingVideoIds) ||
-                (currentTrackSignature != null && itemSig == currentTrackSignature) ||
+                item.mediaId.removePrefix("youtube_") in existingIds ||
+                (ytId.isNotBlank() && (ytId in existingVideoIds || ytId == currentVideoId)) ||
+                (itemSig != null && (itemSig == currentTrackSignature || itemSig in existingSignatures)) ||
                 item.mediaId in dislikedSongIds ||
                 (ytId.isNotBlank() && ytId in dislikedYtIds) ||
                 item.mediaId in notInterestedIds ||
@@ -587,3 +600,11 @@ object AutoQueueManager {
         return YouTubeIdUtils.toUnifiedYoutubeSongId(youtubeId)
     }
 }
+
+private data class QueueFilterSnapshot(
+    val existingIds: Set<String>,
+    val existingVideoIds: Set<String>,
+    val currentTrackSignature: String?,
+    val currentVideoId: String?,
+    val existingSignatures: Set<String>,
+)

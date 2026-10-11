@@ -57,7 +57,7 @@ class QuickPicksViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _categories = MutableStateFlow<ImmutableList<String>>(persistentListOf("All", "Local"))
+    private val _categories = MutableStateFlow<ImmutableList<String>>(persistentListOf("All", "Local", "Podcasts", "Romance", "Relax", "Feel good", "Party", "Workout", "Focus", "Energize"))
     val categories: StateFlow<ImmutableList<String>> = _categories.asStateFlow()
 
     private val _selectedCategory = MutableStateFlow("All")
@@ -425,7 +425,8 @@ class QuickPicksViewModel @Inject constructor(
             try {
                 val homePage = YouTube.home().getOrNull() ?: return@async emptyList<SongItem>()
                 val chipTitles = homePage.chips?.map { it.title } ?: emptyList()
-                val updatedCategories = (listOf("All", "Local") + chipTitles).distinct()
+                val baseline = listOf("All", "Local", "Podcasts", "Romance", "Relax", "Feel good", "Party", "Workout", "Focus", "Energize")
+                val updatedCategories = (baseline + chipTitles).distinct()
                 _categories.value = updatedCategories.toImmutableList()
 
                 val items = mutableListOf<SongItem>()
@@ -567,25 +568,45 @@ class QuickPicksViewModel @Inject constructor(
         val pureYtMusicOnly = userPreferencesRepository.pureYtMusicOnlyFlow.first()
         val songs = withContext(Dispatchers.IO) {
             try {
-                val defaultHome = YouTube.home().getOrNull() ?: return@withContext emptyList<Song>()
-                val matchingChip = defaultHome.chips?.firstOrNull {
+                val defaultHome = YouTube.home().getOrNull()
+                val matchingChip = defaultHome?.chips?.firstOrNull {
                     it.title.equals(category, ignoreCase = true)
                 }
-                val targetHome = if (matchingChip?.endpoint?.params != null) {
-                    YouTube.home(params = matchingChip.endpoint.params).getOrNull() ?: defaultHome
-                } else defaultHome
-
-                targetHome.sections
-                    .filter {
-                        !it.title.contains("listen again", ignoreCase = true) &&
-                        !it.title.contains("recently played", ignoreCase = true)
+                if (matchingChip?.endpoint?.params != null) {
+                    val targetHome = YouTube.home(params = matchingChip.endpoint.params).getOrNull() ?: defaultHome
+                    targetHome?.sections
+                        .orEmpty()
+                        .filter {
+                            !it.title.contains("listen again", ignoreCase = true) &&
+                            !it.title.contains("recently played", ignoreCase = true)
+                        }
+                        .flatMap { it.items.filterIsInstance<SongItem>() }
+                        .filterVideo(pureYtMusicOnly)
+                        .distinctBy { it.id }
+                        .take(25)
+                        .map { it.toNativeSong() }
+                        .shuffled()
+                } else {
+                    val searchResult = YouTube.search(category, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                    val searchSongs = searchResult?.items
+                        ?.filterIsInstance<SongItem>()
+                        ?.filterVideo(pureYtMusicOnly)
+                        ?.map { it.toNativeSong() }
+                        .orEmpty()
+                    if (searchSongs.isNotEmpty()) {
+                        searchSongs.take(25).shuffled()
+                    } else if (defaultHome != null) {
+                        defaultHome.sections
+                            .flatMap { it.items.filterIsInstance<SongItem>() }
+                            .filterVideo(pureYtMusicOnly)
+                            .distinctBy { it.id }
+                            .take(25)
+                            .map { it.toNativeSong() }
+                            .shuffled()
+                    } else {
+                        emptyList()
                     }
-                    .flatMap { it.items.filterIsInstance<SongItem>() }
-                    .filterVideo(pureYtMusicOnly)
-                    .distinctBy { it.id }
-                    .take(25)
-                    .map { it.toNativeSong() }
-                    .shuffled()
+                }
             } catch (e: Exception) {
                 Timber.tag("QuickPicks").e(e, "Category fetch failed: $category")
                 emptyList()
