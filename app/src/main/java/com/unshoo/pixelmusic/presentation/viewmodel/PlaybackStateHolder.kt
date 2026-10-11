@@ -932,7 +932,10 @@ class PlaybackStateHolder @Inject constructor(
                         _stablePlayerState.update { it.copy(isShuffleEnabled = true) }
 
                         withContext(Dispatchers.Main) {
-                            player.shuffleModeEnabled = false
+                            player.shuffleModeEnabled = true
+                            (player as? androidx.media3.exoplayer.ExoPlayer)?.setShuffleOrder(
+                                androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(IntArray(shuffledQueue.size) { it }, System.currentTimeMillis())
+                            )
                         }
 
                         scope?.launch {

@@ -5727,8 +5727,9 @@ class PlayerViewModel @Inject constructor(
             val isShuffleOn = playbackStateHolder.stablePlayerState.value.isShuffleEnabled
 
             // If Persistent Shuffle is OFF, we reset shuffle to "false" every time a new album starts
-            if (!isPersistent) {
+            if (!isPersistent || !isShuffleOn) {
                 playbackStateHolder.updateStablePlayerState { it.copy(isShuffleEnabled = false) }
+                syncShuffleStateWithSession(false)
             }
 
             // If shuffle is persistent and currently ON, we shuffle the new songs immediately
@@ -5784,6 +5785,7 @@ class PlayerViewModel @Inject constructor(
                 // Optimistically update shuffle state
                 playbackStateHolder.updateStablePlayerState { it.copy(isShuffleEnabled = true) }
                 launch { userPreferencesRepository.setShuffleOn(true) }
+                syncShuffleStateWithSession(true)
 
                 internalPlaySongs(shuffledQueue, startSong, queueName, playlistId, requestToken)
                 if (requestToken == directPlaybackToken) {
@@ -6212,7 +6214,13 @@ class PlayerViewModel @Inject constructor(
                             dualPlayerEngine.cancelNext()
                             val player = dualPlayerEngine.masterPlayer
                             player.setMediaItems(items, startIndex, 0L)
-                            player.shuffleModeEnabled = false
+                            val isShuffle = playbackStateHolder.stablePlayerState.value.isShuffleEnabled
+                            player.shuffleModeEnabled = isShuffle
+                            if (isShuffle) {
+                                (player as? androidx.media3.exoplayer.ExoPlayer)?.setShuffleOrder(
+                                    androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(IntArray(items.size) { it }, System.currentTimeMillis())
+                                )
+                            }
                             player.prepare()
                             player.playWhenReady = true
                             player.play()
