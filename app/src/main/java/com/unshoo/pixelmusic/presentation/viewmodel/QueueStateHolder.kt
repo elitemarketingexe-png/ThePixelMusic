@@ -47,7 +47,7 @@ class QueueStateHolder @Inject constructor() {
      */
     suspend fun prepareShuffledQueueSuspending(
         songs: List<Song>,
-        startAtZero: Boolean = false
+        startAtZero: Boolean = true
     ): Pair<List<Song>, Song>? {
         if (songs.isEmpty()) return null
 

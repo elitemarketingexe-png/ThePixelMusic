@@ -409,9 +409,23 @@ object AutoQueueManager {
                 }
             }
 
-            val existingIds = withContext(Dispatchers.Main) {
-                val p = livePlayer() ?: return@withContext emptySet<String>()
-                (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.toSet()
+            val (existingIds, existingVideoIds, currentTrackSignature) = withContext(Dispatchers.Main) {
+                val p = livePlayer() ?: return@withContext Triple(emptySet<String>(), emptySet<String>(), null)
+                val ids = HashSet<String>(p.mediaItemCount)
+                val vIds = HashSet<String>(p.mediaItemCount)
+                for (i in 0 until p.mediaItemCount) {
+                    val mi = p.getMediaItemAt(i)
+                    ids.add(mi.mediaId)
+                    val extracted = YouTubeIdUtils.extractVideoId(mi.mediaId)
+                    if (extracted.isNotBlank()) vIds.add(extracted)
+                    val uriId = mi.localConfiguration?.uri?.toString()?.let(YouTubeIdUtils::extractVideoId).orEmpty()
+                    if (uriId.isNotBlank()) vIds.add(uriId)
+                }
+                val cur = p.currentMediaItem
+                val curTitle = cur?.mediaMetadata?.title?.toString()?.trim()?.lowercase()
+                val curArtist = cur?.mediaMetadata?.artist?.toString()?.trim()?.lowercase()
+                val sig = if (!curTitle.isNullOrBlank() && !curArtist.isNullOrBlank()) "$curTitle|$curArtist" else null
+                Triple(ids, vIds, sig)
             }
 
             val fetched = try {
@@ -431,11 +445,17 @@ object AutoQueueManager {
 
             val newItems = fetched.filterNot { item ->
                 val ytId = YouTubeIdUtils.extractVideoId(item.mediaId)
+                val itemTitle = item.mediaMetadata.title?.toString()?.trim()?.lowercase()
+                val itemArtist = item.mediaMetadata.artist?.toString()?.trim()?.lowercase()
+                val itemSig = if (!itemTitle.isNullOrBlank() && !itemArtist.isNullOrBlank()) "$itemTitle|$itemArtist" else null
+
                 item.mediaId in existingIds ||
+                (ytId.isNotBlank() && ytId in existingVideoIds) ||
+                (currentTrackSignature != null && itemSig == currentTrackSignature) ||
                 item.mediaId in dislikedSongIds ||
-                (ytId != null && ytId in dislikedYtIds) ||
+                (ytId.isNotBlank() && ytId in dislikedYtIds) ||
                 item.mediaId in notInterestedIds ||
-                (ytId != null && ytId in notInterestedIds)
+                (ytId.isNotBlank() && ytId in notInterestedIds)
             }.let { items ->
                 if (filterCoverLofi) {
                     items.filterNot { item ->

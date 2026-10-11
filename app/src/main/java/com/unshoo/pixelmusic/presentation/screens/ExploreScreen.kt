@@ -660,7 +660,9 @@ fun ExploreScreen(
                                     actionText = stringResource(R.string.action_play_all),
                                     actionIcon = Icons.Filled.PlayArrow,
                                     onActionClick = {
-                                        val allLocal = jumpBackInTracks.mapNotNull { exploreUiState.localSongs[it.url] }
+                                        val allLocal = jumpBackInTracks.mapNotNull {
+                                            exploreUiState.localSongs[it.url] ?: playerViewModel.findSongById(it.url)
+                                        }
                                         if (allLocal.isNotEmpty()) {
                                             playerViewModel.playSongs(allLocal, allLocal.first(), queueName = "Jump Back In")
                                         } else {
@@ -674,8 +676,11 @@ fun ExploreScreen(
                                             track = track,
                                             onClick = {
                                                 val localSong = exploreUiState.localSongs[track.url]
+                                                    ?: playerViewModel.findSongById(track.url)
                                                 if (localSong != null) {
-                                                    val allLocal = jumpBackInTracks.mapNotNull { exploreUiState.localSongs[it.url] }
+                                                    val allLocal = jumpBackInTracks.mapNotNull {
+                                                        exploreUiState.localSongs[it.url] ?: playerViewModel.findSongById(it.url)
+                                                    }
                                                     playerViewModel.playSongs(allLocal, localSong, queueName = "Jump Back In")
                                                 } else {
                                                     feedViewModel.playRecentQueue(jumpBackInTracks, index, playerViewModel)
@@ -683,6 +688,7 @@ fun ExploreScreen(
                                             },
                                             onMoreClick = {
                                                 val localSong = exploreUiState.localSongs[track.url]
+                                                    ?: playerViewModel.findSongById(track.url)
                                                 val song = localSong ?: track.toSong()
                                                 playerViewModel.selectSongForInfo(song)
                                                 showSongInfoBottomSheet = true

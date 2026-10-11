@@ -1650,6 +1650,8 @@ class PlayerViewModel @Inject constructor(
     // Library State - delegated to LibraryStateHolder
     val allSongsFlow: StateFlow<ImmutableList<Song>> = libraryStateHolder.allSongs
 
+    fun findSongById(id: String): Song? = libraryStateHolder.allSongsById.value[id]
+
     // Genres StateFlow - delegated to LibraryStateHolder
     val genres: StateFlow<ImmutableList<Genre>> = libraryStateHolder.genres
         .stateIn(
@@ -4702,7 +4704,7 @@ class PlayerViewModel @Inject constructor(
     private var lastQueueUpdateJob: Job? = null
 
     private fun updateCurrentPlaybackQueueFromPlayer(playerCtrl: MediaController?) {
-        val currentMediaController = playerCtrl ?: mediaController ?: return
+        val currentMediaController: androidx.media3.common.Player = playerCtrl ?: mediaController ?: dualPlayerEngine.masterPlayer
         val requestId = ++lastQueueUpdateRequestId
         lastQueueUpdateJob?.cancel()
         lastQueueUpdateJob = viewModelScope.launch {
@@ -6721,10 +6723,14 @@ class PlayerViewModel @Inject constructor(
             }
         }
         runOnMainImmediate {
-            val controller = mediaController ?: return@runOnMainImmediate
+            val player = mediaController ?: dualPlayerEngine.masterPlayer
             val mediaItem = buildPlaybackMediaItem(song)
-            controller.addMediaItem(mediaItem)
-            // Queue UI is synced via onTimelineChanged listener
+            player.addMediaItem(mediaItem)
+            if (player.mediaItemCount == 1) {
+                player.prepare()
+                player.play()
+            }
+            sendToast("Added to queue")
         }
     }
 
@@ -6744,13 +6750,18 @@ class PlayerViewModel @Inject constructor(
                 }
             }
             withContext(Dispatchers.Main.immediate) {
-                val controller = mediaController ?: return@withContext
-                val insertionIndex = if (controller.currentMediaItemIndex != C.INDEX_UNSET) {
-                    (controller.currentMediaItemIndex + 1).coerceAtMost(controller.mediaItemCount)
+                val player = mediaController ?: dualPlayerEngine.masterPlayer
+                val insertionIndex = if (player.currentMediaItemIndex != C.INDEX_UNSET) {
+                    (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
                 } else {
-                    controller.mediaItemCount
+                    player.mediaItemCount
                 }
-                controller.addMediaItem(insertionIndex, mediaItem)
+                player.addMediaItem(insertionIndex, mediaItem)
+                if (player.mediaItemCount == 1) {
+                    player.prepare()
+                    player.play()
+                }
+                sendToast("Playing next")
             }
         }
     }

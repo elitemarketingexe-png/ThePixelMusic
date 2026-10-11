@@ -143,6 +143,14 @@ data class GeneratedTrack(
 
 fun GeneratedTrack.youtubeVideoIdOrNull(): String? {
     if (url.isBlank()) return null
+    val clean = when {
+        url.startsWith("youtube://") -> url.removePrefix("youtube://")
+        url.startsWith("youtube_") -> url.removePrefix("youtube_")
+        else -> url
+    }
+    if (clean.length == 11 && clean.matches(Regex("^[a-zA-Z0-9_-]{11}$"))) {
+        return clean
+    }
     val match = Regex("(?:v=|/vi/|/watch\\?v=|youtu\\.be/)([a-zA-Z0-9_-]{11})").find(url)
     return match?.groupValues?.getOrNull(1)
 }
@@ -227,8 +235,19 @@ fun RecentTrack.toSong(): Song {
         )
     }
     val albumTitle = album.displayName.takeIf { it.isNotBlank() } ?: "YouTube Music"
+    val songId = when {
+        videoId.isNotBlank() -> "youtube_$videoId"
+        url.isNotBlank() -> url
+        else -> "recent_${name.hashCode()}"
+    }
+    val contentUri = when {
+        videoId.isNotBlank() -> "youtube://$videoId"
+        url.startsWith("youtube://") -> url
+        url.startsWith("youtube_") -> "youtube://${url.removePrefix("youtube_")}"
+        else -> url
+    }
     return Song(
-        id = if (videoId.isNotBlank()) "youtube_$videoId" else "recent_${name.hashCode()}",
+        id = songId,
         title = name,
         artist = cleanArtist,
         artistId = artistsList.firstOrNull()?.id ?: 0L,
@@ -237,7 +256,7 @@ fun RecentTrack.toSong(): Song {
         albumId = -(16_000_000_000_000L + kotlin.math.abs(albumTitle.lowercase().hashCode().toLong())),
         albumArtist = cleanArtist,
         path = "",
-        contentUriString = if (videoId.isNotBlank()) "youtube://$videoId" else url,
+        contentUriString = contentUri,
         albumArtUriString = artworkUrl,
         duration = 0L,
         genre = "Recent",
