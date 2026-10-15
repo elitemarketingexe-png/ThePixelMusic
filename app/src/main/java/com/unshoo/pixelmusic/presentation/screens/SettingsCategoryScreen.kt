@@ -187,6 +187,7 @@ import com.unshoo.pixelmusic.data.preferences.LaunchTab
 import com.unshoo.pixelmusic.data.preferences.LibraryNavigationMode
 import com.unshoo.pixelmusic.data.preferences.NavBarStyle
 import com.unshoo.pixelmusic.data.preferences.ThemePreference
+import com.unshoo.pixelmusic.data.preferences.PlayerBackgroundStyle
 import com.unshoo.pixelmusic.data.preferences.PlayerStreamClient
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.model.LyricsSourcePreference
@@ -874,6 +875,17 @@ fun SettingsCategoryScreen(
                                     selectedKey = uiState.playerThemePreference,
                                     onSelectionChanged = { settingsViewModel.setPlayerThemePreference(it) },
                                     leadingIcon = { Icon(Icons.Outlined.PlayCircle, null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
+                                ThemeSelectorItem(
+                                    label = stringResource(R.string.setcat_player_background_style_label),
+                                    description = stringResource(R.string.setcat_player_background_style_desc),
+                                    options = mapOf(
+                                        PlayerBackgroundStyle.GRADIENT to stringResource(R.string.setcat_player_background_style_gradient),
+                                        PlayerBackgroundStyle.SOLID to stringResource(R.string.setcat_player_background_style_solid)
+                                    ),
+                                    selectedKey = uiState.playerBackgroundStyle,
+                                    onSelectionChanged = { settingsViewModel.setPlayerBackgroundStyle(it) },
+                                    leadingIcon = { Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.setcat_show_player_file_info_title),

@@ -316,6 +316,9 @@ fun FullPlayerContent(
         queueGestureBottomExclusion.toPx()
     }
 
+    val playerConfig by playerViewModel.playerConfigSlice.collectAsStateWithLifecycle()
+    val isGradientTheme = playerConfig.playerBackgroundStyle == com.unshoo.pixelmusic.data.preferences.PlayerBackgroundStyle.GRADIENT
+
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
     var totalDrag by remember { mutableStateOf(0f) }
 
@@ -373,6 +376,15 @@ fun FullPlayerContent(
 
     val placeholderColor = playerOnBaseColor.copy(alpha = 0.1f)
     val placeholderOnColor = playerOnBaseColor.copy(alpha = 0.2f)
+
+    val actionButtonGradientBrush = remember(playerOnAccentColor) {
+        Brush.verticalGradient(
+            listOf(
+                playerOnAccentColor.copy(alpha = 0.65f),
+                playerOnAccentColor.copy(alpha = 0.45f)
+            )
+        )
+    }
 
     val isLandscape =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -622,7 +634,8 @@ fun FullPlayerContent(
             isFavoriteProvider = isFavoriteProvider,
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
-            onFavoriteToggle = onFavoriteToggle
+            onFavoriteToggle = onFavoriteToggle,
+            isGradientTheme = isGradientTheme
         )
     }
 
@@ -642,10 +655,11 @@ fun FullPlayerContent(
             playerOnBaseColor = playerOnBaseColor,
             playerViewModel = playerViewModel,
             gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
-            chipColor = playerOnAccentColor.copy(alpha = 0.8f),
+            chipColor = playerOnAccentColor.copy(alpha = 0.92f),
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
-            onArtistClick = onSongMetadataArtistClick
+            onArtistClick = onSongMetadataArtistClick,
+            isGradientTheme = isGradientTheme
         )
     }
 
@@ -665,10 +679,11 @@ fun FullPlayerContent(
             playerOnBaseColor = playerOnBaseColor,
             playerViewModel = playerViewModel,
             gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
-            chipColor = playerOnAccentColor.copy(alpha = 0.8f),
+            chipColor = playerOnAccentColor.copy(alpha = 0.92f),
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
-            onArtistClick = onSongMetadataArtistClick
+            onArtistClick = onSongMetadataArtistClick,
+            isGradientTheme = isGradientTheme
         )
     }
 
@@ -795,7 +810,13 @@ fun FullPlayerContent(
                                 modifier = Modifier
                                     .size(42.dp)
                                     .clip(CircleShape)
-                                    .background(playerOnAccentColor.copy(alpha = 0.7f))
+                                    .then(
+                                        if (isGradientTheme) {
+                                            Modifier.background(brush = actionButtonGradientBrush)
+                                        } else {
+                                            Modifier.background(playerOnAccentColor.copy(alpha = 0.92f))
+                                        }
+                                    )
                                     .clickable(onClick = onCollapse),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -834,7 +855,13 @@ fun FullPlayerContent(
                                 targetValue = if (showCastLabel) castCornersExpanded else castCornersCompact,
                                 animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
                             )
-                            val castContainerColor = playerOnAccentColor.copy(alpha = 0.7f)
+                            val castContainerColor = playerOnAccentColor.copy(alpha = 0.92f)
+                            val castShape = RoundedCornerShape(
+                                topStart = castTopStart.coerceAtLeast(0.dp),
+                                topEnd = castTopEnd.coerceAtLeast(0.dp),
+                                bottomStart = castBottomStart.coerceAtLeast(0.dp),
+                                bottomEnd = castBottomEnd.coerceAtLeast(0.dp)
+                            )
                             Box(
                                 modifier = Modifier
                                     .height(42.dp)
@@ -849,15 +876,14 @@ fun FullPlayerContent(
                                         min = 50.dp,
                                         max = if (showCastLabel) 190.dp else 58.dp
                                     )
-                                    .clip(
-                                        RoundedCornerShape(
-                                            topStart = castTopStart.coerceAtLeast(0.dp),
-                                            topEnd = castTopEnd.coerceAtLeast(0.dp),
-                                            bottomStart = castBottomStart.coerceAtLeast(0.dp),
-                                            bottomEnd = castBottomEnd.coerceAtLeast(0.dp)
-                                        )
+                                    .clip(castShape)
+                                    .then(
+                                        if (isGradientTheme) {
+                                            Modifier.background(brush = actionButtonGradientBrush)
+                                        } else {
+                                            Modifier.background(castContainerColor)
+                                        }
                                     )
-                                    .background(castContainerColor)
                                     .clickable { onShowCastClicked() },
                                 contentAlignment = Alignment.CenterStart
                             ) {
@@ -927,18 +953,23 @@ fun FullPlayerContent(
                             }
 
                             // Queue Button
+                            val topQueueShape = RoundedCornerShape(
+                                topStart = 6.dp,
+                                topEnd = 50.dp,
+                                bottomStart = 6.dp,
+                                bottomEnd = 50.dp
+                            )
                             Box(
                                 modifier = Modifier
                                     .size(height = 42.dp, width = 50.dp)
-                                    .clip(
-                                        RoundedCornerShape(
-                                            topStart = 6.dp,
-                                            topEnd = 50.dp,
-                                            bottomStart = 6.dp,
-                                            bottomEnd = 50.dp
-                                        )
+                                    .clip(topQueueShape)
+                                    .then(
+                                        if (isGradientTheme) {
+                                            Modifier.background(brush = actionButtonGradientBrush)
+                                        } else {
+                                            Modifier.background(playerOnAccentColor.copy(alpha = 0.92f))
+                                        }
                                     )
-                                    .background(playerOnAccentColor.copy(alpha = 0.7f))
                                     .clickable {
                                         onShowQueueClicked()
                                     },
@@ -1772,7 +1803,8 @@ private fun FullPlayerControlsSection(
     isFavoriteProvider: () -> Boolean,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    isGradientTheme: Boolean = false
 ) {
     val stableControlAnimationSpec = remember {
         tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
@@ -1837,7 +1869,8 @@ private fun FullPlayerControlsSection(
                 isFavoriteProvider = isFavoriteProvider,
                 onShuffleToggle = onShuffleToggle,
                 onRepeatToggle = onRepeatToggle,
-                onFavoriteToggle = onFavoriteToggle
+                onFavoriteToggle = onFavoriteToggle,
+                isGradientTheme = isGradientTheme
             )
         }
     }
@@ -1971,7 +2004,8 @@ private fun FullPlayerSongMetadataSection(
     chipColor: Color,
     chipContentColor: Color,
     onQueueClick: () -> Unit,
-    onArtistClick: () -> Unit
+    onArtistClick: () -> Unit,
+    isGradientTheme: Boolean = false
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delaySongMetadata
 
@@ -2016,7 +2050,8 @@ private fun FullPlayerSongMetadataSection(
             chipContentColor = chipContentColor,
             showQueueButton = isLandscape,
             onClickQueue = onQueueClick,
-            onClickArtist = onArtistClick
+            onClickArtist = onArtistClick,
+            isGradientTheme = isGradientTheme
         )
     }
 }
@@ -2116,8 +2151,18 @@ private fun SongMetadataDisplaySection(
     showQueueButton: Boolean,
     onClickQueue: () -> Unit,
     onClickArtist: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isGradientTheme: Boolean = false
 ) {
+    val actionButtonGradientBrush = remember(chipColor) {
+        Brush.verticalGradient(
+            listOf(
+                chipColor.copy(alpha = 0.65f),
+                chipColor.copy(alpha = 0.45f)
+            )
+        )
+    }
+
     Row(
         modifier
             .fillMaxWidth()
@@ -2174,10 +2219,19 @@ private fun SongMetadataDisplaySection(
                 )
             )
         ) {
+            val bufferShape = CircleShape
             Surface(
-                shape = CircleShape,
-                color = chipColor,
-                modifier = Modifier.padding(end = 8.dp)
+                shape = bufferShape,
+                color = if (isGradientTheme) Color.Transparent else chipColor,
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .then(
+                        if (isGradientTheme) {
+                            Modifier.background(brush = actionButtonGradientBrush, shape = bufferShape)
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
                 Box(
                     modifier = Modifier.padding(10.dp), 
@@ -2191,6 +2245,19 @@ private fun SongMetadataDisplaySection(
             }
         }
 
+        val lyricsShape = RoundedCornerShape(
+            topStart = 50.dp, topEnd = 6.dp,
+            bottomStart = 50.dp, bottomEnd = 6.dp
+        )
+        val moreShape = RoundedCornerShape(
+            topStart = 6.dp, topEnd = 6.dp,
+            bottomStart = 6.dp, bottomEnd = 6.dp
+        )
+        val queueShape = RoundedCornerShape(
+            topStart = 6.dp, topEnd = 50.dp,
+            bottomStart = 6.dp, bottomEnd = 50.dp
+        )
+
         if (showQueueButton) {
             // Landscape mode: [Lyrics] [Theme] [⋮] [Queue]
             Row(
@@ -2201,13 +2268,14 @@ private fun SongMetadataDisplaySection(
                 Box(
                     modifier = Modifier
                         .size(height = 42.dp, width = 44.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                topStart = 50.dp, topEnd = 6.dp,
-                                bottomStart = 50.dp, bottomEnd = 6.dp
-                            )
+                        .clip(lyricsShape)
+                        .then(
+                            if (isGradientTheme) {
+                                Modifier.background(brush = actionButtonGradientBrush)
+                            } else {
+                                Modifier.background(chipColor)
+                            }
                         )
-                        .background(chipColor)
                         .clickable { onClickLyrics() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -2221,13 +2289,14 @@ private fun SongMetadataDisplaySection(
                 Box(
                     modifier = Modifier
                         .size(height = 42.dp, width = 44.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                topStart = 6.dp, topEnd = 6.dp,
-                                bottomStart = 6.dp, bottomEnd = 6.dp
-                            )
+                        .clip(moreShape)
+                        .then(
+                            if (isGradientTheme) {
+                                Modifier.background(brush = actionButtonGradientBrush)
+                            } else {
+                                Modifier.background(chipColor)
+                            }
                         )
-                        .background(chipColor)
                         .clickable { onClickShare() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -2241,13 +2310,14 @@ private fun SongMetadataDisplaySection(
                 Box(
                     modifier = Modifier
                         .size(height = 42.dp, width = 44.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                topStart = 6.dp, topEnd = 50.dp,
-                                bottomStart = 6.dp, bottomEnd = 50.dp
-                            )
+                        .clip(queueShape)
+                        .then(
+                            if (isGradientTheme) {
+                                Modifier.background(brush = actionButtonGradientBrush)
+                            } else {
+                                Modifier.background(chipColor)
+                            }
                         )
-                        .background(chipColor)
                         .clickable { onClickQueue() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -2266,15 +2336,20 @@ private fun SongMetadataDisplaySection(
             ) {
                 // Lyrics button (left pill)
                 FilledIconButton(
-                    modifier = Modifier.size(width = 44.dp, height = 48.dp),
+                    modifier = Modifier
+                        .size(width = 44.dp, height = 48.dp)
+                        .then(
+                            if (isGradientTheme) {
+                                Modifier.background(brush = actionButtonGradientBrush, shape = lyricsShape)
+                            } else {
+                                Modifier
+                            }
+                        ),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = chipColor,
+                        containerColor = if (isGradientTheme) Color.Transparent else chipColor,
                         contentColor = chipContentColor
                     ),
-                    shape = RoundedCornerShape(
-                        topStart = 50.dp, topEnd = 6.dp,
-                        bottomStart = 50.dp, bottomEnd = 6.dp
-                    ),
+                    shape = lyricsShape,
                     onClick = onClickLyrics,
                 ) {
                     Icon(
@@ -2284,15 +2359,20 @@ private fun SongMetadataDisplaySection(
                 }
                 // More options button (right pill)
                 FilledIconButton(
-                    modifier = Modifier.size(width = 44.dp, height = 48.dp),
+                    modifier = Modifier
+                        .size(width = 44.dp, height = 48.dp)
+                        .then(
+                            if (isGradientTheme) {
+                                Modifier.background(brush = actionButtonGradientBrush, shape = queueShape)
+                            } else {
+                                Modifier
+                            }
+                        ),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = chipColor,
+                        containerColor = if (isGradientTheme) Color.Transparent else chipColor,
                         contentColor = chipContentColor
                     ),
-                    shape = RoundedCornerShape(
-                        topStart = 6.dp, topEnd = 50.dp,
-                        bottomStart = 6.dp, bottomEnd = 50.dp
-                    ),
+                    shape = queueShape,
                     onClick = onClickShare,
                 ) {
                     Icon(
@@ -3249,18 +3329,19 @@ private fun BottomToggleRow(
     isFavoriteProvider: () -> Boolean,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    isGradientTheme: Boolean = false
 ) {
     val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
-    val inactiveBg = LocalMaterialTheme.current.onSurface.copy(alpha = 0.07f)
-    val inactiveContentColor = LocalMaterialTheme.current.onSurface
     val isDark = LocalPixelMusicDarkTheme.current
     val containerBg = if (isDark) {
-        LocalMaterialTheme.current.surfaceContainer.copy(alpha = 0.5f)
+        LocalMaterialTheme.current.surfaceContainer.copy(alpha = if (isGradientTheme) 0.65f else 0.90f)
     } else {
-        Color.White.copy(alpha = 0.9f)
+        Color.White.copy(alpha = if (isGradientTheme) 0.70f else 0.92f)
     }
+    val inactiveBg = LocalMaterialTheme.current.onSurface.copy(alpha = 0.08f)
+    val inactiveContentColor = LocalMaterialTheme.current.onSurface
 
 
     Box(

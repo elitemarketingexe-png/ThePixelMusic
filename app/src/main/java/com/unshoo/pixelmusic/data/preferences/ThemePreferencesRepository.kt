@@ -24,6 +24,7 @@ class ThemePreferencesRepository @Inject constructor(
         val APP_FONT_PREFERENCE = stringPreferencesKey("app_font_preference")
         val PITCH_BLACK_ENABLED = booleanPreferencesKey("pitch_black_enabled")
         val APP_LAUNCHER_ICON = stringPreferencesKey("app_launcher_icon")
+        val PLAYER_BACKGROUND_STYLE = stringPreferencesKey("player_background_style_v1")
     }
 
     val appLauncherIconFlow: Flow<String> = dataStore.data.map { preferences ->
@@ -44,6 +45,10 @@ class ThemePreferencesRepository @Inject constructor(
 
     val playerThemePreferenceFlow: Flow<String> = dataStore.data.map { preferences ->
         preferences[Keys.PLAYER_THEME_PREFERENCE] ?: ThemePreference.ALBUM_ART
+    }
+
+    val playerBackgroundStyleFlow: Flow<String> = dataStore.data.map { preferences ->
+        preferences[Keys.PLAYER_BACKGROUND_STYLE] ?: PlayerBackgroundStyle.GRADIENT
     }
 
     val colorPalettePreferenceFlow: Flow<String> = dataStore.data.map { preferences ->
@@ -68,6 +73,11 @@ class ThemePreferencesRepository @Inject constructor(
     suspend fun setPlayerThemePreference(themeMode: String) =
         dataStore.edit { preferences ->
             preferences[Keys.PLAYER_THEME_PREFERENCE] = themeMode
+        }
+
+    suspend fun setPlayerBackgroundStyle(style: String) =
+        dataStore.edit { preferences ->
+            preferences[Keys.PLAYER_BACKGROUND_STYLE] = style
         }
 
     suspend fun setAppThemeMode(themeMode: String) =

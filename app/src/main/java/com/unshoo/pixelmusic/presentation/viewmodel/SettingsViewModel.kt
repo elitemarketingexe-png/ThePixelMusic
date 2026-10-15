@@ -18,6 +18,7 @@ import com.unshoo.pixelmusic.data.preferences.AppFontMode
 import com.unshoo.pixelmusic.data.preferences.CarouselStyle
 import com.unshoo.pixelmusic.data.preferences.LibraryNavigationMode
 import com.unshoo.pixelmusic.data.preferences.ThemePreference
+import com.unshoo.pixelmusic.data.preferences.PlayerBackgroundStyle
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.data.preferences.PlayerStreamClient
 import com.unshoo.pixelmusic.data.preferences.PlaylistSuggestionSource
@@ -75,6 +76,7 @@ data class SettingsUiState(
     val pitchBlackEnabled: Boolean = false,
     val appFontMode: String = AppFontMode.APP_DEFAULT,
     val playerThemePreference: String = ThemePreference.ALBUM_ART,
+    val playerBackgroundStyle: String = PlayerBackgroundStyle.GRADIENT,
     val colorPalette: String = "SAGE",
     val albumArtPaletteStyle: AlbumArtPaletteStyle = AlbumArtPaletteStyle.default,
     val albumArtColorAccuracy: Int = AlbumArtColorAccuracy.DEFAULT,
@@ -210,6 +212,7 @@ private sealed interface SettingsUiUpdate {
         val pitchBlackEnabled: Boolean,
         val appFontMode: String,
         val playerThemePreference: String,
+        val playerBackgroundStyle: String,
         val colorPalette: String,
         val albumArtPaletteStyle: AlbumArtPaletteStyle,
         val albumArtColorAccuracy: Int,
@@ -607,6 +610,7 @@ class SettingsViewModel @Inject constructor(
                 userPreferencesRepository.appRebrandDialogShownFlow,
                 themePreferencesRepository.appThemeModeFlow,
                 themePreferencesRepository.playerThemePreferenceFlow,
+                themePreferencesRepository.playerBackgroundStyleFlow,
                 themePreferencesRepository.colorPalettePreferenceFlow,
                 themePreferencesRepository.albumArtPaletteStyleFlow,
                 themePreferencesRepository.albumArtColorAccuracyFlow,
@@ -627,21 +631,22 @@ class SettingsViewModel @Inject constructor(
                     appRebrandDialogShown = values[0] as Boolean,
                     appThemeMode = values[1] as String,
                     playerThemePreference = values[2] as String,
-                    colorPalette = values[3] as String,
-                    albumArtPaletteStyle = values[4] as AlbumArtPaletteStyle,
-                    albumArtColorAccuracy = values[5] as Int,
-                    mockGenresEnabled = values[6] as Boolean,
-                    navBarCornerRadius = values[7] as Int,
-                    navBarStyle = values[8] as String,
-                    navBarCompactMode = values[9] as Boolean,
-                    navBarHeightOffset = values[10] as Int,
-                    libraryNavigationMode = values[11] as String,
-                    carouselStyle = values[12] as String,
-                    launchTab = values[13] as String,
-                    showPlayerFileInfo = values[14] as Boolean,
-                    appFontMode = values[15] as String,
-                    pitchBlackEnabled = values[16] as Boolean,
-                    floatingHeaderBarEnabled = values[17] as Boolean
+                    playerBackgroundStyle = values[3] as String,
+                    colorPalette = values[4] as String,
+                    albumArtPaletteStyle = values[5] as AlbumArtPaletteStyle,
+                    albumArtColorAccuracy = values[6] as Int,
+                    mockGenresEnabled = values[7] as Boolean,
+                    navBarCornerRadius = values[8] as Int,
+                    navBarStyle = values[9] as String,
+                    navBarCompactMode = values[10] as Boolean,
+                    navBarHeightOffset = values[11] as Int,
+                    libraryNavigationMode = values[12] as String,
+                    carouselStyle = values[13] as String,
+                    launchTab = values[14] as String,
+                    showPlayerFileInfo = values[15] as Boolean,
+                    appFontMode = values[16] as String,
+                    pitchBlackEnabled = values[17] as Boolean,
+                    floatingHeaderBarEnabled = values[18] as Boolean
                 )
             }.collect { update ->
                 _uiState.update { state ->
@@ -651,6 +656,7 @@ class SettingsViewModel @Inject constructor(
                         pitchBlackEnabled = update.pitchBlackEnabled,
                         appFontMode = update.appFontMode,
                         playerThemePreference = update.playerThemePreference,
+                        playerBackgroundStyle = update.playerBackgroundStyle,
                         colorPalette = update.colorPalette,
                         albumArtPaletteStyle = update.albumArtPaletteStyle,
                         albumArtColorAccuracy = update.albumArtColorAccuracy,
@@ -1201,6 +1207,12 @@ fun setBeta05CleanInstallDisclaimerDismissed(dismissed: Boolean) {
     fun setPlayerThemePreference(preference: String) {
         viewModelScope.launch {
             themePreferencesRepository.setPlayerThemePreference(preference)
+        }
+    }
+
+    fun setPlayerBackgroundStyle(style: String) {
+        viewModelScope.launch {
+            themePreferencesRepository.setPlayerBackgroundStyle(style)
         }
     }
 

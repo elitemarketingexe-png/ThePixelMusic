@@ -151,6 +151,10 @@
     <string name="setcat_player_theme_album_art">Album Art</string>
     <string name="setcat_player_theme_global">App Palette</string>
     <string name="setcat_player_theme_dynamic">System Dynamic</string>
+    <string name="setcat_player_background_style_label">Player Background</string>
+    <string name="setcat_player_background_style_desc">Choose between a dynamic album art blur gradient or a solid background.</string>
+    <string name="setcat_player_background_style_gradient">Gradient Blur</string>
+    <string name="setcat_player_background_style_solid">Solid</string>
     <string name="setcat_show_player_file_info_title">Show player file info</string>
     <string name="setcat_show_player_file_info_subtitle">Show codec, bitrate, and sample rate in the player progress section.</string>
     <string name="setcat_album_art_palette_title">Album Art Palette Style</string>

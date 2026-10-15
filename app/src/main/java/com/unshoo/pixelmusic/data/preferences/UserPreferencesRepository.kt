@@ -43,6 +43,11 @@ object ThemePreference {
     const val GLOBAL = "global"
 }
 
+object PlayerBackgroundStyle {
+    const val GRADIENT = "gradient"
+    const val SOLID = "solid"
+}
+
 object AppThemeMode {
     const val FOLLOW_SYSTEM = "follow_system"
     const val LIGHT = "light"

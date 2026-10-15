@@ -31,6 +31,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -55,7 +56,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.unshoo.pixelmusic.data.model.Song
+import com.unshoo.pixelmusic.data.preferences.PlayerBackgroundStyle
 import com.unshoo.pixelmusic.data.preferences.sanitizeNavBarCornerRadius
+import com.unshoo.pixelmusic.presentation.components.player.FullPlayerAtmosphereBackground
 import com.unshoo.pixelmusic.presentation.components.scoped.PlayerAlbumNavigationEffect
 import com.unshoo.pixelmusic.presentation.components.scoped.PlayerArtistNavigationEffect
 import com.unshoo.pixelmusic.presentation.components.scoped.PlayerSheetPredictiveBackHandler
@@ -622,7 +625,7 @@ fun UnifiedPlayerSheetV2(
                                 color = playerAreaBackground,
                                 shape = sheetInteractionState.playerShadowShape
                             )
-                            .clipToBounds()
+                            .clip(sheetInteractionState.playerShadowShape)
                             .semantics {
                                 contentDescription = playerSheetSemanticsDescription
                             }
@@ -638,6 +641,17 @@ fun UnifiedPlayerSheetV2(
                                 playerViewModel.togglePlayerSheetState()
                             }
                     ) {
+                        val playerConfig by playerViewModel.playerConfigSlice.collectAsStateWithLifecycle()
+                        if (playerConfig.playerBackgroundStyle == PlayerBackgroundStyle.GRADIENT && infrequentPlayerState.currentSong != null) {
+                            FullPlayerAtmosphereBackground(
+                                currentSong = infrequentPlayerState.currentSong,
+                                albumColorScheme = albumColorScheme,
+                                isDarkTheme = isDarkTheme,
+                                expansionFractionProvider = { playerContentExpansionFraction.value },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
                         UnifiedPlayerMiniAndFullLayers(
                             currentSong = infrequentPlayerState.currentSong,
                             miniPlayerScheme = miniPlayerScheme,
