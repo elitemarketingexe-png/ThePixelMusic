@@ -85,29 +85,8 @@ class SearchStateHolder @Inject constructor(
     private var activeFilterType: SearchFilterType = SearchFilterType.ALL
     private var isLoadingMore = false
 
-    private fun cacheKey(query: String, filter: SearchFilterType): String = "${filter.name}:${query.lowercase().trim()}"
-
-    private fun getLongestPrefixMatch(query: String, filter: SearchFilterType): ImmutableList<SearchResultItem>? {
-        if (query.isBlank()) return null
-        val targetKeyPrefix = "${filter.name}:"
-        var longestPrefix: String? = null
-        var longestCached: ImmutableList<SearchResultItem>? = null
-        
-        val normalizedQuery = query.lowercase().trim()
-        val snapshot = searchResultCache.snapshot()
-        for (key in snapshot.keys) {
-            if (key.startsWith(targetKeyPrefix)) {
-                val cachedQuery = key.substringAfter(targetKeyPrefix)
-                if (normalizedQuery.startsWith(cachedQuery)) {
-                    if (longestPrefix == null || cachedQuery.length > longestPrefix.length) {
-                        longestPrefix = cachedQuery
-                        longestCached = snapshot[key]
-                    }
-                }
-            }
-        }
-        return longestCached
-    }
+    private fun cacheKey(query: String, filter: SearchFilterType, source: SearchSource): String =
+        "${source.name}:${filter.name}:${query.lowercase().trim()}"
 
     fun initialize(scope: CoroutineScope) {
         this.scope = scope
@@ -129,21 +108,24 @@ class SearchStateHolder @Inject constructor(
                         return@collectLatest
                     }
 
-                    _isSearching.value = true
-                    val key = cacheKey(query, currentFilter)
-                    val cached = searchResultCache.get(key) ?: getLongestPrefixMatch(query, currentFilter)
+                    val source = userPreferencesRepository.searchSourceFlow.first()
+                    val key = cacheKey(query, currentFilter, source)
+                    val cached = searchResultCache.get(key)
                     if (cached != null) {
                         _searchResults.value = cached
                         _isSearching.value = false
+                    } else {
+                        _searchResults.value = persistentListOf()
+                        _isSearching.value = true
                     }
-
-                    val source = userPreferencesRepository.searchSourceFlow.first()
                     if (source == SearchSource.LOCAL) {
                         try {
                             val results = musicRepository.searchAllOnce(query, currentFilter)
                             if (request.requestId == latestSearchRequestId.get()) {
-                                _searchResults.value = results.toImmutableList()
+                                val immutable = results.toImmutableList()
+                                _searchResults.value = immutable
                                 _isSearching.value = false
+                                searchResultCache.put(key, immutable)
                             }
                         } catch (_: CancellationException) {
                         } catch (e: Exception) {

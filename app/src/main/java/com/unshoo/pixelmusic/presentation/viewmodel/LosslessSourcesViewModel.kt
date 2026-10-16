@@ -238,7 +238,9 @@ class LosslessSourcesViewModel @Inject constructor(
     fun setLosslessEnabled(enabled: Boolean) {
         set(LosslessStreamingEnabledKey, enabled)
         if (!enabled) LosslessStreamResolver.clearAll()
-        if (enabled) refreshPool(force = true)
+        if (enabled && (uiState.value.poolApiKey.isNotBlank() || com.unshoo.pixelmusic.BuildConfig.SOURCE_PROVIDER_KEY.isNotBlank() || PoolAccountManager.hasReadKey)) {
+            refreshPool(force = true)
+        }
     }
 
     fun savePoolApiKey(key: String) {

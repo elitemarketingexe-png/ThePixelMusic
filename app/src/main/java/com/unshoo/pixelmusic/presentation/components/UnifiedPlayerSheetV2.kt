@@ -376,17 +376,6 @@ fun UnifiedPlayerSheetV2(
         showPlayerContentArea = showPlayerContentArea,
         currentSheetContentState = currentSheetContentState
     )
-    val canHandlePlayerBack by remember(
-        sheetBackAndDragState.predictiveBackEnabled,
-        showQueueSheet,
-        castSheetState.showCastSheet
-    ) {
-        derivedStateOf {
-            sheetBackAndDragState.predictiveBackEnabled &&
-                !showQueueSheet &&
-                !castSheetState.showCastSheet
-        }
-    }
     val velocityTracker = remember { VelocityTracker() }
     val sheetModalOverlayController = rememberSheetModalOverlayController(
         scope = scope,
@@ -396,6 +385,19 @@ fun UnifiedPlayerSheetV2(
     )
     val pendingSaveQueueOverlay = sheetModalOverlayController.pendingSaveQueueOverlay
     val selectedSongForInfo = sheetModalOverlayController.selectedSongForInfo
+    val canHandlePlayerBack by remember(
+        sheetBackAndDragState.predictiveBackEnabled,
+        showQueueSheet,
+        castSheetState.showCastSheet,
+        selectedSongForInfo
+    ) {
+        derivedStateOf {
+            sheetBackAndDragState.predictiveBackEnabled &&
+                !showQueueSheet &&
+                !castSheetState.showCastSheet &&
+                selectedSongForInfo == null
+        }
+    }
     val sheetActionHandlers = rememberSheetActionHandlers(
         scope = scope,
         navController = navController,
@@ -453,11 +455,7 @@ fun UnifiedPlayerSheetV2(
     val isQueueVisible = sheetOverlayState.isQueueVisible
     val bottomSheetOpenFraction = sheetOverlayState.bottomSheetOpenFraction
     val queueScrimAlpha = sheetOverlayState.queueScrimAlpha
-    val shouldRenderQueueHost by remember(internalIsKeyboardVisible, selectedSongForInfo) {
-        derivedStateOf {
-            !internalIsKeyboardVisible || selectedSongForInfo != null
-        }
-    }
+    val shouldRenderQueueHost = true
     val isQueueTelemetryActive = showQueueSheet
 
     LaunchedEffect(showQueueSheet) {
@@ -702,7 +700,7 @@ fun UnifiedPlayerSheetV2(
                 )
             }
 
-            BackHandler(enabled = isQueueVisible && !internalIsKeyboardVisible) {
+            BackHandler(enabled = isQueueVisible && selectedSongForInfo == null) {
                 sheetActionHandlers.animateQueueSheet(false)
             }
 

@@ -113,6 +113,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.media3.common.util.UnstableApi
@@ -215,7 +216,11 @@ fun SearchScreen(
     val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
     val searchSource by playerViewModel.searchSource.collectAsStateWithLifecycle()
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
+    // Sticky for this screen visit: a pending entry-time IME request must not run
+    // after the user has opened AND already dismissed the song menu.
+    var hasOpenedSongMenu by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val searchInputFocusRequester = remember { FocusRequester() }
 
     // On every visit to the search screen, clear the query + results so we
@@ -230,29 +235,45 @@ fun SearchScreen(
         // A short delay lets the SearchBar finish composing before FocusRequester is used;
         // the second show() handles OEM keyboards that ignore the first request during tab transitions.
         delay(220L)
-        runCatching { searchInputFocusRequester.requestFocus() }
-        keyboardController?.show()
+        if (!hasOpenedSongMenu) {
+            runCatching { searchInputFocusRequester.requestFocus() }
+                .onSuccess { keyboardController?.show() }
+        }
         delay(80L)
-        keyboardController?.show()
+        if (!hasOpenedSongMenu) {
+            keyboardController?.show()
+        }
     }
 
 
     LaunchedEffect(playerViewModel, keyboardController) {
         playerViewModel.searchNavDoubleTapEvents.collect {
             delay(40L)
-            searchInputFocusRequester.requestFocus()
-            keyboardController?.show()
+            if (!showSongInfoBottomSheet) {
+                searchInputFocusRequester.requestFocus()
+                keyboardController?.show()
+            }
         }
     }
 
     // Search debouncing is centralized in SearchStateHolder.
-    LaunchedEffect(searchQuery, currentFilter) {
+    LaunchedEffect(searchQuery, currentFilter, searchSource) {
         playerViewModel.performSearch(searchQuery)
     }
     val searchResults = searchUiState.searchResults
     val handleSongMoreOptionsClick: (Song) -> Unit = { song ->
+        hasOpenedSongMenu = true
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
         playerViewModel.selectSongForInfo(song)
         showSongInfoBottomSheet = true
+    }
+
+    LaunchedEffect(showSongInfoBottomSheet) {
+        if (showSongInfoBottomSheet) {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
     }
 
     val searchbarCornerRadius = 28.dp
@@ -288,6 +309,7 @@ fun SearchScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            focusManager.clearFocus(force = true)
             onSearchBarActiveChange(false)
         }
     }
@@ -334,6 +356,7 @@ fun SearchScreen(
                                     if (query.isNotBlank()) {
                                         playerViewModel.onSearchQuerySubmitted(query)
                                     }
+                                    focusManager.clearFocus(force = true)
                                     keyboardController?.hide()
                                 },
                                 expanded = false,
@@ -576,7 +599,10 @@ fun SearchScreen(
                 onToggleFavorite = {
                     playerViewModel.toggleFavoriteSpecificSong(currentSong)
                 },
-                onDismiss = { showSongInfoBottomSheet = false },
+                onDismiss = {
+                    showSongInfoBottomSheet = false
+                    playerViewModel.clearSelectedSongForInfo()
+                },
                 onPlaySong = {
                     playerViewModel.showAndPlaySong(currentSong)
                     showSongInfoBottomSheet = false
@@ -804,6 +830,8 @@ fun SearchResultsList(
     navController: NavHostController
 ) {
     val localDensity = LocalDensity.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val isShuffleEnabled by remember(playerViewModel) {
         playerViewModel.stablePlayerState.map { it.isShuffleEnabled }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
@@ -848,14 +876,23 @@ fun SearchResultsList(
             ?.let { "Search: $it" }
             ?: "Search Results"
     }
-    val onSongResultClick = remember(playerViewModel, onItemSelected, searchQueueName) {
+    val onSongResultClick = remember(playerViewModel, onItemSelected, searchQueueName, focusManager, keyboardController) {
         { song: Song ->
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
             playerViewModel.showAndPlaySong(song, listOf(song), searchQueueName)
             onItemSelected()
         }
     }
 
     val lazyListState = rememberLazyListState()
+
+    LaunchedEffect(lazyListState.isScrollInProgress) {
+        if (lazyListState.isScrollInProgress) {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
 
     LaunchedEffect(lazyListState) {
         snapshotFlow {

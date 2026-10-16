@@ -51,6 +51,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +71,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
@@ -141,6 +144,17 @@ fun SongInfoBottomSheet(
     songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    // Capture the HOST focus manager before ModalBottomSheet creates its dialog window.
+    // Hiding the IME alone leaves a search editor focused; Android can reconnect that
+    // editor and briefly show the IME when the dialog gives window focus back.
+    val hostFocusManager = LocalFocusManager.current
+    val hostKeyboardController = LocalSoftwareKeyboardController.current
+    DisposableEffect(hostFocusManager, hostKeyboardController) {
+        hostFocusManager.clearFocus(force = true)
+        hostKeyboardController?.hide()
+        // Do not hide on disposal: a menu action may be opening an editable sheet.
+        onDispose { }
+    }
     var showEditSheet by remember { mutableStateOf(false) }
     var showArtistPicker by remember { mutableStateOf(false) }
     var showAudioFormatInfoDialog by remember { mutableStateOf(false) }
@@ -340,9 +354,16 @@ fun SongInfoBottomSheet(
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val currentColorScheme = MaterialTheme.colorScheme
+
     ModalBottomSheet(
         onDismissRequest = {
-            if (!showEditSheet) {
+            if (showEditSheet) {
+                showEditSheet = false
+            } else if (showArtistPicker) {
+                showArtistPicker = false
+            } else if (showAudioFormatInfoDialog) {
+                showAudioFormatInfoDialog = false
+            } else {
                 onDismiss()
             }
         },

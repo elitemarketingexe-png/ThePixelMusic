@@ -379,6 +379,9 @@ class PlayerViewModel @Inject constructor(
                 com.unshoo.pixelmusic.data.preferences.SearchSource.ONLINE
             }
             userPreferencesRepository.setSearchSource(next)
+            if (searchQuery.isNotBlank()) {
+                performSearch(searchQuery)
+            }
         }
     }
 
@@ -8105,6 +8108,10 @@ class PlayerViewModel @Inject constructor(
                 _selectedSongForInfo.value = hydrated
             }
         }
+    }
+
+    fun clearSelectedSongForInfo() {
+        _selectedSongForInfo.value = null
     }
 
     private var preCacheLyricsJob: Job? = null

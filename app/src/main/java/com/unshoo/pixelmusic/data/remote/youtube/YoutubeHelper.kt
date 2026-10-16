@@ -1113,6 +1113,7 @@ object YoutubeHelper {
         savedSong: Song?,
         cacheKeys: List<String>,
         lowDataMode: Boolean,
+        fastTimeoutMs: Long? = null,
     ): String? {
         val videoId = song.youtubeId
         return try {
@@ -1152,17 +1153,19 @@ object YoutubeHelper {
                 .filter { it.isNotBlank() }
                 .ifEmpty { listOf(effectiveArtist).filter { it.isNotBlank() } }
 
-            val result = LosslessStreamResolver.resolve(
-                context = context,
-                request = LosslessStreamResolver.Request(
-                    mediaId = videoId,
-                    title = effectiveTitle,
-                    artists = artistsList,
-                    album = effectiveAlbum,
-                    durationMs = effectiveDuration?.takeIf { it > 0 }?.let { it * 1000L },
-                ),
-                lowDataMode = lowDataMode,
-            ) ?: return null
+            val result = withTimeoutOrNull(fastTimeoutMs ?: 2500L) {
+                LosslessStreamResolver.resolve(
+                    context = context,
+                    request = LosslessStreamResolver.Request(
+                        mediaId = videoId,
+                        title = effectiveTitle,
+                        artists = artistsList,
+                        album = effectiveAlbum,
+                        durationMs = effectiveDuration?.takeIf { it > 0 }?.let { it * 1000L },
+                    ),
+                    lowDataMode = lowDataMode,
+                )
+            } ?: return null
 
             cacheKeys.forEach { key ->
                 streamUrlLruCache.put(key, result.uri)
@@ -1225,10 +1228,12 @@ object YoutubeHelper {
             }
         }
 
-        val userPreferencesRepository = EntryPointAccessors.fromApplication(
+        val entryPoint = EntryPointAccessors.fromApplication(
             context.applicationContext,
             YoutubeHelperEntryPoint::class.java
-        ).userPreferencesRepository()
+        )
+        val userPreferencesRepository = entryPoint.userPreferencesRepository()
+        val connectivityStateHolder = entryPoint.connectivityStateHolder()
 
         val isSaavnEnabled = userPreferencesRepository.enableSaavnStreamingFlow.first()
         val saavnQuality = userPreferencesRepository.saavnAudioQualityFlow.first()
@@ -1267,25 +1272,41 @@ object YoutubeHelper {
             }
         }
 
+        val isMetered = connectivityStateHolder.isMeteredNetwork.value
+        val forceHigh = userPreferencesRepository.forceHighQualityOnMobileFlow.first()
+        val targetQuality = if (isMetered && !forceHigh) {
+            userPreferencesRepository.streamingAudioQualityMobileFlow.first()
+        } else {
+            userPreferencesRepository.streamingAudioQualityWifiFlow.first()
+        }
+        val isAutoQuality = !forDownload && (targetQuality == StreamingAudioQuality.AUTO || saavnQuality == SaavnAudioQuality.AUTO)
+        val speed = connectivityStateHolder.linkDownstreamBandwidthKbps.value
+        val isLowBandwidth = isMetered || (speed in 1..2_000) || connectivityStateHolder.isNetworkRecentlyUnstable.value
+
         // Lossless sources gate (ArchiveTune source-pool port)
         // Downloads: only attempt Lossless (FLAC/ALAC) when user configured MAX quality and lossless is not bypassed.
-        // Playback: check lossless first whenever enabled.
+        // Playback: check lossless first when enabled.
+        // When quality is AUTO and network is constrained, skip lossless immediately to guarantee fastest zero-delay playback.
         val shouldTryLossless = if (bypassLossless) {
             false
         } else if (forDownload) {
             isLosslessEnabled && downloadQuality == com.unshoo.pixelmusic.data.preferences.DownloadAudioQuality.MAX
+        } else if (isAutoQuality && isLowBandwidth) {
+            false
         } else {
             isLosslessEnabled
         }
         if (shouldTryLossless) {
             val localSongRepository = AppDatabase.getInstance(context).songRepository()
             val savedSong = try { localSongRepository.getSong(videoId) } catch (_: Exception) { null }
+            val fastTimeout = if (isAutoQuality) 1200L else if (isLowBandwidth) 2000L else 3000L
             resolveLosslessStreamUrl(
                 context = context,
                 song = song,
                 savedSong = savedSong,
                 cacheKeys = listOf(cacheKey, "${videoId}_high"),
-                lowDataMode = if (forDownload) false else (maxBitrateKbps in 1..127),
+                lowDataMode = if (forDownload) false else (isLowBandwidth || maxBitrateKbps in 1..127),
+                fastTimeoutMs = fastTimeout,
             )?.let { return it }
         }
 

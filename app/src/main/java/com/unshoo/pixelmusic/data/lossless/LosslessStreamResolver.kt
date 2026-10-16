@@ -206,8 +206,8 @@ object LosslessStreamResolver {
     fun isEnabledBlocking(context: Context): Boolean =
         runCatching { runBlocking(Dispatchers.IO) { isEnabled(context) } }.getOrDefault(false)
 
-    /** Default for the master switch when the user never touched it: on when a key is present or monochrome is available (free lossless). */
-    fun defaultEnabled(): Boolean = true
+    /** Default for the master switch when the user never touched it: disabled by default on fresh install. */
+    fun defaultEnabled(): Boolean = false
 
     @Volatile
     private var monochromeDownUntilMs: Long = 0L
