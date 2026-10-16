@@ -2,6 +2,7 @@ package com.unshoo.pixelmusic.presentation.components.player
 
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -9,8 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
@@ -26,8 +30,8 @@ import coil.request.ImageRequest
 import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.ui.theme.LocalPixelMusicDarkTheme
 
-// Smooth 600ms easing for color crossfade on song transition
-private val AtmosphereEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+// Smooth 850ms easing for fluid, liquid-like atmospheric color glide on song transition
+private val AtmosphereEasing = CubicBezierEasing(0.4f, 0.0f, 0.2f, 1.0f)
 
 /**
  * Dynamic album-art-based atmospheric blur background for the player sheet (mini and full).
@@ -39,6 +43,10 @@ private val AtmosphereEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
  * Dark Theme:
  * - Vibrant hardware Gaussian blur of the artwork over the solid tinted base,
  *   with no muddy dark overlay. Clean contrast scrim only at the bottom controls.
+ *
+ * Transitions:
+ * - Liquid-smooth 850ms crossfade with zero alpha dip (retains outgoing art until incoming completes).
+ * - Upcoming song artwork is proactively cached by PlayerViewModel for instant cache hits.
  *
  * Mini player:
  * - Preserved untouched in both themes.
@@ -52,9 +60,29 @@ fun FullPlayerAtmosphereBackground(
     expansionFractionProvider: (() -> Float)? = null
 ) {
     val context = LocalContext.current
+    val albumArtUri = currentSong?.albumArtUriString
 
-    // Smooth crossfade on song / theme change
-    val animSpec = remember { tween<Color>(durationMillis = 600, easing = AtmosphereEasing) }
+    // Zero-dip smooth crossfade state: retains outgoing art underneath at 100% opacity
+    // while incoming art fades in on top over 850ms, eliminating any background color flash/dip
+    var displayedArtUri by remember { mutableStateOf(albumArtUri) }
+    var previousArtUri by remember { mutableStateOf<String?>(null) }
+    val crossfadeProgress = remember { Animatable(1f) }
+
+    LaunchedEffect(albumArtUri) {
+        if (albumArtUri != displayedArtUri) {
+            previousArtUri = displayedArtUri
+            displayedArtUri = albumArtUri
+            crossfadeProgress.snapTo(0f)
+            crossfadeProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 850, easing = AtmosphereEasing)
+            )
+            previousArtUri = null
+        }
+    }
+
+    // Smooth crossfade on song / theme change matching blur animation
+    val animSpec = remember { tween<Color>(durationMillis = 850, easing = AtmosphereEasing) }
     val animatedBaseColor by animateColorAsState(albumColorScheme.primaryContainer, animSpec, label = "atmo_base_color")
 
     Box(
@@ -63,39 +91,55 @@ fun FullPlayerAtmosphereBackground(
             .background(animatedBaseColor)
     ) {
 
-        // 2. REAL VIBRANT GAUSSIAN BLURRED ALBUM ARTWORK LAYER
-        val albumArtUri = currentSong?.albumArtUriString
-        if (!albumArtUri.isNullOrBlank()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        val expansionFraction = expansionFractionProvider?.invoke() ?: 1f
-                        scaleX = 1.20f
-                        scaleY = 1.20f
-                        alpha = if (isDarkTheme) {
-                            lerpFloat(0.45f, 0.65f, expansionFraction)
-                        } else {
-                            lerpFloat(0.18f, 0.45f, expansionFraction)
-                        }
+        // 2. REAL VIBRANT GAUSSIAN BLURRED ALBUM ARTWORK LAYER WITH LIQUID CROSSFADE
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val expansionFraction = expansionFractionProvider?.invoke() ?: 1f
+                    scaleX = 1.20f
+                    scaleY = 1.20f
+                    alpha = if (isDarkTheme) {
+                        lerpFloat(0.45f, 0.65f, expansionFraction)
+                    } else {
+                        lerpFloat(0.18f, 0.45f, expansionFraction)
                     }
-                    .then(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Modifier.blur(if (isDarkTheme) 52.dp else 60.dp)
-                        } else {
-                            Modifier
-                        }
-                    )
-            ) {
+                }
+                .then(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        Modifier.blur(if (isDarkTheme) 52.dp else 60.dp)
+                    } else {
+                        Modifier
+                    }
+                )
+        ) {
+            // Previous artwork held at 1.0f alpha underneath: eliminates Porter-Duff crossfade alpha dip
+            if (!previousArtUri.isNullOrBlank()) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(albumArtUri)
-                        .crossfade(400)
+                        .data(previousArtUri)
                         .size(512, 512)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Incoming artwork dissolving in on top from 0f -> 1f
+            if (!displayedArtUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(displayedArtUri)
+                        .size(512, 512)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = if (previousArtUri != null) crossfadeProgress.value else 1f
+                        }
                 )
             }
         }

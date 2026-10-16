@@ -174,6 +174,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import coil.imageLoader
 import coil.memory.MemoryCache
+import coil.request.ImageRequest
 import dagger.Lazy
 
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
@@ -1568,6 +1569,16 @@ class PlayerViewModel @Inject constructor(
                     }
                     if (nextSongs.isNotEmpty()) {
                         preCacheLyricsForSongs(nextSongs, sourcePref)
+                        nextSongs.forEach { song ->
+                            val artUri = song.albumArtUriString
+                            if (!artUri.isNullOrBlank()) {
+                                val req = ImageRequest.Builder(context)
+                                    .data(artUri)
+                                    .size(512, 512)
+                                    .build()
+                                context.imageLoader.enqueue(req)
+                            }
+                        }
                     }
                 }
             }
