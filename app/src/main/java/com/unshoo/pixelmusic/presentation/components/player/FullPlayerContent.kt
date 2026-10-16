@@ -1904,8 +1904,10 @@ private fun FullPlayerProgressSection(
         playbackMetadataMediaId == song.id ||
         playbackMetadataMediaId == song.youtubeId ||
         playbackMetadataMediaId.removePrefix("youtube_") == song.id.removePrefix("youtube_") ||
-        (song.youtubeId != null && playbackMetadataMediaId.removePrefix("youtube_") == song.youtubeId) ||
-        (playbackMetadataMediaId.isNotEmpty() && song.contentUriString.contains(playbackMetadataMediaId))
+        (playbackMetadataMediaId.isNotEmpty() && (
+            song.contentUriString.contains(playbackMetadataMediaId) ||
+            song.contentUriString.contains(playbackMetadataMediaId.removePrefix("monochrome_"))
+        ))
     val local = song.takeIf { it.isLocal }
     val audioMimeType = if (isMetadataForCurrentSong) playbackMetadataMimeType ?: local?.mimeType else local?.mimeType
     val audioBitrate = if (isMetadataForCurrentSong) playbackMetadataBitrate ?: local?.bitrate else local?.bitrate

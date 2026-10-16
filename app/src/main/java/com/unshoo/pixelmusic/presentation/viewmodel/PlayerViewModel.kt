@@ -1806,10 +1806,34 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             com.unshoo.pixelmusic.data.lossless.LosslessStreamResolver.lastResolved.collect { offered ->
                 if (offered == null || isRemoteSessionControllingPlayback()) return@collect
-                val controller = mediaController ?: return@collect
-                val currentId = controller.currentMediaItem?.mediaId?.removePrefix("youtube_") ?: return@collect
-                if (currentId == offered.mediaId.removePrefix("youtube_")) {
-                    refreshPlaybackAudioMetadata(controller)
+                val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
+                val controller = mediaController
+                val currentId = controller?.currentMediaItem?.mediaId ?: currentSong?.id
+                val cleanCurrentId = currentId?.removePrefix("youtube_")
+                val offeredCleanId = offered.mediaId.removePrefix("youtube_")
+                if (cleanCurrentId != null && (cleanCurrentId == offeredCleanId || currentId == offered.mediaId)) {
+                    if (offered.source == com.unshoo.pixelmusic.data.lossless.constants.AudioSourceType.MONOCHROME) {
+                        _playbackAudioMetadata.value = monochromeMetadata(currentId, offered.bitrate, offered.sampleRate, offered.bitDepth)
+                    } else {
+                        val tag = when {
+                            offered.isHiRes -> "HI-RES LOSSLESS"
+                            offered.isLossless -> "LOSSLESS"
+                            else -> null
+                        }
+                        _playbackAudioMetadata.value = PlaybackAudioMetadata(
+                            mediaId = currentId,
+                            mimeType = offered.mimeType,
+                            bitrate = offered.bitrate.takeIf { it > 0 } ?: 1411_200,
+                            sampleRate = offered.sampleRate ?: 44100,
+                            bitDepth = offered.bitDepth ?: 16,
+                            formatTag = tag,
+                            sourceName = offered.source.name,
+                            isConfirmed = true
+                        )
+                    }
+                    if (controller != null && controller.isConnected) {
+                        refreshPlaybackAudioMetadata(controller)
+                    }
                 }
             }
         }
@@ -4903,6 +4927,17 @@ class PlayerViewModel @Inject constructor(
         _playbackAudioMetadata.value = PlaybackAudioMetadata()
     }
 
+    private fun monochromeMetadata(mediaId: String, bitrate: Int? = null, sampleRate: Int? = null, bitDepth: Int? = null) = PlaybackAudioMetadata(
+        mediaId = mediaId,
+        mimeType = "audio/flac",
+        bitrate = bitrate?.takeIf { it > 0 } ?: 1411_200,
+        sampleRate = sampleRate ?: 44100,
+        bitDepth = bitDepth ?: 16,
+        formatTag = "LOSSLESS",
+        sourceName = "Monochrome (FLAC)",
+        isConfirmed = true
+    )
+
     private fun preparePlaybackAudioMetadataForMedia(mediaId: String?) {
         metadataProbeJob?.cancel()
         metadataProbeJob = null
@@ -4923,23 +4958,33 @@ class PlayerViewModel @Inject constructor(
                 losslessResult.isLossless -> "LOSSLESS"
                 else -> null
             }
+            val srcName = if (losslessResult.source == com.unshoo.pixelmusic.data.lossless.constants.AudioSourceType.MONOCHROME) {
+                "Monochrome (FLAC)"
+            } else {
+                losslessResult.source.name
+            }
             _playbackAudioMetadata.value = PlaybackAudioMetadata(
                 mediaId = mediaId,
                 mimeType = losslessResult.mimeType,
-                bitrate = losslessResult.bitrate.takeIf { it > 0 },
-                sampleRate = losslessResult.sampleRate,
-                bitDepth = losslessResult.bitDepth,
+                bitrate = losslessResult.bitrate.takeIf { it > 0 } ?: 1411_200,
+                sampleRate = losslessResult.sampleRate ?: 44100,
+                bitDepth = losslessResult.bitDepth ?: 16,
                 formatTag = tag,
-                sourceName = losslessResult.source.name,
-                isConfirmed = false
+                sourceName = srcName,
+                isConfirmed = true
             )
             return
         }
 
-        // 2. Check song from current playback queue or library for known format/extensions
+        // 1b. Check if song or mediaId represents Monochrome FLAC
         val song = _playerUiState.value.currentPlaybackQueue.find { it.id == mediaId }
             ?: libraryStateHolder.allSongsById.value[mediaId]
             ?: runCatching { mediaController?.currentMediaItem?.let(::resolveSongFromMediaItem) }.getOrNull()
+
+        if (mediaId.startsWith("monochrome_") || song?.contentUriString?.startsWith("monochrome://") == true || song?.contentUriString?.contains("monochrome.st/track/") == true) {
+            _playbackAudioMetadata.value = monochromeMetadata(mediaId)
+            return
+        }
 
         if (song != null && song.isLocal && song.path.isNotBlank()) {
             val path = song.path.lowercase()
@@ -5068,6 +5113,10 @@ class PlayerViewModel @Inject constructor(
 
             val playingUri = resolvePlayingUri(player, mediaId)
             val playingUriString = playingUri?.toString().orEmpty()
+            if (playingUriString.contains("monochrome.st/track/") || playingUriString.startsWith("monochrome://") || mediaId.startsWith("monochrome_") || offered?.source == com.unshoo.pixelmusic.data.lossless.constants.AudioSourceType.MONOCHROME) {
+                _playbackAudioMetadata.value = monochromeMetadata(mediaId, offered?.bitrate, offered?.sampleRate, offered?.bitDepth)
+                return@runCatching
+            }
             if (playingUriString.contains("saavncdn.com") || playingUriString.contains("jiosaavn.com")) {
                 _playbackAudioMetadata.value = PlaybackAudioMetadata(
                     mediaId = mediaId,
@@ -6143,7 +6192,8 @@ class PlayerViewModel @Inject constructor(
                 scheme == "navidrome" ||
                 scheme == "jellyfin" ||
                 scheme == "gdrive" ||
-                scheme == "youtube"
+                scheme == "youtube" ||
+                scheme == "monochrome"
             ) {
                 if (scheme == "telegram") {
                     ensureTelegramPlaybackObserversStarted()

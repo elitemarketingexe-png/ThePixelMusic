@@ -187,7 +187,11 @@ fun DeezerAudioQuality.toFormatName(): String =
  * ArchiveTune's Qobuz-backup relay was not ported), JIOSAAVN maps to the app's existing
  * `SaavnService` gate, and YOUTUBE is the terminal fallback.
  */
+// ── Monochrome (FLAC) ──────────────────────────────────────────────────────────────────────
+val MonochromeEnabledKey = booleanPreferencesKey("monochromeEnabled")
+
 enum class AudioSourceType {
+    MONOCHROME,
     TIDAL,
     QOBUZ,
     QOBUZ_BACKUP,

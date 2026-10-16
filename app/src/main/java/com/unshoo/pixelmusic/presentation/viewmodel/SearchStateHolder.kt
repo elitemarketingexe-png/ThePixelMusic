@@ -174,19 +174,26 @@ class SearchStateHolder @Inject constructor(
                                 try {
                                     kotlinx.coroutines.delay(800L)
                                     if (request.requestId != latestSearchRequestId.get()) return@launch
-                                    val topSong = immutable.filterIsInstance<SearchResultItem.SongItem>().firstOrNull()
-                                    if (topSong?.song?.youtubeId != null) {
-                                        val ytSong = com.unshoo.pixelmusic.data.model.youtube.Song(
-                                            youtubeId = topSong.song.youtubeId,
-                                            title = topSong.song.title,
-                                            artist = topSong.song.artist,
-                                            album = topSong.song.album,
-                                            duration = if (topSong.song.duration > 0) (topSong.song.duration / 1000).toString() else "",
-                                            thumbnailHref = topSong.song.albumArtUriString ?: ""
-                                        )
-                                        com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.getSongPlayerUrl(
-                                            context = appContext, song = ytSong, allowLocal = false
-                                        )
+                                    val topSongs = immutable.filterIsInstance<SearchResultItem.SongItem>().take(2)
+                                    topSongs.forEach { topItem ->
+                                        if (request.requestId != latestSearchRequestId.get()) return@forEach
+                                        val song = topItem.song
+                                        val yId = song.youtubeId
+                                            ?: song.id.removePrefix("youtube_").takeIf { it != song.id }
+                                            ?: song.contentUriString.removePrefix("youtube://").takeIf { it != song.contentUriString }
+                                        if (!yId.isNullOrBlank()) {
+                                            val ytSong = com.unshoo.pixelmusic.data.model.youtube.Song(
+                                                youtubeId = yId,
+                                                title = song.title,
+                                                artist = song.artist,
+                                                album = song.album,
+                                                duration = if (song.duration > 0) (song.duration / 1000).toString() else "",
+                                                thumbnailHref = song.albumArtUriString.orEmpty()
+                                            )
+                                            com.unshoo.pixelmusic.data.remote.youtube.YoutubeHelper.getSongPlayerUrl(
+                                                context = appContext, song = ytSong, allowLocal = false
+                                            )
+                                        }
                                     }
                                 } catch (_: Exception) {}
                             }

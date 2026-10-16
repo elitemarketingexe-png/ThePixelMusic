@@ -117,7 +117,7 @@ class DualPlayerEngine @Inject constructor(
         private const val HTTP_READ_TIMEOUT_MS = 5_000
         private const val FIRST_CHUNK_PRECACHE_BYTES = 256L * 1024L // 256KB — enough for instant start
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "gdrive", "youtube")
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "gdrive", "youtube", "monochrome")
     }
 
     data class TransitionTarget(
@@ -571,8 +571,8 @@ class DualPlayerEngine @Inject constructor(
     private val preCacheHttpFactory by lazy {
         DefaultHttpDataSource.Factory()
             .setUserAgent(
-                "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 " +
-                    "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
             )
             .setConnectTimeoutMs(HTTP_CONNECT_TIMEOUT_MS)
             .setReadTimeoutMs(HTTP_READ_TIMEOUT_MS)
@@ -1049,6 +1049,9 @@ class DualPlayerEngine @Inject constructor(
                 val cleanId = dataSpec.key ?: when {
                     scheme == "youtube" -> uri.host?.takeIf { it.isNotBlank() } ?: uriString.removePrefix("youtube://")
                     uriString.startsWith("youtube://") -> uriString.removePrefix("youtube://")
+                    scheme == "monochrome" -> "monochrome_" + (uri.host?.takeIf { it.isNotBlank() } ?: uriString.removePrefix("monochrome://"))
+                    uriString.startsWith("monochrome://") -> "monochrome_" + uriString.removePrefix("monochrome://")
+                    uriString.contains("monochrome.st/track/") -> "monochrome_" + uriString.substringAfterLast("/")
                     else -> null
                 }
 
@@ -1068,6 +1071,22 @@ class DualPlayerEngine @Inject constructor(
                 }
 
                 // 2. Custom cloud schemes
+                if (scheme == "monochrome") {
+                    val trackId = uri.host?.takeIf { it.isNotBlank() } ?: uriString.removePrefix("monochrome://")
+                    val directUri = Uri.parse("https://tracks.monochrome.st/track/$trackId")
+                    activePlaybackResolvedUris[uriString] = directUri
+                    resolvedUriCache.put(uriString, directUri)
+                    return dataSpec.buildUpon()
+                        .setUri(directUri)
+                        .apply { if (cleanId != null) setKey(cleanId) }
+                        .setHttpRequestHeaders(
+                            mapOf(
+                                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+                            )
+                        )
+                        .build()
+                }
+
                 if (scheme == "telegram" || scheme == "gdrive" || scheme == "youtube") {
                     val originalUri = uriString
                     val diskUri = resolveLocalDiskFile(originalUri)
@@ -1160,8 +1179,8 @@ class DualPlayerEngine @Inject constructor(
         // Explicit HTTP timeouts for low-connectivity resilience.
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(
-                "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 " +
-                    "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
             )
             .setConnectTimeoutMs(HTTP_CONNECT_TIMEOUT_MS)
             .setReadTimeoutMs(HTTP_READ_TIMEOUT_MS)
@@ -1396,6 +1415,10 @@ class DualPlayerEngine @Inject constructor(
                             "telegram" -> resolveTelegramUriAsync(uri, uriString)
                             "gdrive" -> resolveGDriveUriAsync(uriString)
                             "youtube" -> resolveYoutubeUriAsync(uriString)
+                            "monochrome" -> {
+                                val trackId = uriString.substringAfter("monochrome://")
+                                Uri.parse("https://tracks.monochrome.st/track/$trackId")
+                            }
                             else -> null
                         }
                     }
@@ -1538,6 +1561,11 @@ class DualPlayerEngine @Inject constructor(
             // scheme router inside the player's data-source chain and flattened Apple Music
             // files come back as file:// URIs — none of them is a downloaded local song, so they
             // must not be registered in the local-file caches (they expire / get evicted).
+            if (path.contains("monochrome.st/track/")) {
+                preCacheFirstChunk(path, youtubeId)
+                return@withContext Uri.parse(path)
+            }
+
             if (LosslessSchemeRoutingDataSource.isCustomLosslessScheme(path) ||
                 path.startsWith("file:") ||
                 path.startsWith("apple-pending:")
@@ -1599,6 +1627,8 @@ class DualPlayerEngine @Inject constructor(
             if (cachedMime != null) {
                 builder.setMimeType(cachedMime)
             }
+        } else if (scheme == "monochrome" || resolvedUri.toString().contains("monochrome.st/track/")) {
+            builder.setMimeType(androidx.media3.common.MimeTypes.AUDIO_FLAC)
         }
         return builder.build()
     }

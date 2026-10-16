@@ -41,6 +41,7 @@ import com.unshoo.pixelmusic.data.lossless.constants.AppleMusicMediaUserTokenKey
 import com.unshoo.pixelmusic.data.lossless.constants.AppleMusicSourceEnabledKey
 import com.unshoo.pixelmusic.data.lossless.constants.AudioSourceOrderKey
 import com.unshoo.pixelmusic.data.lossless.constants.AudioSourceType
+import com.unshoo.pixelmusic.data.lossless.constants.MonochromeEnabledKey
 import com.unshoo.pixelmusic.data.lossless.constants.DeezerArlKey
 import com.unshoo.pixelmusic.data.lossless.constants.PoolApiKeyKey
 import com.unshoo.pixelmusic.data.lossless.constants.DeezerAudioQuality
@@ -205,26 +206,48 @@ object LosslessStreamResolver {
     fun isEnabledBlocking(context: Context): Boolean =
         runCatching { runBlocking(Dispatchers.IO) { isEnabled(context) } }.getOrDefault(false)
 
-    /** Default for the master switch when the user never touched it: on iff a pool read key exists (build-time or runtime). */
-    fun defaultEnabled(): Boolean =
-        com.unshoo.pixelmusic.BuildConfig.SOURCE_PROVIDER_KEY.isNotBlank() || PoolAccountManager.hasReadKey
+    /** Default for the master switch when the user never touched it: on when a key is present or monochrome is available (free lossless). */
+    fun defaultEnabled(): Boolean = true
+
+    @Volatile
+    private var monochromeDownUntilMs: Long = 0L
+
+    fun isMonochromeUp(): Boolean =
+        System.currentTimeMillis() >= monochromeDownUntilMs
+
+    fun markMonochromeDown(backoffMs: Long = 5 * 60 * 1000L) {
+        monochromeDownUntilMs = System.currentTimeMillis() + backoffMs
+    }
+
+    fun markMonochromeUp() {
+        monochromeDownUntilMs = 0L
+    }
+
+    fun hasAnyActiveLosslessSource(p: androidx.datastore.preferences.core.Preferences): Boolean {
+        val masterEnabled = p[LosslessStreamingEnabledKey] ?: defaultEnabled()
+        if (!masterEnabled) return false
+
+        val monochromeEnabled = p[MonochromeEnabledKey] ?: true
+        val hasMonochrome = monochromeEnabled && isMonochromeUp()
+
+        val hasBuildKey = com.unshoo.pixelmusic.BuildConfig.SOURCE_PROVIDER_KEY.isNotBlank()
+        val hasPoolKey = !p[PoolApiKeyKey].isNullOrBlank() || PoolAccountManager.hasReadKey || PoolAccountManager.hasAccounts()
+        val hasTidal = !p[TidalAccessTokenKey].isNullOrBlank()
+        val hasDeezer = !p[DeezerArlKey].isNullOrBlank()
+        val hasApple = !p[AppleMusicMediaUserTokenKey].isNullOrBlank()
+        val hasQobuz = !p[QobuzTokensKey].isNullOrBlank()
+
+        return hasMonochrome || hasBuildKey || hasPoolKey || hasTidal || hasDeezer || hasApple || hasQobuz
+    }
+
+    suspend fun hasAnyActiveLosslessSource(context: Context): Boolean =
+        hasAnyActiveLosslessSource(prefs(context))
 
     /**
-     * Emits true when lossless streaming is enabled AND at least one lossless API key
-     * or service account (Tidal, Deezer, Apple Music, Qobuz, or Source Pool) is configured/signed in.
+     * Emits true when lossless streaming is enabled AND at least one lossless source is usable.
      */
     fun isLosslessConfiguredOrSignedInFlow(context: Context): Flow<Boolean> =
-        context.dataStore.data.map { p ->
-            val masterEnabled = p[LosslessStreamingEnabledKey] ?: defaultEnabled()
-            val hasBuildKey = com.unshoo.pixelmusic.BuildConfig.SOURCE_PROVIDER_KEY.isNotBlank()
-            val hasPoolKey = !p[PoolApiKeyKey].isNullOrBlank() || PoolAccountManager.hasReadKey || PoolAccountManager.hasAccounts()
-            val hasTidal = !p[TidalAccessTokenKey].isNullOrBlank()
-            val hasDeezer = !p[DeezerArlKey].isNullOrBlank()
-            val hasApple = !p[AppleMusicMediaUserTokenKey].isNullOrBlank()
-            val hasQobuz = !p[QobuzTokensKey].isNullOrBlank()
-
-            masterEnabled && (hasBuildKey || hasPoolKey || hasTidal || hasDeezer || hasApple || hasQobuz)
-        }
+        context.dataStore.data.map { p -> hasAnyActiveLosslessSource(p) }
 
     /** True when [uri] came out of this resolver (any source, any scheme). */
     fun isLosslessUri(uri: String?): Boolean {
@@ -232,6 +255,8 @@ object LosslessStreamResolver {
         if (uriFreshness.containsKey(uri)) return true
         return LosslessSchemeRoutingDataSource.isCustomLosslessScheme(uri) ||
             uri.startsWith("apple-pending:") ||
+            uri.startsWith("monochrome://") ||
+            uri.contains("monochrome.st/track/") ||
             resolvedByMediaId.values.any { it.uri == uri }
     }
 
@@ -308,6 +333,7 @@ object LosslessStreamResolver {
             .filter { it.isNotEmpty() }
 
     private class SourceSettings(
+        val monochromeEnabled: Boolean,
         val tidalEnabled: Boolean,
         val qobuzEnabled: Boolean,
         val deezerEnabled: Boolean,
@@ -327,6 +353,7 @@ object LosslessStreamResolver {
     private suspend fun readSettings(context: Context): SourceSettings {
         val p = prefs(context)
         return SourceSettings(
+            monochromeEnabled = p[MonochromeEnabledKey] ?: true,
             tidalEnabled = p[TidalEnabledKey] ?: true,
             qobuzEnabled = p[QobuzEnabledKey] ?: false,
             deezerEnabled = p[DeezerEnabledKey] ?: false,
@@ -352,6 +379,7 @@ object LosslessStreamResolver {
     private fun resolutionChain(s: SourceSettings): List<AudioSourceType> {
         val enabledDefaults =
             mapOf(
+                AudioSourceType.MONOCHROME to s.monochromeEnabled,
                 AudioSourceType.TIDAL to s.tidalEnabled,
                 AudioSourceType.QOBUZ to s.qobuzEnabled,
                 AudioSourceType.QOBUZ_BACKUP to false,
@@ -370,6 +398,7 @@ object LosslessStreamResolver {
     private fun isSourceEnabled(source: AudioSourceType, s: SourceSettings): Boolean =
         when (source) {
             AudioSourceType.YOUTUBE -> true
+            AudioSourceType.MONOCHROME -> s.monochromeEnabled
             AudioSourceType.TIDAL -> s.tidalEnabled
             AudioSourceType.QOBUZ -> s.qobuzEnabled
             AudioSourceType.DEEZER -> s.deezerEnabled
@@ -478,10 +507,17 @@ object LosslessStreamResolver {
             Timber.tag(TAG).i("Low-data mode active; skipping lossless sources for %s", mediaId)
             return null
         }
+        val p = prefs(context)
+        if (!hasAnyActiveLosslessSource(p)) {
+            Timber.tag(TAG).d("Multi-source skip: no active lossless sources (Monochrome down, no pool, no accounts)")
+            return null
+        }
 
-        // Pool accounts are needed by every source; make sure the cached feed is in memory.
-        runCatching { PoolAccountManager.loadCached(context) }
-        runCatching { PoolAccountManager.refresh(context) }
+        // Pool accounts are only needed if pool is configured/present
+        if (PoolAccountManager.hasReadKey || !p[PoolApiKeyKey].isNullOrBlank() || com.unshoo.pixelmusic.BuildConfig.SOURCE_PROVIDER_KEY.isNotBlank()) {
+            runCatching { PoolAccountManager.loadCached(context) }
+            runCatching { PoolAccountManager.refresh(context) }
+        }
 
         Timber.tag(TAG).d(
             "Source query built: title=\"%s\" artists=%s durationMs=%s",
@@ -498,6 +534,7 @@ object LosslessStreamResolver {
             Timber.tag(TAG).d("Trying source: %s for \"%s\"", source.name, request.title)
             val stream: DirectStream? =
                 when (source) {
+                    AudioSourceType.MONOCHROME -> resolveMonochromeStream(request, settings)
                     AudioSourceType.TIDAL -> resolveTidalStream(context, request, settings)
                     AudioSourceType.QOBUZ -> resolveQobuzStream(request, settings)
                     AudioSourceType.DEEZER -> resolveDeezerStream(request, settings)
@@ -1129,6 +1166,86 @@ object LosslessStreamResolver {
         val millis = durationMs?.takeIf { it > 0L } ?: return null
         val bitsPerSecond = bytes * 8_000L / millis
         return bitsPerSecond.takeIf { it in 1L..50_000_000L }?.toInt()
+    }
+
+    private fun resolveMonochromeStream(request: Request, settings: SourceSettings): DirectStream? {
+        if (!settings.monochromeEnabled || !isMonochromeUp()) return null
+        return try {
+            val query = if (request.artists.isNotEmpty()) {
+                "${request.artists.first()} ${request.title}"
+            } else {
+                request.title
+            }
+            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+            val url = "https://tracks.monochrome.st/search/tracks?q=$encodedQuery&limit=5"
+            val req = okhttp3.Request.Builder()
+                .url(url)
+                .header(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+                )
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            if (!resp.isSuccessful) {
+                if (resp.code in 500..599) markMonochromeDown()
+                return null
+            }
+            markMonochromeUp()
+            val body = resp.body?.string().orEmpty()
+            if (body.isBlank()) return null
+            val json = org.json.JSONObject(body)
+            val tracks = json.optJSONArray("tracks") ?: return null
+
+            var bestStream: DirectStream? = null
+            var bestScore = 0.0
+
+            for (i in 0 until tracks.length()) {
+                val item = tracks.optJSONObject(i) ?: continue
+                if (item.optBoolean("playable", true) == false) continue
+                val trackId = item.optString("id").ifBlank { item.optString("trackId") }
+                if (trackId.isBlank()) continue
+                val title = item.optString("title")
+                val artistNamesArray = item.optJSONArray("artistNames")
+                val artists = mutableListOf<String>()
+                if (artistNamesArray != null) {
+                    for (a in 0 until artistNamesArray.length()) {
+                        artists.add(artistNamesArray.optString(a))
+                    }
+                }
+                val durationMs = item.optLong("duration", 0L)
+                val effectiveDuration = if (durationMs > 10_000L) durationMs else durationMs * 1000L
+                val candidateStream = DirectStream(
+                    uri = "https://tracks.monochrome.st/track/$trackId",
+                    mimeType = androidx.media3.common.MimeTypes.AUDIO_FLAC,
+                    codecs = "flac",
+                    contentLength = null,
+                    label = "Monochrome FLAC (Free)",
+                    source = AudioSourceType.MONOCHROME,
+                    matchedTitle = title,
+                    matchedArtist = artists.firstOrNull(),
+                    matchedAlbum = item.optString("albumTitle").ifBlank { null },
+                    matchedDurationMs = effectiveDuration,
+                    sampleRate = 44100,
+                    bitDepth = 16
+                )
+                val match = TitleMatch.evaluate(
+                    wantedTitle = request.title,
+                    wantedArtists = request.artists,
+                    wantedAlbum = request.album,
+                    wantedDurationMs = request.durationMs,
+                    stream = candidateStream
+                )
+                if (match.accepted && match.score > bestScore) {
+                    bestScore = match.score
+                    bestStream = candidateStream
+                }
+            }
+            bestStream
+        } catch (e: Exception) {
+            if (e is java.io.IOException) markMonochromeDown()
+            Timber.tag(TAG).w(e, "Monochrome stream resolve failed for %s", request.title)
+            null
+        }
     }
 
     private fun sourceCacheKey(

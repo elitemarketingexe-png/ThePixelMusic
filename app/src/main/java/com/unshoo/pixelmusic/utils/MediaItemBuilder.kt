@@ -157,6 +157,10 @@ object MediaItemBuilder {
         filePath: String?,
         mimeType: String?
     ): String? {
+        if (contentUriString.startsWith("monochrome://") || contentUriString.contains("monochrome.st/track/")) {
+            return androidx.media3.common.MimeTypes.AUDIO_FLAC
+        }
+
         val normalizedMimeType = mimeType?.trim()?.lowercase()
         if (normalizedMimeType.isNullOrBlank()) {
             return null

@@ -30,6 +30,7 @@ import com.unshoo.pixelmusic.data.model.Song
 import com.unshoo.pixelmusic.data.database.MusicDao
 import com.unshoo.pixelmusic.data.preferences.UserPreferencesRepository
 import com.unshoo.pixelmusic.utils.ContentFilterUtils
+import com.unshoo.pixelmusic.data.lossless.audiosource.TitleMatch
 
 object AutoQueueManager {
     private const val TAG = "AutoQueueMgr"
@@ -300,24 +301,45 @@ object AutoQueueManager {
     }
 
     suspend fun buildMixQueue(seedSong: Song, onlineRelated: List<Song>): List<Song> {
-        return if (onlineRelated.isNotEmpty()) {
-            val notInterestedIds = runCatching { userPreferencesRepository?.notInterestedSongIdsFlow?.first() }.getOrNull() ?: emptySet()
-            val filtered = if (notInterestedIds.isNotEmpty()) {
-                onlineRelated.filterNot { s ->
-                    val yId = s.youtubeId ?: if (s.contentUriString.startsWith("youtube://")) {
-                        s.contentUriString.removePrefix("youtube://")
-                    } else if (s.id.startsWith("youtube_")) {
-                        s.id.removePrefix("youtube_")
-                    } else null
-                    s.id in notInterestedIds || (yId != null && yId in notInterestedIds)
-                }
-            } else {
-                onlineRelated
-            }
-            (listOf(seedSong) + filtered).distinctBy { it.youtubeId ?: it.id }
-        } else {
-            listOf(seedSong)
+        if (onlineRelated.isEmpty()) return listOf(seedSong)
+
+        val notInterestedIds = runCatching { userPreferencesRepository?.notInterestedSongIdsFlow?.first() }.getOrNull() ?: emptySet()
+        val seedNormTitle = TitleMatch.normalize(seedSong.title)
+        val seedNormArtist = TitleMatch.normalize(seedSong.artist)
+
+        val seenIds = HashSet<String>().apply { addAll(seedSong.idVariants()) }
+        val seenSignatures = HashSet<String>().apply {
+            if (seedNormTitle.isNotBlank() && seedNormArtist.isNotBlank()) add("$seedNormTitle|$seedNormArtist")
         }
+
+        val filtered = onlineRelated.filter { s ->
+            val ids = s.idVariants()
+            if (ids.any { it in notInterestedIds || it in seenIds }) return@filter false
+
+            val sNormTitle = TitleMatch.normalize(s.title)
+            val sNormArtist = TitleMatch.normalize(s.artist)
+
+            if (sNormTitle.isNotBlank() && sNormTitle == seedNormTitle) {
+                val artistMatch = sNormArtist.isBlank() || seedNormArtist.isBlank() ||
+                    sNormArtist == seedNormArtist || sNormArtist.contains(seedNormArtist) ||
+                    seedNormArtist.contains(sNormArtist) || TitleMatch.ratio(seedSong.artist, s.artist) >= 0.75
+                if (artistMatch) return@filter false
+            }
+
+            val sig = if (sNormTitle.isNotBlank() && sNormArtist.isNotBlank()) "$sNormTitle|$sNormArtist" else null
+            if (sig != null && !seenSignatures.add(sig)) return@filter false
+
+            seenIds.addAll(ids)
+            true
+        }
+
+        return listOf(seedSong) + filtered
+    }
+
+    private fun Song.idVariants(): List<String> {
+        val clean = id.removePrefix("youtube_").removePrefix("monochrome_")
+        val yt = youtubeId ?: if (contentUriString.startsWith("youtube://")) contentUriString.removePrefix("youtube://") else null
+        return listOfNotNull(id, clean, yt, yt?.let { "youtube_$it" })
     }
 
     fun pruneNotInterestedFromQueue(songId: String, videoId: String? = null) {

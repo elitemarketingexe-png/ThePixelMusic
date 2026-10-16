@@ -795,7 +795,7 @@ object YoutubeHelper {
             song = song,
             savedSong = savedSong,
             cacheKeys = listOf(targetCacheKey, "${videoId}_high"),
-            lowDataMode = plan.quality == StreamingAudioQuality.LOW,
+            lowDataMode = plan.quality == StreamingAudioQuality.LOW || plan.quality == StreamingAudioQuality.MEDIUM,
         )?.let { return it }
 
         // ── JIOSAAVN HIGH-FIDELITY STREAMING GATE (3s timeout → YouTube fallback) ──
@@ -1116,7 +1116,7 @@ object YoutubeHelper {
     ): String? {
         val videoId = song.youtubeId
         return try {
-            if (!LosslessStreamResolver.isEnabled(context)) return null
+            if (lowDataMode || !LosslessStreamResolver.hasAnyActiveLosslessSource(context)) return null
 
             // A previous resolve for this song that is still fresh wins immediately.
             LosslessStreamResolver.resultFor(videoId)?.let { previous ->
