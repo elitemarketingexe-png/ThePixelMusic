@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import android.view.WindowManager
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
@@ -144,15 +145,15 @@ fun SongInfoBottomSheet(
     songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    // Capture the HOST focus manager before ModalBottomSheet creates its dialog window.
-    // Hiding the IME alone leaves a search editor focused; Android can reconnect that
-    // editor and briefly show the IME when the dialog gives window focus back.
+    // Capture the HOST scope, outside ModalBottomSheet's separate window.
+    // IME hide alone retains editor focus, allowing a stale input connection to
+    // resume when the song-info dialog returns window focus to its caller.
     val hostFocusManager = LocalFocusManager.current
     val hostKeyboardController = LocalSoftwareKeyboardController.current
     DisposableEffect(hostFocusManager, hostKeyboardController) {
         hostFocusManager.clearFocus(force = true)
         hostKeyboardController?.hide()
-        // Do not hide on disposal: a menu action may be opening an editable sheet.
+        // No delayed/disposal hide: Edit and playlist actions may open an editor.
         onDispose { }
     }
     var showEditSheet by remember { mutableStateOf(false) }
@@ -381,16 +382,24 @@ fun SongInfoBottomSheet(
                 LocalOverscrollFactory provides null
             ) {
             val view = LocalView.current
-            LaunchedEffect(view) {
+            DisposableEffect(view) {
                 var parent = view.parent
                 while (parent != null) {
                     if (parent is DialogWindowProvider) {
                         val window = parent.window
+                        // This window contains actions/info, never a text editor.
+                        // Keep it focusable (Back/accessibility still work), but
+                        // prevent it from becoming an IME connection target.
+                        // EditSongSheet owns a separate, unrestricted window.
+                        window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
                         WindowCompat.setDecorFitsSystemWindows(window, false)
                         break
                     }
                     parent = parent.parent
                 }
+                // This flag belongs to the disposable modal window. Do not clear
+                // it during teardown and briefly reconnect it to the IME.
+                onDispose { }
             }
             Box(
                 modifier = Modifier

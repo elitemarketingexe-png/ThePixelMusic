@@ -216,9 +216,6 @@ fun SearchScreen(
     val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
     val searchSource by playerViewModel.searchSource.collectAsStateWithLifecycle()
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
-    // Sticky for this screen visit: a pending entry-time IME request must not run
-    // after the user has opened AND already dismissed the song menu.
-    var hasOpenedSongMenu by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val searchInputFocusRequester = remember { FocusRequester() }
@@ -235,24 +232,18 @@ fun SearchScreen(
         // A short delay lets the SearchBar finish composing before FocusRequester is used;
         // the second show() handles OEM keyboards that ignore the first request during tab transitions.
         delay(220L)
-        if (!hasOpenedSongMenu) {
-            runCatching { searchInputFocusRequester.requestFocus() }
-                .onSuccess { keyboardController?.show() }
-        }
+        runCatching { searchInputFocusRequester.requestFocus() }
+        keyboardController?.show()
         delay(80L)
-        if (!hasOpenedSongMenu) {
-            keyboardController?.show()
-        }
+        keyboardController?.show()
     }
 
 
     LaunchedEffect(playerViewModel, keyboardController) {
         playerViewModel.searchNavDoubleTapEvents.collect {
             delay(40L)
-            if (!showSongInfoBottomSheet) {
-                searchInputFocusRequester.requestFocus()
-                keyboardController?.show()
-            }
+            searchInputFocusRequester.requestFocus()
+            keyboardController?.show()
         }
     }
 
@@ -262,7 +253,6 @@ fun SearchScreen(
     }
     val searchResults = searchUiState.searchResults
     val handleSongMoreOptionsClick: (Song) -> Unit = { song ->
-        hasOpenedSongMenu = true
         focusManager.clearFocus(force = true)
         keyboardController?.hide()
         playerViewModel.selectSongForInfo(song)
