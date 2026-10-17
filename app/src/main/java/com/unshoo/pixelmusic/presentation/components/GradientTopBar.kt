@@ -213,11 +213,18 @@ fun HomeGradientTopBar(
             }
         }
     } else {
+        val headerElevation by animateDpAsState(
+            targetValue = if (isScrolled) 4.dp else 0.dp,
+            animationSpec = tween(durationMillis = 240, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            label = "home_top_bar_elevation"
+        )
+
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
             color = solidTintedColor,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shadowElevation = headerElevation
         ) {
             TopAppBar(
                 modifier = Modifier

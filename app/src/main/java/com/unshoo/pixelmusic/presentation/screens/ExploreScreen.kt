@@ -107,6 +107,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -150,6 +151,7 @@ import com.unshoo.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.unshoo.pixelmusic.presentation.components.QuickPicksSection
 import com.unshoo.pixelmusic.presentation.components.SmartImage
 import com.unshoo.pixelmusic.presentation.components.SmartImageCardTargetSize
+import com.unshoo.pixelmusic.presentation.components.bounceClick
 import com.unshoo.pixelmusic.presentation.components.SongInfoBottomSheet
 import com.unshoo.pixelmusic.presentation.navigation.Screen
 import com.unshoo.pixelmusic.presentation.navigation.navigateSafely
@@ -817,6 +819,7 @@ fun ExploreScreen(
                             item(key = "feed_spotlight") {
                                 SpotlightHeroCard(
                                     spotlight = spot,
+                                    scrollOffsetProvider = { listState.firstVisibleItemScrollOffset },
                                     onPlayRadio = {
                                         feedViewModel.playArtistRadio(
                                             FeedArtist(spot.artistName, spot.browseId, spot.artworkUrl),
@@ -1421,12 +1424,18 @@ fun ExploreTopBar(
             alpha = 1f
         )
     }
+    val animatedElevation by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isScrolled) 4.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 240, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "explore_top_bar_elevation"
+    )
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
         color = solidTintedColor,
-        contentColor = MaterialTheme.colorScheme.onSurface
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shadowElevation = animatedElevation
     ) {
         Row(
             modifier = Modifier
@@ -1515,7 +1524,7 @@ private fun QuickTileCard(
         modifier = modifier
             .height(64.dp)
             .clip(shape)
-            .clickable(onClick = onClick),
+            .bounceClick(scaleDown = 0.96f) { onClick() },
         shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = if (tile.isLiked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
@@ -1895,7 +1904,7 @@ private fun FeedTrackCard(
     Column(
         modifier = Modifier
             .width(156.dp)
-            .clickable {
+            .bounceClick(scaleDown = 0.96f) {
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onClick()
             }
@@ -2039,7 +2048,7 @@ private fun FeedPlaylistCard(
     Column(
         modifier = Modifier
             .width(156.dp)
-            .clickable {
+            .bounceClick(scaleDown = 0.96f) {
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onClick()
             }
@@ -2165,7 +2174,7 @@ private fun ShelfArtistCard(
     Column(
         modifier = Modifier
             .width(156.dp)
-            .clickable {
+            .bounceClick(scaleDown = 0.96f) {
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onClick()
             }
@@ -2303,7 +2312,7 @@ private fun RecentTrackCard(
     Column(
         modifier = Modifier
             .width(156.dp)
-            .clickable {
+            .bounceClick(scaleDown = 0.96f) {
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onClick()
             }
@@ -2429,10 +2438,6 @@ private fun ChartTrackCard(
     val haptics = LocalHapticFeedback.current
 
     Surface(
-        onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            onClick()
-        },
         shape = AbsoluteSmoothCornerShape(18.dp, 75),
         color = if (isTop3) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
         else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -2444,6 +2449,10 @@ private fun ChartTrackCard(
         modifier = Modifier
             .width(280.dp)
             .height(72.dp)
+            .bounceClick(scaleDown = 0.97f) {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -2529,6 +2538,7 @@ private fun ChartTrackCard(
 @Composable
 private fun SpotlightHeroCard(
     spotlight: FeedSpotlight,
+    scrollOffsetProvider: () -> Int = { 0 },
     onPlayRadio: () -> Unit,
     onOpenArtist: () -> Unit
 ) {
@@ -2548,6 +2558,11 @@ private fun SpotlightHeroCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
+                        .graphicsLayer {
+                            scaleX = 1.08f
+                            scaleY = 1.08f
+                            translationY = (scrollOffsetProvider() * 0.08f).coerceIn(-24f, 24f)
+                        }
                         .alpha(0.22f)
                 )
             }
@@ -2688,7 +2703,7 @@ private fun ArtistAvatarCard(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .width(96.dp)
-            .clickable {
+            .bounceClick(scaleDown = 0.94f) {
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onClick()
             }
@@ -2973,7 +2988,7 @@ fun LibraryPlaylistCard(
             .width(260.dp)
             .height(120.dp)
             .clip(cardShape)
-            .clickable(onClick = onClick),
+            .bounceClick(scaleDown = 0.96f) { onClick() },
         shape = cardShape,
         colors = CardDefaults.cardColors(containerColor = blendedBgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

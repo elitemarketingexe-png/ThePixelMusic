@@ -294,7 +294,7 @@ fun QuickPicksSection(
                     Column(
                         modifier = Modifier
                             .width(cardSize)
-                            .clickable { onSongClick(song) }
+                            .bounceClick(scaleDown = 0.96f) { onSongClick(song) }
                     ) {
                         Card(
                             modifier = Modifier
@@ -674,7 +674,6 @@ private fun CarouselItemScope.CenteredHeroCard(
     }
 
     Card(
-        onClick = onClick,
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = darkBase
@@ -686,6 +685,7 @@ private fun CarouselItemScope.CenteredHeroCard(
             .fillMaxSize()
             .maskClip(cardShape)
             .maskBorder(cardBorder, cardShape)
+            .bounceClick(scaleDown = 0.97f) { onClick() }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Full-bleed Artwork
@@ -919,10 +919,10 @@ private fun QuickPickPill(
         label = "QuickPickBg"
     )
     Card(
-        onClick = onClick,
         modifier = Modifier
             .width(width)
-            .height(QuickPicksPillHeight),
+            .height(QuickPicksPillHeight)
+            .bounceClick(scaleDown = 0.96f) { onClick() },
         shape = RoundedCornerShape(QuickPicksPillHeight / 2),
         colors = CardDefaults.cardColors(containerColor = bgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

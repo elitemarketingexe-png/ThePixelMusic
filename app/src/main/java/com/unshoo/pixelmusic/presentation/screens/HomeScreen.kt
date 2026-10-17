@@ -103,6 +103,7 @@ import com.unshoo.pixelmusic.presentation.components.HomeGradientTopBar
 import com.unshoo.pixelmusic.presentation.components.HomeOptionsBottomSheet
 import com.unshoo.pixelmusic.presentation.components.MiniPlayerHeight
 import com.unshoo.pixelmusic.presentation.components.QuickPicksSection
+import com.unshoo.pixelmusic.presentation.components.bounceClick
 import com.unshoo.pixelmusic.presentation.components.QuickPicksSkeletonSection
 import com.unshoo.pixelmusic.presentation.components.RecentlyPlayedSection
 import com.unshoo.pixelmusic.presentation.components.RecentlyPlayedSectionMinSongsToShow
@@ -888,7 +889,8 @@ fun YourMixHeader(
         LargeExtendedFloatingActionButton(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 12.dp),
+                .padding(end = 12.dp)
+                .bounceClick(scaleDown = 0.93f) { onPlayShuffled() },
             onClick = onPlayShuffled,
             containerColor = if (isShuffleEnabled) colors.primary else colors.tertiaryContainer,
             contentColor = if (isShuffleEnabled) colors.onPrimary else colors.onTertiaryContainer,
@@ -923,7 +925,7 @@ fun SongListItemFavs(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .bounceClick(scaleDown = 0.97f) { onClick() },
         shape = RoundedCornerShape(cardCorners),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(0.dp)

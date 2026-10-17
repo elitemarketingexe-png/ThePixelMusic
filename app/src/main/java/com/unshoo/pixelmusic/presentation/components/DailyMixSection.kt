@@ -215,7 +215,7 @@ private fun DailyMixCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            DailyMixHeader(thumbnails = headerSongs)
+            DailyMixHeader(thumbnails = headerSongs, onClickOpen = onClickOpen)
             DailyMixSongList(
                 songs = visibleSongs,
                 playbackQueue = songs,
@@ -240,7 +240,10 @@ private fun DailyMixCard(
 }
 
 @Composable
-fun DailyMixHeader(thumbnails: ImmutableList<Song>) {
+fun DailyMixHeader(
+    thumbnails: ImmutableList<Song>,
+    onClickOpen: (() -> Unit)? = null
+) {
     val titleStyle = rememberDailyMixTitleStyle()
 
     fun shapeConditionalModifier(index: Int): Modifier {
@@ -254,10 +257,15 @@ fun DailyMixHeader(thumbnails: ImmutableList<Song>) {
         }
     }
 
+    val clickModifier = if (onClickOpen != null) {
+        Modifier.bounceClick(scaleDown = 0.98f) { onClickOpen() }
+    } else Modifier
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(80.dp)
+            .then(clickModifier)
             .background(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
@@ -385,10 +393,8 @@ private fun ViewAllDailyMixButton(
     onClickOpen: () -> Unit
 ) {
     FilledTonalButton(
-        modifier = modifier,
-        onClick = {
-            onClickOpen()
-        },
+        modifier = modifier.bounceClick(scaleDown = 0.98f) { onClickOpen() },
+        onClick = onClickOpen,
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = Color.Transparent
         ),

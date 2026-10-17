@@ -298,7 +298,7 @@ private fun RecentlyPlayedPill(
         modifier = modifier
             .height(HomeRecentlyPlayedPillHeight)
             .clip(shape)
-            .clickable(onClick = onClick)
+            .bounceClick(scaleDown = 0.96f) { onClick() }
     ) {
         Row(
             modifier = Modifier

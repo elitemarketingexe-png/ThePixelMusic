@@ -12,51 +12,82 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.graphics.TransformOrigin
 
-// Expressive motion physics and emphasized cubic bezier easing curves
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+
+// Expressive motion physics matching Mood & Genre preview page
 private val EmphasizedEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 private val EmphasizedDecelerateEasing = CubicBezierEasing(0.2f, 0.85f, 0.7f, 1f)
 private val EmphasizedAccelerateEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
 
-const val TRANSITION_DURATION = 450
+const val TRANSITION_DURATION = 260
 
-// Hierarchical Navigation (Push / Pop between sub-screens)
-fun enterTransition(): EnterTransition = slideInHorizontally(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedDecelerateEasing),
-    initialOffsetX = { (it * 0.5f).toInt() }
+/**
+ * Fluid, spring-physics sheet entry matching Mood & Genre preview opening.
+ * Slides up gently from it / 6 with low-bouncy spring and scale-fade.
+ */
+fun enterTransition(): EnterTransition = slideInVertically(
+    animationSpec = spring(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessMediumLow
+    ),
+    initialOffsetY = { it / 6 }
 ) + scaleIn(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedDecelerateEasing),
-    initialScale = 0.92f,
+    animationSpec = spring(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessMediumLow
+    ),
+    initialScale = 0.96f,
     transformOrigin = TransformOrigin(0.5f, 0.5f)
 ) + fadeIn(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedAccelerateEasing)
+    animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
 )
 
-fun exitTransition(): ExitTransition = slideOutHorizontally(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedAccelerateEasing),
-    targetOffsetX = { -(it * 0.25f).toInt() }
-) + fadeOut(
-    animationSpec = tween(TRANSITION_DURATION / 2, easing = EmphasizedAccelerateEasing)
-)
-
-fun popEnterTransition(): EnterTransition = slideInHorizontally(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedDecelerateEasing),
-    initialOffsetX = { -(it * 0.25f).toInt() }
-) + scaleIn(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedDecelerateEasing),
-    initialScale = 0.95f
-) + fadeIn(
-    animationSpec = tween(TRANSITION_DURATION / 2, easing = EmphasizedDecelerateEasing)
-)
-
-fun popExitTransition(): ExitTransition = slideOutHorizontally(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedAccelerateEasing),
-    targetOffsetX = { (it * 0.5f).toInt() }
+/**
+ * Background screen exit when navigating forward to detail screen.
+ */
+fun exitTransition(): ExitTransition = fadeOut(
+    animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
 ) + scaleOut(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedAccelerateEasing),
-    targetScale = 0.92f,
+    animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
+    targetScale = 0.96f,
+    transformOrigin = TransformOrigin(0.5f, 0.5f)
+)
+
+/**
+ * Background screen re-entry when popping back from detail screen.
+ */
+fun popEnterTransition(): EnterTransition = fadeIn(
+    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+) + scaleIn(
+    animationSpec = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow
+    ),
+    initialScale = 0.96f,
+    transformOrigin = TransformOrigin(0.5f, 0.5f)
+)
+
+/**
+ * Fluid spring dismiss matching Mood & Genre preview closing.
+ * Drops down smoothly to it / 5 with linear fade and scale-out.
+ */
+fun popExitTransition(): ExitTransition = slideOutVertically(
+    animationSpec = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow
+    ),
+    targetOffsetY = { it / 5 }
+) + scaleOut(
+    animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
+    targetScale = 0.96f,
     transformOrigin = TransformOrigin(0.5f, 0.5f)
 ) + fadeOut(
-    animationSpec = tween(TRANSITION_DURATION / 2, easing = EmphasizedAccelerateEasing)
+    animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
 )
 
 // Fast responsive settings dismiss transitions
