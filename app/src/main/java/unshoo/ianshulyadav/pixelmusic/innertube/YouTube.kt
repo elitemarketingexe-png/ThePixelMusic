@@ -876,6 +876,59 @@ object YouTube {
             .toList()
     }
 
+    suspend fun moodAndGenres(): Result<List<unshoo.ianshulyadav.pixelmusic.innertube.models.MoodAndGenreSection>> = runCatching {
+        val hasAuth = hasLoginCookie()
+        val forceAnon = !hasAuth && !personalizedExploreEnabled
+        val setLogin = hasAuth || !forceAnon
+        val response = innerTube.browse(
+            WEB_REMIX,
+            browseId = "FEmusic_moods_and_genres",
+            setLogin = setLogin,
+            forceAnonymous = forceAnon
+        ).body<BrowseResponse>()
+
+        val contents = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer?.contents
+            ?: response.contents?.sectionListRenderer?.contents
+            .orEmpty()
+
+        contents.mapNotNull { content ->
+            val gridRenderer = content.gridRenderer ?: return@mapNotNull null
+            val sectionTitle = gridRenderer.header?.gridHeaderRenderer?.title?.runs?.firstOrNull()?.text ?: return@mapNotNull null
+            val items = gridRenderer.items.mapNotNull { item ->
+                val navButton = item.musicNavigationButtonRenderer
+                val twoRow = item.musicTwoRowItemRenderer
+                when {
+                    navButton != null -> {
+                        val itemTitle = navButton.buttonText.runs?.firstOrNull()?.text ?: return@mapNotNull null
+                        val endpoint = navButton.clickCommand.browseEndpoint
+                        val stripeColor = navButton.solid?.leftStripeColor
+                        unshoo.ianshulyadav.pixelmusic.innertube.models.MoodAndGenreItemData(
+                            title = itemTitle,
+                            stripeColor = stripeColor,
+                            browseId = endpoint?.browseId ?: "FEmusic_moods_and_genres_category",
+                            params = endpoint?.params,
+                            thumbnailUrl = null
+                        )
+                    }
+                    twoRow != null -> {
+                        val itemTitle = twoRow.title.runs?.firstOrNull()?.text ?: return@mapNotNull null
+                        val endpoint = twoRow.navigationEndpoint.browseEndpoint
+                        val thumbUrl = twoRow.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl()
+                        unshoo.ianshulyadav.pixelmusic.innertube.models.MoodAndGenreItemData(
+                            title = itemTitle,
+                            stripeColor = null,
+                            browseId = endpoint?.browseId ?: "FEmusic_moods_and_genres_category",
+                            params = endpoint?.params,
+                            thumbnailUrl = thumbUrl
+                        )
+                    }
+                    else -> null
+                }
+            }
+            if (items.isEmpty()) null else unshoo.ianshulyadav.pixelmusic.innertube.models.MoodAndGenreSection(sectionTitle, items)
+        }
+    }
 
     suspend fun browse(browseId: String, params: String?): Result<BrowseResult> = runCatching {
         val response = innerTube.browse(WEB_REMIX, browseId = browseId, params = params).body<BrowseResponse>()

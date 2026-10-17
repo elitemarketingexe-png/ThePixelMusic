@@ -8,21 +8,29 @@ import com.unshoo.pixelmusic.presentation.navigation.navigateSafelyReplacing
 import com.unshoo.pixelmusic.presentation.navigation.navigateToTopLevelSafely
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -48,6 +56,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -71,6 +80,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -79,6 +89,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.unshoo.pixelmusic.data.model.Album
 import com.unshoo.pixelmusic.data.model.Artist
@@ -140,6 +151,16 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import timber.log.Timber
 import com.unshoo.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import androidx.compose.ui.res.stringResource
+import com.unshoo.pixelmusic.presentation.screens.search.components.MoodGenreCatalog
+import com.unshoo.pixelmusic.presentation.screens.search.components.MoodGenreItem
+import com.unshoo.pixelmusic.presentation.screens.search.components.MoodGenreContentView
+import com.unshoo.pixelmusic.presentation.screens.search.components.MoodsAndGenresBrowseView
+
+private enum class SearchScreenMode {
+    BROWSE_GENRES,
+    MOOD_CONTENT,
+    SEARCH_RESULTS
+}
 
 private data class SearchUiSlice(
     val selectedSearchFilter: SearchFilterType = SearchFilterType.ALL,
@@ -158,12 +179,31 @@ fun SearchScreen(
     onSearchBarActiveChange: (Boolean) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var selectedMoodGenre by remember { mutableStateOf<MoodGenreItem?>(null) }
+    var lastSelectedMoodGenre by remember { mutableStateOf<MoodGenreItem?>(null) }
+    if (selectedMoodGenre != null) {
+        lastSelectedMoodGenre = selectedMoodGenre
+    }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val searchInputFocusRequester = remember { FocusRequester() }
+
     val sheetState by playerViewModel.sheetState.collectAsStateWithLifecycle()
     androidx.activity.compose.BackHandler(enabled = sheetState == com.unshoo.pixelmusic.presentation.viewmodel.PlayerSheetState.COLLAPSED) {
-        if (searchQuery.isNotEmpty()) {
-            searchQuery = ""
-        } else {
-            navController.navigateToTopLevelSafely(com.unshoo.pixelmusic.presentation.navigation.Screen.Home.route)
+        when {
+            selectedMoodGenre != null -> {
+                selectedMoodGenre = null
+            }
+            searchQuery.isNotEmpty() -> {
+                searchQuery = ""
+                playerViewModel.updateSearchQuery("")
+                playerViewModel.performSearch("")
+                focusManager.clearFocus(force = true)
+                keyboardController?.hide()
+            }
+            else -> {
+                navController.navigateToTopLevelSafely(com.unshoo.pixelmusic.presentation.navigation.Screen.Home.route)
+            }
         }
     }
     val statusBarTopInset = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
@@ -216,28 +256,20 @@ fun SearchScreen(
     val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
     val searchSource by playerViewModel.searchSource.collectAsStateWithLifecycle()
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
-    val searchInputFocusRequester = remember { FocusRequester() }
+
+    val browseListState = rememberLazyListState()
+    val searchListState = rememberLazyListState()
 
     // On every visit to the search screen, clear the query + results so we
     // always land on the Moods & Genres browse page.
     LaunchedEffect(Unit) {
         onSearchBarActiveChange(false)
         searchQuery = ""
+        selectedMoodGenre = null
         playerViewModel.performSearch("")
         playerViewModel.loadSearchHistory()
-
-        // UX: when the user opens Search, focus the input and show the keyboard immediately.
-        // A short delay lets the SearchBar finish composing before FocusRequester is used;
-        // the second show() handles OEM keyboards that ignore the first request during tab transitions.
-        delay(220L)
-        runCatching { searchInputFocusRequester.requestFocus() }
-        keyboardController?.show()
-        delay(80L)
-        keyboardController?.show()
+        browseListState.scrollToItem(0, 0)
     }
-
 
     LaunchedEffect(playerViewModel, keyboardController) {
         playerViewModel.searchNavDoubleTapEvents.collect {
@@ -304,265 +336,373 @@ fun SearchScreen(
         }
     }
 
+    val isScrolledDown by remember {
+        derivedStateOf {
+            if (searchQuery.isNotBlank()) {
+                searchListState.firstVisibleItemIndex > 0 || searchListState.firstVisibleItemScrollOffset > 40
+            } else {
+                browseListState.firstVisibleItemIndex > 0 || browseListState.firstVisibleItemScrollOffset > 60
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, top = statusBarTopInset + 12.dp, end = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val searchBarInputFieldColors = SearchBarDefaults.inputFieldColors(
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
-
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .background(color = Color.Transparent)
-                ) {
-                    DockedSearchBar(
-                        inputField = {
-                            SearchBarDefaults.InputField(
-                                modifier = Modifier.focusRequester(searchInputFocusRequester),
-                                query = searchQuery,
-                                onQueryChange = {
-                                    searchQuery = it
-                                    playerViewModel.updateSearchQuery(it)
-                                },
-                                onSearch = { query ->
-                                    if (query.isNotBlank()) {
-                                        playerViewModel.onSearchQuerySubmitted(query)
-                                    }
-                                    focusManager.clearFocus(force = true)
-                                    keyboardController?.hide()
-                                },
-                                expanded = false,
-                                onExpandedChange = {},
-                                placeholder = {
-                                    val placeholderText = if (searchSource == com.unshoo.pixelmusic.data.preferences.SearchSource.LOCAL) {
-                                        "Search Local Library..."
-                                    } else {
-                                        stringResource(R.string.search_placeholder)
-                                    }
-                                    Text(
-                                        placeholderText,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Search,
-                                        contentDescription = stringResource(R.string.cd_search_icon),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                },
-                                trailingIcon = {
-                                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                         IconButton(
-                                             onClick = { playerViewModel.toggleSearchSource() },
-                                             modifier = Modifier
-                                                 .size(48.dp)
-                                                 .clip(CircleShape)
-                                         ) {
-                                             if (searchSource == com.unshoo.pixelmusic.data.preferences.SearchSource.LOCAL) {
-                                                 Icon(
-                                                     painter = painterResource(id = R.drawable.rounded_library_music_24),
-                                                     contentDescription = "Toggle Search Source",
-                                                     tint = MaterialTheme.colorScheme.primary,
-                                                     modifier = Modifier.size(24.dp)
-                                                 )
-                                             } else {
-                                                 Image(
-                                                     painter = painterResource(id = R.drawable.ic_youtube),
-                                                     contentDescription = "Toggle Search Source",
-                                                     modifier = Modifier.size(24.dp)
-                                                 )
-                                             }
-                                         }
-                                        if (searchQuery.isNotBlank()) {
-                                            IconButton(
-                                                onClick = {
-                                                    searchQuery = ""
-                                                    playerViewModel.updateSearchQuery("")
-                                                },
-                                                modifier = Modifier
-                                                    .size(48.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                                                    )
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.Close,
-                                                    contentDescription = stringResource(R.string.cd_clear_search_query),
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
-                                colors = searchBarInputFieldColors
-                            )
-                        },
-                        expanded = false,
-                        onExpandedChange = {},
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(searchbarCornerRadius)),
-                        colors = SearchBarDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                            dividerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                            inputFieldColors = searchBarInputFieldColors
-                        ),
-                        content = {}
-                    )
-                }
-
-                FilledIconButton(
-                    modifier = Modifier.padding(bottom = 2.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    onClick = { navController.navigateSafely(Screen.Settings.route) }
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_settings_24),
-                        contentDescription = stringResource(R.string.presentation_batch_d_open_settings_cd)
-                    )
-                }
-            }
-
-            val showGenreBrowse = remember(searchQuery) { searchQuery.isBlank() }
-            AnimatedContent(
-                targetState = showGenreBrowse,
-                transitionSpec = {
-                    val switchingToGenre = targetState
-                    val enter = fadeIn(animationSpec = tween(durationMillis = 320, delayMillis = 70)) +
-                        slideInVertically(animationSpec = tween(durationMillis = 320)) { fullHeight ->
-                            if (switchingToGenre) -fullHeight / 10 else fullHeight / 10
-                        }
-                    val exit = fadeOut(animationSpec = tween(durationMillis = 220)) +
-                        slideOutVertically(animationSpec = tween(durationMillis = 220)) { fullHeight ->
-                            if (switchingToGenre) fullHeight / 12 else -fullHeight / 12
-                        }
-                    (enter togetherWith exit).using(SizeTransform(clip = false))
-                },
-                label = "search_mode_transition"
-            ) { isGenreMode ->
-                if (isGenreMode) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = bottomBarHeightDp + MiniPlayerHeight + 24.dp)
-                    ) {
-                        SearchHistoryList(
-                            historyItems = searchUiState.searchHistory,
-                            onHistoryClick = { query ->
+            // Layer 1: Scrollable Content (Underneath the sticky header)
+                AnimatedContent(
+                    targetState = searchQuery.isNotBlank(),
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(durationMillis = 180)) togetherWith
+                            fadeOut(animationSpec = tween(durationMillis = 120))
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    label = "search_query_mode_transition"
+                ) { isSearchActive ->
+                    if (!isSearchActive) {
+                        MoodsAndGenresBrowseView(
+                            searchHistory = searchUiState.searchHistory,
+                            bottomBarHeight = bottomBarHeightDp,
+                            topPadding = statusBarTopInset + 62.dp,
+                            listState = browseListState,
+                            onMoodGenreClick = { item ->
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
+                                selectedMoodGenre = item
+                            },
+                            onHistoryItemClick = { query ->
                                 searchQuery = query
+                                selectedMoodGenre = null
                                 playerViewModel.updateSearchQuery(query)
                                 playerViewModel.performSearch(query)
                                 playerViewModel.onSearchQuerySubmitted(query)
                                 keyboardController?.hide()
+                                focusManager.clearFocus(force = true)
                             },
-                            onHistoryDelete = { query ->
+                            onHistoryItemDelete = { query ->
                                 playerViewModel.deleteSearchHistoryItem(query)
                             },
                             onClearAllHistory = {
                                 playerViewModel.clearSearchHistory()
                             }
                         )
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        if (isSearching) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(vertical = 4.dp, horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                val shimmerBrush = com.unshoo.pixelmusic.presentation.components.rememberShimmerBrush()
-                                repeat(6) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(80.dp)
-                                            .height(32.dp)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(shimmerBrush)
-                                    )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp)
+                                .padding(top = statusBarTopInset + 62.dp)
+                        ) {
+                            if (isSearching) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val shimmerBrush = com.unshoo.pixelmusic.presentation.components.rememberShimmerBrush()
+                                    repeat(6) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(80.dp)
+                                                .height(32.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(shimmerBrush)
+                                        )
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel)
+                                    SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel)
+                                    SearchFilterChip(SearchFilterType.VIDEOS, currentFilter, playerViewModel)
+                                    SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel)
+                                    SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel)
+                                    SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel)
                                 }
                             }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(vertical = 4.dp, horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel)
-                                SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel)
-                                SearchFilterChip(SearchFilterType.VIDEOS, currentFilter, playerViewModel)
-                                SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel)
-                                SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel)
-                                SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel)
-                            }
-                        }
-                        if (isSearching) {
-                            com.unshoo.pixelmusic.presentation.components.SearchSkeletonList()
-                        } else {
-                            Crossfade(
-                                targetState = searchResults.isEmpty(),
-                                animationSpec = tween(durationMillis = 190),
-                                label = "search_results_fade"
-                            ) { isEmpty ->
-                                if (isEmpty) {
-                                    EmptySearchResults(
-                                        searchQuery = searchQuery,
-                                        colorScheme = colorScheme
-                                    )
-                                } else {
-                                    SearchResultsList(
-                                        results = searchResults,
-                                        searchQuery = searchQuery,
-                                        playerViewModel = playerViewModel,
-                                        currentFilter = currentFilter,
-                                        onItemSelected = {
-                                            if (searchQuery.isNotBlank()) {
-                                                playerViewModel.onSearchQuerySubmitted(searchQuery)
-                                            }
-                                        },
-                                        currentPlayingSongId = currentPlayingSongId,
-                                        isPlaying = isPlaying,
-                                        onSongMoreOptionsClick = handleSongMoreOptionsClick,
-                                        navController = navController
-                                    )
+                            if (isSearching) {
+                                com.unshoo.pixelmusic.presentation.components.SearchSkeletonList()
+                            } else {
+                                Crossfade(
+                                    targetState = searchResults.isEmpty(),
+                                    animationSpec = tween(durationMillis = 190),
+                                    label = "search_results_fade"
+                                ) { isEmpty ->
+                                    if (isEmpty) {
+                                        EmptySearchResults(
+                                            searchQuery = searchQuery,
+                                            colorScheme = colorScheme
+                                        )
+                                    } else {
+                                        SearchResultsList(
+                                            results = searchResults,
+                                            searchQuery = searchQuery,
+                                            playerViewModel = playerViewModel,
+                                            currentFilter = currentFilter,
+                                            onItemSelected = {
+                                                if (searchQuery.isNotBlank()) {
+                                                    playerViewModel.onSearchQuerySubmitted(searchQuery)
+                                                }
+                                            },
+                                            currentPlayingSongId = currentPlayingSongId,
+                                            isPlaying = isPlaying,
+                                            onSongMoreOptionsClick = handleSongMoreOptionsClick,
+                                            navController = navController,
+                                            listState = searchListState
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                // Layer 2: Sticky Header with Solid Status Bar & Smooth Feathered Blend
+                val headerBgAlpha by animateFloatAsState(
+                    targetValue = if (isScrolledDown) 1f else 0f,
+                    animationSpec = tween(durationMillis = 180),
+                    label = "header_bg_alpha"
+                )
+
+                val headerScale by animateFloatAsState(
+                    targetValue = if (isScrolledDown) 0.985f else 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    ),
+                    label = "header_scale"
+                )
+
+                val searchPillColor by animateColorAsState(
+                    targetValue = if (isScrolledDown) {
+                        if (dm) Color(0xFF252525) else MaterialTheme.colorScheme.surfaceContainerHighest
+                    } else {
+                        if (dm) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surfaceContainerHigh
+                    },
+                    animationSpec = tween(durationMillis = 200),
+                    label = "search_pill_color"
+                )
+
+                val baseContainerColor = MaterialTheme.colorScheme.primaryContainer
+                val surfaceColor = MaterialTheme.colorScheme.surface
+                val solidTintedColor = remember(baseContainerColor, surfaceColor) {
+                    Color(
+                        red = (baseContainerColor.red * 0.45f) + (surfaceColor.red * 0.55f),
+                        green = (baseContainerColor.green * 0.45f) + (surfaceColor.green * 0.55f),
+                        blue = (baseContainerColor.blue * 0.45f) + (surfaceColor.blue * 0.55f),
+                        alpha = 1f
+                    )
+                }
+
+                val headerBgColor = MaterialTheme.colorScheme.background
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // 1. Solid status bar fill - ALWAYS 100% solid, covers 0..statusBarTopInset so content NEVER leaks into system clock/battery
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(statusBarTopInset)
+                                .background(headerBgColor)
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(62.dp)
+                                .background(headerBgColor.copy(alpha = headerBgAlpha))
+                                .padding(start = 16.dp, end = 16.dp, top = 5.dp, bottom = 5.dp)
+                                .graphicsLayer {
+                                    scaleX = headerScale
+                                    scaleY = headerScale
+                                },
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                        androidx.compose.material3.Surface(
+                            shape = CircleShape,
+                            color = searchPillColor,
+                            shadowElevation = 0.dp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Search,
+                                    contentDescription = stringResource(R.string.cd_search_icon),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (searchQuery.isEmpty()) {
+                                        val placeholderText = if (searchSource == com.unshoo.pixelmusic.data.preferences.SearchSource.LOCAL) {
+                                            "Search Local Library..."
+                                        } else {
+                                            "Search for any tracks, albums, lyrics..."
+                                        }
+                                        Text(
+                                            text = placeholderText,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = searchQuery,
+                                        onValueChange = {
+                                            searchQuery = it
+                                            if (it.isNotBlank() && selectedMoodGenre != null) {
+                                                selectedMoodGenre = null
+                                            }
+                                            playerViewModel.updateSearchQuery(it)
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .focusRequester(searchInputFocusRequester),
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        ),
+                                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                            onSearch = {
+                                                if (searchQuery.isNotBlank()) {
+                                                    playerViewModel.onSearchQuerySubmitted(searchQuery)
+                                                }
+                                                focusManager.clearFocus(force = true)
+                                                keyboardController?.hide()
+                                            }
+                                        )
+                                    )
+                                }
+
+                                // Search Source Toggle Button
+                                IconButton(
+                                    onClick = { playerViewModel.toggleSearchSource() },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    if (searchSource == com.unshoo.pixelmusic.data.preferences.SearchSource.LOCAL) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.rounded_library_music_24),
+                                            contentDescription = "Toggle Search Source",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    } else {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.ic_youtube),
+                                            contentDescription = "Toggle Search Source",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
+                                if (searchQuery.isNotBlank()) {
+                                    IconButton(
+                                        onClick = {
+                                            searchQuery = ""
+                                            selectedMoodGenre = null
+                                            playerViewModel.updateSearchQuery("")
+                                            playerViewModel.performSearch("")
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = stringResource(R.string.cd_clear_search_query),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Settings circular button on the same horizontal line!
+                        androidx.compose.material3.Surface(
+                            onClick = { navController.navigateSafely(Screen.Settings.route) },
+                            shape = CircleShape,
+                            color = solidTintedColor,
+                            shadowElevation = 0.dp,
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_settings_24),
+                                    contentDescription = stringResource(R.string.presentation_batch_d_open_settings_cd),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Full Screen Musify Mood & Genre View - Overlay with fluid spring exit and retained model
+        val displayedMoodGenre = selectedMoodGenre ?: lastSelectedMoodGenre
+        androidx.compose.animation.AnimatedVisibility(
+            visible = selectedMoodGenre != null,
+            enter = fadeIn(
+                animationSpec = tween(durationMillis = 260, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            ) + slideInVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) { it / 6 },
+            exit = fadeOut(
+                animationSpec = tween(durationMillis = 200, easing = androidx.compose.animation.core.LinearOutSlowInEasing)
+            ) + slideOutVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) { it / 5 },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (displayedMoodGenre != null) {
+                MoodGenreContentView(
+                    moodGenre = displayedMoodGenre,
+                    playerViewModel = playerViewModel,
+                    navController = navController,
+                    currentPlayingSongId = currentPlayingSongId,
+                    isPlaying = isPlaying,
+                    bottomBarHeight = bottomBarHeightDp,
+                    onBack = { selectedMoodGenre = null },
+                    onSongMoreOptionsClick = handleSongMoreOptionsClick
+                )
             }
         }
     }
@@ -817,7 +957,8 @@ fun SearchResultsList(
     currentPlayingSongId: String?,
     isPlaying: Boolean,
     onSongMoreOptionsClick: (Song) -> Unit,
-    navController: NavHostController
+    navController: NavHostController,
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 ) {
     val localDensity = LocalDensity.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -875,7 +1016,97 @@ fun SearchResultsList(
         }
     }
 
-    val lazyListState = rememberLazyListState()
+    val onArtistPlayClick = remember(playerViewModel, onItemSelected) {
+        { artist: Artist ->
+            playerViewModel.playArtist(artist)
+            onItemSelected()
+        }
+    }
+
+    val onArtistOpenClick = remember(navController, onItemSelected) {
+        { artist: Artist ->
+            val targetId = artist.channelId ?: artist.id.toString()
+            navController.navigateSafelyReplacing(
+                route = Screen.ArtistDetail.createRoute(targetId),
+                patternToPop = Screen.ArtistDetail.route
+            )
+            onItemSelected()
+        }
+    }
+
+    val onAlbumPlayClick = remember(playerViewModel, onItemSelected) {
+        { album: Album ->
+            playerViewModel.playAlbum(album)
+            onItemSelected()
+        }
+    }
+
+    val onAlbumOpenClick = remember(navController, onItemSelected) {
+        { album: Album ->
+            navController.navigateSafelyReplacing(
+                route = Screen.AlbumDetail.createRoute(album.id),
+                patternToPop = Screen.AlbumDetail.route
+            )
+            onItemSelected()
+        }
+    }
+
+    val coroutineScope = rememberCoroutineScope()
+    val onPlaylistPlayClick: (Playlist) -> Unit = remember(playerViewModel, onItemSelected, isShuffleEnabled, coroutineScope) {
+        { playlist ->
+            val playlistId = playlist.id
+            coroutineScope.launch {
+                if (playlistId.startsWith("PL") || playlistId.startsWith("VL") || playlistId.toLongOrNull() == null) {
+                    val ytPlaylistResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        unshoo.ianshulyadav.pixelmusic.innertube.YouTube.playlist(playlistId)
+                    }
+                    if (ytPlaylistResult.isSuccess) {
+                        val ytPlaylistPage = ytPlaylistResult.getOrThrow()
+                        val firstPageSongs = ytPlaylistPage.songs.map { it.toNativeSong() }
+                        
+                        if (firstPageSongs.isNotEmpty()) {
+                            playerViewModel.insertYoutubeSongs(firstPageSongs)
+                            playerViewModel.playSongs(
+                                firstPageSongs,
+                                firstPageSongs.first(),
+                                playlist.name
+                            )
+                            if (isShuffleEnabled) playerViewModel.toggleShuffle()
+                            onItemSelected()
+                        } else {
+                            playerViewModel.sendToast("Empty playlist")
+                            onItemSelected()
+                        }
+                    } else {
+                        playerViewModel.sendToast("Failed to fetch playlist")
+                        onItemSelected()
+                    }
+                } else {
+                    val songs = playerViewModel.getSongs(playlist.songIds)
+                    if (songs.isNotEmpty()) {
+                        playerViewModel.playSongs(
+                            songs,
+                            songs.first(),
+                            playlist.name
+                        )
+                        if (isShuffleEnabled) playerViewModel.toggleShuffle()
+                    } else {
+                        playerViewModel.sendToast("Empty playlist")
+                    }
+                    onItemSelected()
+                }
+            }
+        }
+    }
+
+    val onPlaylistOpenClick = remember(navController, onItemSelected) {
+        { playlist: Playlist ->
+            navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlist.id))
+            onItemSelected()
+        }
+    }
+
+    val lazyListState = listState
 
     LaunchedEffect(lazyListState.isScrollInProgress) {
         if (lazyListState.isScrollInProgress) {
@@ -917,26 +1148,26 @@ fun SearchResultsList(
         )
     ) {
         if (currentFilter == SearchFilterType.ALL) {
-                    items(
-                        count = results.size,
-                        key = { index ->
-                            val item = results[index]
-                            when (item) {
-                                is SearchResultItem.SongItem -> "song_${item.song.id}_$index"
-                                is SearchResultItem.AlbumItem -> "album_${item.album.id}_$index"
-                                is SearchResultItem.ArtistItem -> "artist_${item.artist.id}_$index"
-                                is SearchResultItem.PlaylistItem -> "playlist_${item.playlist.id}_$index"
-                            }
-                        },
-                        contentType = { index ->
-                            when (results[index]) {
-                                is SearchResultItem.SongItem -> "search_song"
-                                is SearchResultItem.AlbumItem -> "search_album"
-                                is SearchResultItem.ArtistItem -> "search_artist"
-                                is SearchResultItem.PlaylistItem -> "search_playlist"
-                            }
-                        }
-                    ) { index ->
+            items(
+                count = results.size,
+                key = { index ->
+                    val item = results[index]
+                    when (item) {
+                        is SearchResultItem.SongItem -> "song_${item.song.id}_$index"
+                        is SearchResultItem.AlbumItem -> "album_${item.album.id}_$index"
+                        is SearchResultItem.ArtistItem -> "artist_${item.artist.id}_$index"
+                        is SearchResultItem.PlaylistItem -> "playlist_${item.playlist.id}_$index"
+                    }
+                },
+                contentType = { index ->
+                    when (results[index]) {
+                        is SearchResultItem.SongItem -> "search_song"
+                        is SearchResultItem.AlbumItem -> "search_album"
+                        is SearchResultItem.ArtistItem -> "search_artist"
+                        is SearchResultItem.PlaylistItem -> "search_playlist"
+                    }
+                }
+            ) { index ->
                 val item = results[index]
                 Box(modifier = Modifier.padding(bottom = 12.dp)) {
                     when (item) {
@@ -962,55 +1193,18 @@ fun SearchResultsList(
                         }
 
                         is SearchResultItem.AlbumItem -> {
-                            val onPlayClick = remember(item.album, playerViewModel, onItemSelected) {
-                                {
-                                    playerViewModel.playAlbum(item.album)
-                                    onItemSelected()
-                                }
-                            }
-                            val onOpenClick = remember(
-                                item.album,
-                                playerViewModel, onItemSelected
-                            ) {
-                                {
-                                    navController.navigateSafelyReplacing(
-                                        route = Screen.AlbumDetail.createRoute(item.album.id),
-                                        patternToPop = Screen.AlbumDetail.route
-                                    )
-                                    onItemSelected()
-                                }
-                            }
                             SearchResultAlbumItem(
                                 album = item.album,
-                                onPlayClick = onPlayClick,
-                                onOpenClick = onOpenClick
+                                onPlayClick = { onAlbumPlayClick(item.album) },
+                                onOpenClick = { onAlbumOpenClick(item.album) }
                             )
                         }
 
                         is SearchResultItem.ArtistItem -> {
-                            val onPlayClick = remember(item.artist, playerViewModel, onItemSelected) {
-                                {
-                                    playerViewModel.playArtist(item.artist)
-                                    onItemSelected()
-                                }
-                            }
-                            val onOpenClick = remember(
-                                item.artist,
-                                playerViewModel, onItemSelected
-                            ) {
-                                {
-                                    val targetId = item.artist.channelId ?: item.artist.id.toString()
-                                    navController.navigateSafelyReplacing(
-                                        route = Screen.ArtistDetail.createRoute(targetId),
-                                        patternToPop = Screen.ArtistDetail.route
-                                    )
-                                    onItemSelected()
-                                }
-                            }
                             SearchResultArtistItem(
                                 artist = item.artist,
-                                onPlayClick = onPlayClick,
-                                onOpenClick = onOpenClick
+                                onPlayClick = { onArtistPlayClick(item.artist) },
+                                onOpenClick = { onArtistOpenClick(item.artist) }
                             )
                         }
 
@@ -1018,65 +1212,11 @@ fun SearchResultsList(
                             val playlistSongs by remember(item.playlist.songIds, playerViewModel) {
                                 playerViewModel.observeSongs(item.playlist.songIds)
                             }.collectAsStateWithLifecycle(initialValue = emptyList())
-                            val coroutineScope = rememberCoroutineScope()
-                            val onPlayClick: () -> Unit = {
-                                val playlistId = item.playlist.id
-                                coroutineScope.launch {
-                                    if (playlistId.startsWith("PL") || playlistId.startsWith("VL") || playlistId.toLongOrNull() == null) {
-                                        val ytPlaylistResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                            unshoo.ianshulyadav.pixelmusic.innertube.YouTube.playlist(playlistId)
-                                        }
-                                        if (ytPlaylistResult.isSuccess) {
-                                            val ytPlaylistPage = ytPlaylistResult.getOrThrow()
-                                            val firstPageSongs = ytPlaylistPage.songs.map { it.toNativeSong() }
-                                            
-                                            if (firstPageSongs.isNotEmpty()) {
-                                                playerViewModel.insertYoutubeSongs(firstPageSongs)
-                                                playerViewModel.playSongs(
-                                                    firstPageSongs,
-                                                    firstPageSongs.first(),
-                                                    item.playlist.name
-                                                )
-                                                if (isShuffleEnabled) playerViewModel.toggleShuffle()
-                                                onItemSelected()
-                                            } else {
-                                                playerViewModel.sendToast("Empty playlist")
-                                                onItemSelected()
-                                            }
-                                        } else {
-                                            playerViewModel.sendToast("Failed to fetch playlist")
-                                            onItemSelected()
-                                        }
-                                    } else {
-                                        val songs = playerViewModel.getSongs(item.playlist.songIds)
-                                        if (songs.isNotEmpty()) {
-                                            playerViewModel.playSongs(
-                                                songs,
-                                                songs.first(),
-                                                item.playlist.name
-                                            )
-                                            if (isShuffleEnabled) playerViewModel.toggleShuffle()
-                                        } else {
-                                            playerViewModel.sendToast("Empty playlist")
-                                        }
-                                        onItemSelected()
-                                    }
-                                }
-                            }
-                            val onOpenClick = remember(
-                                item.playlist,
-                                playerViewModel, onItemSelected
-                            ) {
-                                {
-                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(item.playlist.id))
-                                    onItemSelected()
-                                }
-                            }
                             SearchResultPlaylistItem(
                                 playlist = item.playlist,
                                 playlistSongs = playlistSongs,
-                                onPlayClick = onPlayClick,
-                                onOpenClick = onOpenClick
+                                onPlayClick = { onPlaylistPlayClick(item.playlist) },
+                                onOpenClick = { onPlaylistOpenClick(item.playlist) }
                             )
                         }
                     }
@@ -1145,55 +1285,18 @@ fun SearchResultsList(
                                 }
 
                                 is SearchResultItem.AlbumItem -> {
-                                    val onPlayClick = remember(item.album, playerViewModel, onItemSelected) {
-                                        {
-                                            playerViewModel.playAlbum(item.album)
-                                            onItemSelected()
-                                        }
-                                    }
-                                    val onOpenClick = remember(
-                                        item.album,
-                                        playerViewModel, onItemSelected
-                                    ) {
-                                        {
-                                            navController.navigateSafelyReplacing(
-                                                route = Screen.AlbumDetail.createRoute(item.album.id),
-                                                patternToPop = Screen.AlbumDetail.route
-                                            )
-                                            onItemSelected()
-                                        }
-                                    }
                                     SearchResultAlbumItem(
                                         album = item.album,
-                                        onPlayClick = onPlayClick,
-                                        onOpenClick = onOpenClick
+                                        onPlayClick = { onAlbumPlayClick(item.album) },
+                                        onOpenClick = { onAlbumOpenClick(item.album) }
                                     )
                                 }
 
                                 is SearchResultItem.ArtistItem -> {
-                                    val onPlayClick = remember(item.artist, playerViewModel, onItemSelected) {
-                                        {
-                                            playerViewModel.playArtist(item.artist)
-                                            onItemSelected()
-                                        }
-                                    }
-                                    val onOpenClick = remember(
-                                        item.artist,
-                                        playerViewModel, onItemSelected
-                                    ) {
-                                        {
-                                            val targetId = item.artist.channelId ?: item.artist.id.toString()
-                                            navController.navigateSafelyReplacing(
-                                                route = Screen.ArtistDetail.createRoute(targetId),
-                                                patternToPop = Screen.ArtistDetail.route
-                                            )
-                                            onItemSelected()
-                                        }
-                                    }
                                     SearchResultArtistItem(
                                         artist = item.artist,
-                                        onPlayClick = onPlayClick,
-                                        onOpenClick = onOpenClick
+                                        onPlayClick = { onArtistPlayClick(item.artist) },
+                                        onOpenClick = { onArtistOpenClick(item.artist) }
                                     )
                                 }
 
@@ -1201,65 +1304,11 @@ fun SearchResultsList(
                                     val playlistSongs by remember(item.playlist.songIds, playerViewModel) {
                                         playerViewModel.observeSongs(item.playlist.songIds)
                                     }.collectAsStateWithLifecycle(initialValue = emptyList())
-                                    val coroutineScope = rememberCoroutineScope()
-                                    val onPlayClick: () -> Unit = {
-                                        val playlistId = item.playlist.id
-                                        coroutineScope.launch {
-                                            if (playlistId.startsWith("PL") || playlistId.startsWith("VL") || playlistId.toLongOrNull() == null) {
-                                                val ytPlaylistResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                    unshoo.ianshulyadav.pixelmusic.innertube.YouTube.playlist(playlistId)
-                                                }
-                                                if (ytPlaylistResult.isSuccess) {
-                                                    val ytPlaylistPage = ytPlaylistResult.getOrThrow()
-                                                    val firstPageSongs = ytPlaylistPage.songs.map { it.toNativeSong() }
-                                                    
-                                                    if (firstPageSongs.isNotEmpty()) {
-                                                        playerViewModel.insertYoutubeSongs(firstPageSongs)
-                                                        playerViewModel.playSongs(
-                                                            firstPageSongs,
-                                                            firstPageSongs.first(),
-                                                            item.playlist.name
-                                                        )
-                                                        if (isShuffleEnabled) playerViewModel.toggleShuffle()
-                                                        onItemSelected()
-                                                    } else {
-                                                        playerViewModel.sendToast("Empty playlist")
-                                                        onItemSelected()
-                                                    }
-                                                } else {
-                                                    playerViewModel.sendToast("Failed to fetch playlist")
-                                                    onItemSelected()
-                                                }
-                                            } else {
-                                                val songs = playerViewModel.getSongs(item.playlist.songIds)
-                                                if (songs.isNotEmpty()) {
-                                                    playerViewModel.playSongs(
-                                                        songs,
-                                                        songs.first(),
-                                                        item.playlist.name
-                                                    )
-                                                    if (isShuffleEnabled) playerViewModel.toggleShuffle()
-                                                } else {
-                                                    playerViewModel.sendToast("Empty playlist")
-                                                }
-                                                onItemSelected()
-                                            }
-                                        }
-                                    }
-                                    val onOpenClick = remember(
-                                        item.playlist,
-                                        playerViewModel, onItemSelected
-                                    ) {
-                                        {
-                                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(item.playlist.id))
-                                            onItemSelected()
-                                        }
-                                    }
                                     SearchResultPlaylistItem(
                                         playlist = item.playlist,
                                         playlistSongs = playlistSongs,
-                                        onPlayClick = onPlayClick,
-                                        onOpenClick = onOpenClick
+                                        onPlayClick = { onPlaylistPlayClick(item.playlist) },
+                                        onOpenClick = { onPlaylistOpenClick(item.playlist) }
                                     )
                                 }
                             }
@@ -1518,10 +1567,7 @@ fun SearchFilterChip(
         label = { Text(filterType.name.lowercase().replaceFirstChar { it.titlecase() }) },
         modifier = modifier,
         shape = CircleShape,
-        border = BorderStroke(
-            width = 0.dp,
-            color = Color.Transparent
-        ),
+        border = null,
         colors = FilterChipDefaults.filterChipColors(
             containerColor =  MaterialTheme.colorScheme.secondaryContainer,
             labelColor = MaterialTheme.colorScheme.onSecondaryContainer,

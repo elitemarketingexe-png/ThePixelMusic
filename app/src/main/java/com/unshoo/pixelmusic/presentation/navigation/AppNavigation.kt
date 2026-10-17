@@ -172,34 +172,10 @@ fun AppNavigation(
             }
             composable(
                 Screen.Search.route,
-                enterTransition = {
-                    mainRootEnterTransition(
-                        fromRoute = initialState.destination.route,
-                        toRoute = targetState.destination.route,
-                        fallback = enterTransition()
-                    )
-                },
-                exitTransition = {
-                    mainRootExitTransition(
-                        fromRoute = initialState.destination.route,
-                        toRoute = targetState.destination.route,
-                        fallback = exitTransition()
-                    )
-                },
-                popEnterTransition = {
-                    mainRootEnterTransition(
-                        fromRoute = initialState.destination.route,
-                        toRoute = targetState.destination.route,
-                        fallback = popEnterTransition()
-                    )
-                },
-                popExitTransition = {
-                    mainRootExitTransition(
-                        fromRoute = initialState.destination.route,
-                        toRoute = targetState.destination.route,
-                        fallback = popExitTransition()
-                    )
-                },
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None },
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
                     SearchScreen(
@@ -786,40 +762,50 @@ private fun mainRootEnterTransition(
     fromRoute: String?,
     toRoute: String?,
     fallback: EnterTransition
-): EnterTransition = when (mainRootDirection(fromRoute, toRoute)) {
-    MainRootDirection.FORWARD -> {
-        slideInHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            initialOffsetX = { (it * 0.5f).toInt() }
-        ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+): EnterTransition {
+    if (toRoute == Screen.Search.route || fromRoute == Screen.Search.route) {
+        return EnterTransition.None
     }
-    MainRootDirection.BACKWARD -> {
-        slideInHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            initialOffsetX = { -(it * 0.5f).toInt() }
-        ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+    return when (mainRootDirection(fromRoute, toRoute)) {
+        MainRootDirection.FORWARD -> {
+            slideInHorizontally(
+                animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+                initialOffsetX = { (it * 0.5f).toInt() }
+            ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+        }
+        MainRootDirection.BACKWARD -> {
+            slideInHorizontally(
+                animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+                initialOffsetX = { -(it * 0.5f).toInt() }
+            ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+        }
+        null -> fallback
     }
-    null -> fallback
 }
 
 private fun mainRootExitTransition(
     fromRoute: String?,
     toRoute: String?,
     fallback: ExitTransition
-): ExitTransition = when (mainRootDirection(fromRoute, toRoute)) {
-    MainRootDirection.FORWARD -> {
-        slideOutHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            targetOffsetX = { -(it * 0.5f).toInt() }
-        ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+): ExitTransition {
+    if (toRoute == Screen.Search.route || fromRoute == Screen.Search.route) {
+        return ExitTransition.None
     }
-    MainRootDirection.BACKWARD -> {
-        slideOutHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            targetOffsetX = { (it * 0.5f).toInt() }
-        ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+    return when (mainRootDirection(fromRoute, toRoute)) {
+        MainRootDirection.FORWARD -> {
+            slideOutHorizontally(
+                animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+                targetOffsetX = { -(it * 0.5f).toInt() }
+            ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+        }
+        MainRootDirection.BACKWARD -> {
+            slideOutHorizontally(
+                animationSpec = MAIN_ROOT_TRANSITION_SPEC,
+                targetOffsetX = { (it * 0.5f).toInt() }
+            ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+        }
+        null -> fallback
     }
-    null -> fallback
 }
 
 
